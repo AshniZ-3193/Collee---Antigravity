@@ -6,11 +6,10 @@ import { api } from "../_generated/api";
 import OpenAI from "openai";
 import Exa from "exa-js";
 
-interface CollegePrompt {
-  text: string;
-  wordCountMax: number;
-  isOptional: boolean;
-  promptType?: string;
+interface ApplicationType {
+  label: string;
+  deadline: string;
+  value?: string;
 }
 
 export const search = action({
@@ -18,32 +17,29 @@ export const search = action({
     collegeName: v.string(),
     applicationYear: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<CollegePrompt[]> => {
+  handler: async (ctx, args): Promise<ApplicationType[]> => {
     const year = args.applicationYear || new Date().getFullYear().toString();
     const collegeName = args.collegeName;
 
-    // Check cache first (using separate non-Node.js file)
-    const cached = await ctx.runQuery(api.ai.collegePromptsCache.getCached, {
+    const cached = await ctx.runQuery(api.ai.collegeDeadlinesCache.getCached, {
       collegeName,
       applicationYear: year,
     });
 
     if (cached && Date.now() - cached.cachedAt < 30 * 24 * 60 * 60 * 1000) {
-      return cached.prompts as CollegePrompt[];
+      return cached.applicationTypes as ApplicationType[];
     }
 
-    // Search with Exa
     const exa = new Exa(process.env.EXA_API_KEY);
     const results = await exa.searchAndContents(
-      `${collegeName} supplemental essay prompts ${year}`,
+      `${collegeName} application deadlines ${year} early action early decision regular decision`,
       {
-        text: { maxCharacters: 5000 },
+        text: { maxCharacters: 6000 },
         numResults: 5,
         type: "auto",
       }
     );
 
-    // Extract structured prompts with GPT
     const searchContent = results.results
       .map((r: any) => r.text || "")
       .join("\n\n---\n\n");
@@ -55,42 +51,39 @@ export const search = action({
       messages: [
         {
           role: "system",
-          content: `Extract college essay prompts from the following search results for ${collegeName}. Return JSON:
+          content: `Extract undergraduate application deadlines for ${collegeName} (for the ${year} admission cycle if specified). Return JSON:
 {
-  "prompts": [
+  "applicationTypes": [
     {
-      "text": "The full prompt text",
-      "wordCountMax": 250,
-      "isOptional": false,
-      "promptType": "why-college" | "contribution" | "why-major" | "extracurricular" | "identity" | "challenge" | "other"
+      "label": "Early Action",
+      "deadline": "Nov 1"
     }
   ]
 }
 
-Only include actual essay prompts, not application instructions. If word count is not specified, use 250 as default. If you cannot find real prompts, return an empty array.`,
+Only include actual undergraduate application deadlines (not financial aid or housing). If multiple years appear, prefer the closest upcoming cycle. If a deadline is not clearly stated, omit that entry. If you cannot find real deadlines, return an empty array.`,
         },
         { role: "user", content: searchContent },
       ],
       response_format: { type: "json_object" },
-      temperature: 0.3,
+      temperature: 0.2,
     });
 
     const responseText = completion.choices[0]?.message?.content;
     if (!responseText) return [];
 
     const result = JSON.parse(responseText);
-    const prompts = result.prompts || [];
+    const applicationTypes = result.applicationTypes || [];
 
-    // Cache results (using separate non-Node.js file)
-    if (prompts.length > 0) {
-      await ctx.runMutation(api.ai.collegePromptsCache.saveCache, {
+    if (applicationTypes.length > 0) {
+      await ctx.runMutation(api.ai.collegeDeadlinesCache.saveCache, {
         collegeName,
         applicationYear: year,
-        prompts,
+        applicationTypes,
         cachedAt: Date.now(),
       });
     }
 
-    return prompts;
+    return applicationTypes;
   },
 });

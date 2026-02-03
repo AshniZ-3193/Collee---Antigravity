@@ -154,6 +154,18 @@ export default defineSchema({
     cachedAt: v.number(),
   }).index("by_college_year", ["collegeName", "applicationYear"]),
 
+  // Shared cache of searched application deadlines (not user-scoped)
+  cachedCollegeDeadlines: defineTable({
+    collegeName: v.string(),
+    applicationYear: v.string(),
+    applicationTypes: v.array(v.object({
+      label: v.string(),
+      deadline: v.string(),
+      value: v.optional(v.string()),
+    })),
+    cachedAt: v.number(),
+  }).index("by_college_year", ["collegeName", "applicationYear"]),
+
   // AI-generated per-prompt approach guidance
   promptStrategies: defineTable({
     userId: v.id("users"),

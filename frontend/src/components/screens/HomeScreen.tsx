@@ -7,9 +7,10 @@ import { ArrowRight, Sparkles, Compass, PenLine } from 'lucide-react';
 interface HomeScreenProps {
   onGetStarted: () => void;
   onLogin: () => void;
+  isLoggedIn?: boolean;
 }
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ onGetStarted, onLogin }) => {
+const HomeScreen: React.FC<HomeScreenProps> = ({ onGetStarted, onLogin, isLoggedIn = false }) => {
   const steps = [
     {
       icon: Sparkles,
@@ -39,7 +40,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onGetStarted, onLogin }) => {
             onClick={onLogin}
             className="text-foreground-muted hover:text-foreground"
           >
-            Log in
+            {isLoggedIn ? 'Continue to dashboard' : 'Log in'}
           </Button>
         </div>
       </header>

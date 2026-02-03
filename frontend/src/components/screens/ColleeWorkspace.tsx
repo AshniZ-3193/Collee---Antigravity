@@ -316,6 +316,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
   const [selectedExperience, setSelectedExperience] = useState<string | null>(null);
   const [lockedExperience, setLockedExperience] = useState<string | null>(null);
   const strategyAttempts = useRef<Set<string>>(new Set());
+  const deferredOnboardingRef = useRef(false);
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
   const [strategyError, setStrategyError] = useState<string | null>(null);
   const [feedbackType, setFeedbackType] = useState<FeedbackType>('overall');
@@ -370,13 +371,20 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
   const [viewMode, setViewMode] = useState<'cards' | 'calendar'>('cards');
 
   // Onboarding state
-  const { showOnboarding, setShowOnboarding, completeOnboarding, resetOnboarding } = useOnboardingState();
+  const {
+    hasCompletedOnboarding,
+    showOnboarding,
+    setShowOnboarding,
+    completeOnboarding,
+    resetOnboarding,
+  } = useOnboardingState();
 
   // Derived state
   const currentCollege = activeEssay ? colleges.find(c => c.id === activeEssay.collegeId) : null;
   const currentEssay = currentCollege?.essays.find(e => e.id === activeEssay?.essayId);
   const currentEssayId = currentEssay?.id;
   const currentPromptId = currentEssay?.promptId;
+  const isDocumentAreaActive = Boolean(activeEssay && currentEssay && !isEditorMinimized);
   const promptStrategy = useQuery(
     api.ai.promptStrategy.getForPrompt,
     currentPromptId ? { promptId: currentPromptId as Id<"prompts"> } : "skip"
@@ -458,6 +466,26 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
   }, [feedbackForType]);
 
   const displayedFeedback = feedbackResult ?? parsedStoredFeedback;
+
+  // Defer onboarding walkthrough until the document area is visible.
+  useEffect(() => {
+    if (hasCompletedOnboarding) return;
+    if (!showOnboarding) return;
+    if (isDocumentAreaActive) return;
+
+    deferredOnboardingRef.current = true;
+    setShowOnboarding(false);
+  }, [hasCompletedOnboarding, showOnboarding, isDocumentAreaActive, setShowOnboarding]);
+
+  useEffect(() => {
+    if (hasCompletedOnboarding) return;
+    if (showOnboarding) return;
+    if (!deferredOnboardingRef.current) return;
+    if (!isDocumentAreaActive) return;
+
+    deferredOnboardingRef.current = false;
+    setShowOnboarding(true);
+  }, [hasCompletedOnboarding, showOnboarding, isDocumentAreaActive, setShowOnboarding]);
 
   // Load essay content when active essay changes
   useEffect(() => {
@@ -2773,7 +2801,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
 
       {/* Onboarding Walkthrough */}
       <OnboardingWalkthrough
-        isOpen={showOnboarding}
+        isOpen={showOnboarding && isDocumentAreaActive}
         onClose={() => setShowOnboarding(false)}
         onComplete={completeOnboarding}
       />

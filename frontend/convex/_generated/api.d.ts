@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as ai_collegeDeadlinesCache from "../ai/collegeDeadlinesCache.js";
 import type * as ai_collegePromptsCache from "../ai/collegePromptsCache.js";
 import type * as ai_essayFeedback from "../ai/essayFeedback.js";
 import type * as ai_generateEssayFeedback from "../ai/generateEssayFeedback.js";
@@ -17,6 +18,7 @@ import type * as ai_generateSuggestions from "../ai/generateSuggestions.js";
 import type * as ai_helpers from "../ai/helpers.js";
 import type * as ai_promptStrategy from "../ai/promptStrategy.js";
 import type * as ai_prompts from "../ai/prompts.js";
+import type * as ai_searchCollegeDeadlines from "../ai/searchCollegeDeadlines.js";
 import type * as ai_searchCollegePrompts from "../ai/searchCollegePrompts.js";
 import type * as ai_storyIdentityData from "../ai/storyIdentityData.js";
 import type * as ai_suggestions from "../ai/suggestions.js";
@@ -37,6 +39,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "ai/collegeDeadlinesCache": typeof ai_collegeDeadlinesCache;
   "ai/collegePromptsCache": typeof ai_collegePromptsCache;
   "ai/essayFeedback": typeof ai_essayFeedback;
   "ai/generateEssayFeedback": typeof ai_generateEssayFeedback;
@@ -46,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   "ai/helpers": typeof ai_helpers;
   "ai/promptStrategy": typeof ai_promptStrategy;
   "ai/prompts": typeof ai_prompts;
+  "ai/searchCollegeDeadlines": typeof ai_searchCollegeDeadlines;
   "ai/searchCollegePrompts": typeof ai_searchCollegePrompts;
   "ai/storyIdentityData": typeof ai_storyIdentityData;
   "ai/suggestions": typeof ai_suggestions;
