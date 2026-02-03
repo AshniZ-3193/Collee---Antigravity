@@ -3,8 +3,8 @@
 import { action } from "../_generated/server";
 import { v } from "convex/values";
 import { api } from "../_generated/api";
-import OpenAI from "openai";
 import Exa from "exa-js";
+import { createOpenAIClient, AI_MODEL } from "./aiHelpers";
 
 interface ApplicationType {
   label: string;
@@ -44,10 +44,10 @@ export const search = action({
       .map((r: any) => r.text || "")
       .join("\n\n---\n\n");
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = createOpenAIClient();
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model: AI_MODEL,
       messages: [
         {
           role: "system",

@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as ai_aiHelpers from "../ai/aiHelpers.js";
 import type * as ai_collegeDeadlinesCache from "../ai/collegeDeadlinesCache.js";
 import type * as ai_collegePromptsCache from "../ai/collegePromptsCache.js";
 import type * as ai_essayFeedback from "../ai/essayFeedback.js";
@@ -39,6 +40,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "ai/aiHelpers": typeof ai_aiHelpers;
   "ai/collegeDeadlinesCache": typeof ai_collegeDeadlinesCache;
   "ai/collegePromptsCache": typeof ai_collegePromptsCache;
   "ai/essayFeedback": typeof ai_essayFeedback;

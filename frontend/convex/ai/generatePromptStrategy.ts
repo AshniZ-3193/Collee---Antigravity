@@ -3,21 +3,15 @@
 import { action } from "../_generated/server";
 import { v } from "convex/values";
 import { api } from "../_generated/api";
-import OpenAI from "openai";
 import { PROMPT_STRATEGY_SYSTEM_PROMPT } from "./prompts";
+import { getAuthenticatedUser, createOpenAIClient, AI_MODEL } from "./aiHelpers";
 
 export const generate = action({
   args: {
     promptId: v.id("prompts"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const user = await ctx.runQuery(api.users.getByToken, {
-      tokenIdentifier: identity.tokenIdentifier,
-    });
-    if (!user) throw new Error("User not found");
+    const user = await getAuthenticatedUser(ctx);
 
     const storyIdentity = await ctx.runQuery(api.storyIdentity.get, {
       userId: user._id,
@@ -45,10 +39,10 @@ Tone: ${storyIdentity?.voiceTone || "N/A"}
 Style: ${storyIdentity?.voiceStyle || "N/A"}
     `.trim();
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = createOpenAIClient();
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model: AI_MODEL,
       messages: [
         { role: "system", content: PROMPT_STRATEGY_SYSTEM_PROMPT },
         { role: "user", content: context },
