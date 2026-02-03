@@ -378,7 +378,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
   const currentEssayId = currentEssay?.id;
   const currentPromptId = currentEssay?.promptId;
   const promptStrategy = useQuery(
-    api.ai.generatePromptStrategy.getForPrompt,
+    api.ai.promptStrategy.getForPrompt,
     currentPromptId ? { promptId: currentPromptId as Id<"prompts"> } : "skip"
   );
   const reuseSuggestions = useQuery(
@@ -390,7 +390,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
     currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
   ) ?? [];
   const essayFeedback = useQuery(
-    api.ai.generateEssayFeedback.getForEssay,
+    api.ai.essayFeedback.getForEssay,
     currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
   ) ?? [];
   const wordLimit = currentEssay?.wordLimit || 650;

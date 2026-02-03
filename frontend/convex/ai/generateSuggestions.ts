@@ -11,7 +11,7 @@ export const generate = action({
     promptId: v.id("prompts"),
     essayContent: v.optional(v.string()),
   },
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
@@ -61,7 +61,7 @@ ${colleges?.flatMap((c: any) =>
 
     // Get the specific prompt text
     const allPrompts = colleges?.flatMap((c: any) => c.prompts) || [];
-    const currentPrompt = allPrompts.find((p: any) => p._id === ctx._args.promptId);
+    const currentPrompt = allPrompts.find((p: any) => p._id === args.promptId);
     const promptText = currentPrompt?.text || "General essay prompt";
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -72,7 +72,7 @@ ${colleges?.flatMap((c: any) =>
         { role: "system", content: SUGGESTION_SYSTEM_PROMPT },
         {
           role: "user",
-          content: `ESSAY PROMPT: ${promptText}\n\nCURRENT ESSAY CONTENT: ${ctx._args.essayContent || "(not started)"}\n\n${context}`,
+          content: `ESSAY PROMPT: ${promptText}\n\nCURRENT ESSAY CONTENT: ${args.essayContent || "(not started)"}\n\n${context}`,
         },
       ],
       response_format: { type: "json_object" },
@@ -84,12 +84,12 @@ ${colleges?.flatMap((c: any) =>
 
     const result = JSON.parse(responseText);
 
-    // Save suggestions to database
+    // Save suggestions to database (using separate non-Node.js file)
     const suggestions = result.suggestions || [];
     for (const suggestion of suggestions) {
-      await ctx.runMutation(api.ai.generateSuggestions.saveSuggestion, {
+      await ctx.runMutation(api.ai.suggestions.saveSuggestion, {
         userId: user._id,
-        promptId: ctx._args.promptId,
+        promptId: args.promptId,
         experienceName: suggestion.experienceName || "General",
         storyPillar: suggestion.storyPillar,
         matchStrength: suggestion.matchStrength || "moderate",
@@ -103,26 +103,5 @@ ${colleges?.flatMap((c: any) =>
     }
 
     return result;
-  },
-});
-
-import { mutation } from "../_generated/server";
-
-export const saveSuggestion = mutation({
-  args: {
-    userId: v.id("users"),
-    promptId: v.id("prompts"),
-    experienceName: v.string(),
-    storyPillar: v.optional(v.string()),
-    matchStrength: v.string(),
-    whyItFitsThisPrompt: v.string(),
-    framingGuidance: v.array(v.string()),
-    startWith: v.optional(v.string()),
-    focusOn: v.optional(v.string()),
-    avoidFocus: v.optional(v.string()),
-    starterSentences: v.optional(v.array(v.string())),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db.insert("storySuggestions", args);
   },
 });

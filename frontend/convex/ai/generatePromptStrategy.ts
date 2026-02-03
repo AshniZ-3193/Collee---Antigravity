@@ -10,7 +10,7 @@ export const generate = action({
   args: {
     promptId: v.id("prompts"),
   },
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
@@ -24,7 +24,7 @@ export const generate = action({
 
     // Find the prompt
     const allPrompts = colleges?.flatMap((c: any) => c.prompts) || [];
-    const currentPrompt = allPrompts.find((p: any) => p._id === ctx._args.promptId);
+    const currentPrompt = allPrompts.find((p: any) => p._id === args.promptId);
     if (!currentPrompt) throw new Error("Prompt not found");
 
     const context = `
@@ -77,58 +77,14 @@ Style: ${storyIdentity?.voiceStyle || "N/A"}
       };
     });
 
-    // Save strategy
-    await ctx.runMutation(api.ai.generatePromptStrategy.saveStrategy, {
+    // Save strategy using the separate promptStrategy file
+    await ctx.runMutation(api.ai.promptStrategy.saveStrategy, {
       userId: user._id,
-      promptId: ctx._args.promptId,
+      promptId: args.promptId,
       approach: result.approach || "",
       experienceMatches,
     });
 
     return result;
-  },
-});
-
-import { mutation, query } from "../_generated/server";
-
-export const saveStrategy = mutation({
-  args: {
-    userId: v.id("users"),
-    promptId: v.id("prompts"),
-    approach: v.string(),
-    experienceMatches: v.array(v.object({
-      experienceId: v.id("experiences"),
-      experienceName: v.string(),
-      matchStrength: v.string(),
-      whyItFits: v.string(),
-      framingTips: v.array(v.string()),
-      caution: v.optional(v.string()),
-      startWith: v.optional(v.string()),
-      focusOn: v.optional(v.string()),
-      avoidFocus: v.optional(v.string()),
-      starterSentences: v.optional(v.array(v.string())),
-    })),
-  },
-  handler: async (ctx, args) => {
-    // Delete existing strategy for this prompt
-    const existing = await ctx.db
-      .query("promptStrategies")
-      .withIndex("by_prompt", (q) => q.eq("promptId", args.promptId))
-      .unique();
-    if (existing) {
-      await ctx.db.delete(existing._id);
-    }
-
-    return await ctx.db.insert("promptStrategies", args);
-  },
-});
-
-export const getForPrompt = query({
-  args: { promptId: v.id("prompts") },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("promptStrategies")
-      .withIndex("by_prompt", (q) => q.eq("promptId", args.promptId))
-      .unique();
   },
 });

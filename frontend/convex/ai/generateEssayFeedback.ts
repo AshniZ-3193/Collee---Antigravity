@@ -11,7 +11,7 @@ export const generate = action({
     essayId: v.id("essays"),
     feedbackType: v.string(), // 'overall' | 'opening' | 'structure' | 'voice' | 'specificity'
   },
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
@@ -21,7 +21,7 @@ export const generate = action({
     if (!user) throw new Error("User not found");
 
     // Get essay and prompt
-    const essay = await ctx.runQuery(api.essays.get, { essayId: ctx._args.essayId });
+    const essay = await ctx.runQuery(api.essays.get, { essayId: args.essayId });
     if (!essay) throw new Error("Essay not found");
 
     const storyIdentity = await ctx.runQuery(api.storyIdentity.get);
@@ -30,7 +30,7 @@ export const generate = action({
 ESSAY CONTENT:
 ${essay.content}
 
-FEEDBACK TYPE REQUESTED: ${ctx._args.feedbackType}
+FEEDBACK TYPE REQUESTED: ${args.feedbackType}
 
 STUDENT'S VOICE PROFILE:
 Tone: ${storyIdentity?.voiceTone || "N/A"}
@@ -58,40 +58,14 @@ STUDENT'S STORY ANGLE: ${storyIdentity?.angle || "N/A"}
     const result = JSON.parse(responseText);
 
     // Save feedback
-    await ctx.runMutation(api.ai.generateEssayFeedback.saveFeedback, {
+    await ctx.runMutation(api.ai.essayFeedback.saveFeedback, {
       userId: user._id,
-      essayId: ctx._args.essayId,
-      feedbackType: ctx._args.feedbackType,
+      essayId: args.essayId,
+      feedbackType: args.feedbackType,
       feedback: responseText,
       timestamp: Date.now(),
     });
 
     return result;
-  },
-});
-
-import { mutation, query } from "../_generated/server";
-
-export const saveFeedback = mutation({
-  args: {
-    userId: v.id("users"),
-    essayId: v.id("essays"),
-    feedbackType: v.string(),
-    feedback: v.string(),
-    timestamp: v.number(),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db.insert("essayFeedback", args);
-  },
-});
-
-export const getForEssay = query({
-  args: { essayId: v.id("essays") },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("essayFeedback")
-      .withIndex("by_essay", (q) => q.eq("essayId", args.essayId))
-      .order("desc")
-      .collect();
   },
 });

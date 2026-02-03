@@ -6,17 +6,24 @@ import { api } from "../_generated/api";
 import OpenAI from "openai";
 import Exa from "exa-js";
 
+interface CollegePrompt {
+  text: string;
+  wordCountMax: number;
+  isOptional: boolean;
+  promptType?: string;
+}
+
 export const search = action({
   args: {
     collegeName: v.string(),
     applicationYear: v.optional(v.string()),
   },
-  handler: async (ctx) => {
-    const year = ctx._args.applicationYear || new Date().getFullYear().toString();
-    const collegeName = ctx._args.collegeName;
+  handler: async (ctx, args): Promise<CollegePrompt[]> => {
+    const year = args.applicationYear || new Date().getFullYear().toString();
+    const collegeName = args.collegeName;
 
-    // Check cache first
-    const cached = await ctx.runQuery(api.ai.searchCollegePrompts.getCached, {
+    // Check cache first (using separate non-Node.js file)
+    const cached: { prompts: CollegePrompt[]; cachedAt: number } | null = await ctx.runQuery(api.ai.collegePromptsCache.getCached, {
       collegeName,
       applicationYear: year,
     });
@@ -74,9 +81,9 @@ Only include actual essay prompts, not application instructions. If word count i
     const result = JSON.parse(responseText);
     const prompts = result.prompts || [];
 
-    // Cache results
+    // Cache results (using separate non-Node.js file)
     if (prompts.length > 0) {
-      await ctx.runMutation(api.ai.searchCollegePrompts.saveCache, {
+      await ctx.runMutation(api.ai.collegePromptsCache.saveCache, {
         collegeName,
         applicationYear: year,
         prompts,
@@ -85,50 +92,5 @@ Only include actual essay prompts, not application instructions. If word count i
     }
 
     return prompts;
-  },
-});
-
-import { mutation, query } from "../_generated/server";
-
-export const getCached = query({
-  args: {
-    collegeName: v.string(),
-    applicationYear: v.string(),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("cachedCollegePrompts")
-      .withIndex("by_college_year", (q) =>
-        q.eq("collegeName", args.collegeName).eq("applicationYear", args.applicationYear)
-      )
-      .unique();
-  },
-});
-
-export const saveCache = mutation({
-  args: {
-    collegeName: v.string(),
-    applicationYear: v.string(),
-    prompts: v.array(v.object({
-      text: v.string(),
-      wordCountMax: v.number(),
-      isOptional: v.boolean(),
-      promptType: v.optional(v.string()),
-    })),
-    cachedAt: v.number(),
-  },
-  handler: async (ctx, args) => {
-    // Remove old cache for this college/year
-    const existing = await ctx.db
-      .query("cachedCollegePrompts")
-      .withIndex("by_college_year", (q) =>
-        q.eq("collegeName", args.collegeName).eq("applicationYear", args.applicationYear)
-      )
-      .unique();
-    if (existing) {
-      await ctx.db.delete(existing._id);
-    }
-
-    return await ctx.db.insert("cachedCollegePrompts", args);
   },
 });
