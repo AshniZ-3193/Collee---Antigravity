@@ -75,6 +75,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import ColleeLogo from '@/components/ColleeLogo';
+import ThemeToggle from '@/components/ThemeToggle';
 import { Pencil as EditIcon, Link2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -907,38 +908,41 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
             </div>
           )}
 
-          {/* Right: Profile dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors">
-                <User className="w-4 h-4 text-primary" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem className="cursor-pointer" onClick={resetOnboarding}>
-                <HelpCircle className="w-4 h-4 mr-2" />
-                How LaunchPad works
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer" onClick={onEditStoryIdentity}>
-                <EditIcon className="w-4 h-4 mr-2" />
-                Edit Story Identity
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer">
-                <Settings className="w-4 h-4 mr-2" />
-                Editor preferences
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer" onClick={() => setShowShareDialog(true)}>
-                <Share2 className="w-4 h-4 mr-2" />
-                Sharing
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer text-muted-foreground" onClick={onLogout}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Right: Theme toggle + Profile dropdown */}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors">
+                  <User className="w-4 h-4 text-primary" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem className="cursor-pointer" onClick={resetOnboarding}>
+                  <HelpCircle className="w-4 h-4 mr-2" />
+                  How LaunchPad works
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="cursor-pointer" onClick={onEditStoryIdentity}>
+                  <EditIcon className="w-4 h-4 mr-2" />
+                  Edit Story Identity
+                </DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Editor preferences
+                </DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer" onClick={() => setShowShareDialog(true)}>
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Sharing
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="cursor-pointer text-muted-foreground" onClick={onLogout}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
 
