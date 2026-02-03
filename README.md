@@ -38,76 +38,117 @@ Your personal admissions copilot.
 ## Backend Architecture
 
 ```mermaid
-flowchart TB
-    subgraph Client["Frontend (React + Vite)"]
-        UI[React Components]
-        Hooks[useQuery / useMutation / useAction]
+flowchart LR
+    subgraph CLIENT["🖥️ Frontend"]
+        direction TB
+        React["React App"]
+        React --> useQuery["useQuery()"]
+        React --> useMutation["useMutation()"]
+        React --> useAction["useAction()"]
     end
 
-    subgraph Auth["Authentication"]
-        Clerk[Clerk Auth]
+    subgraph AUTH["🔐 Auth"]
+        Clerk["Clerk"]
     end
 
-    subgraph Convex["Convex Backend"]
-        subgraph Functions["Backend Functions"]
-            Queries[("Queries<br/>(Read-only)")]
-            Mutations[("Mutations<br/>(Write to DB)")]
-            Actions[("Actions<br/>(External APIs)")]
-        end
+    subgraph CONVEX["⚡ Convex Backend"]
+        direction TB
         
-        subgraph AI["AI Module (convex/ai/)"]
-            StoryGen[generateStoryIdentity]
-            PromptStrat[generatePromptStrategy]
-            Suggestions[generateSuggestions]
-            Feedback[generateEssayFeedback]
-            PromptsCache[searchCollegePrompts]
-            DeadlinesCache[searchCollegeDeadlines]
+        subgraph FUNCS["Functions"]
+            direction LR
+            Q["📖 Queries"]
+            M["✏️ Mutations"]
+            A["🚀 Actions"]
         end
-        
-        subgraph DB["Convex Database"]
-            Users[(users)]
-            Profiles[(userProfiles)]
-            Stories[(storyIdentities)]
-            Colleges[(colleges)]
-            Prompts[(prompts)]
-            Essays[(essays)]
-            Cache[(cachedPrompts<br/>cachedDeadlines)]
+
+        subgraph AI["🤖 AI Actions"]
+            direction TB
+            AI1["generateStoryIdentity"]
+            AI2["generatePromptStrategy"]
+            AI3["generateSuggestions"]
+            AI4["generateEssayFeedback"]
+            AI5["searchCollegePrompts"]
+        end
+
+        subgraph DB["💾 Database"]
+            direction TB
+            T1[("users<br/>userProfiles")]
+            T2[("storyIdentities<br/>experiences")]
+            T3[("colleges<br/>prompts<br/>essays")]
+            T4[("feedback<br/>cache")]
         end
     end
 
-    subgraph External["External Services"]
-        OpenAI[OpenAI API]
-        PostHog[PostHog Analytics]
+    subgraph EXT["🌐 External"]
+        OpenAI["OpenAI API"]
+        PostHog["PostHog"]
     end
 
-    UI --> Hooks
-    Hooks <--> Queries
-    Hooks <--> Mutations
-    Hooks <--> Actions
-    
-    Clerk <--> UI
-    Clerk <--> Convex
-    
-    Queries --> DB
-    Mutations --> DB
-    Actions --> AI
+    %% Client connections
+    React <--> Clerk
+    useQuery --> Q
+    useMutation --> M
+    useAction --> A
+
+    %% Backend connections
+    Q --> DB
+    M --> DB
+    A --> AI
     AI --> OpenAI
-    AI --> Mutations
-    
-    UI -.-> PostHog
+    AI -.-> M
+
+    %% Auth flow
+    Clerk <-.-> CONVEX
+
+    %% Analytics
+    React -.-> PostHog
+
+    %% Styling
+    classDef client fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef auth fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef convex fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef external fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    classDef db fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+
+    class CLIENT client
+    class AUTH auth
+    class CONVEX,FUNCS,AI convex
+    class DB db
+    class EXT external
 ```
 
-### How Data Flows
+### Request Flow
 
-1. **Authentication**: Clerk handles user auth → synced to Convex `users` table via `useStoreUserEffect`
-2. **Queries**: Real-time subscriptions fetch data (profiles, essays, colleges) from Convex DB
-3. **Mutations**: Write operations (save essay, add college) update the database
-4. **Actions**: Long-running operations that call OpenAI for AI features:
-   - `generateStoryIdentity` → Creates user's unique narrative angle
-   - `generatePromptStrategy` → Matches experiences to essay prompts
-   - `generateSuggestions` → Provides writing guidance
-   - `generateEssayFeedback` → AI coaching on drafts
-   - `searchCollegePrompts/Deadlines` → Fetches and caches college data
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────────────────────────┐     ┌─────────────┐
+│   Browser   │────▶│    Clerk    │────▶│         Convex Backend          │────▶│   OpenAI    │
+│  (React)    │◀────│   (Auth)    │◀────│  Queries │ Mutations │ Actions  │◀────│    API      │
+└─────────────┘     └─────────────┘     └─────────────────────────────────┘     └─────────────┘
+                                                       │
+                                                       ▼
+                                              ┌─────────────────┐
+                                              │    Database     │
+                                              │  (Convex DB)    │
+                                              └─────────────────┘
+```
+
+### How It Works
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Frontend** | React + Vite | UI components, routing, state |
+| **Auth** | Clerk | User authentication, session management |
+| **Backend** | Convex | Serverless functions (queries, mutations, actions) |
+| **AI** | OpenAI GPT | Story generation, essay feedback, prompt matching |
+| **Database** | Convex DB | Real-time synced document store |
+| **Analytics** | PostHog | User behavior tracking |
+
+### Key Data Flows
+
+1. **Auth Sync**: Clerk JWT → `useStoreUserEffect` → Convex `users` table
+2. **Real-time Reads**: `useQuery()` subscribes to Convex queries → auto-updates UI
+3. **Writes**: `useMutation()` → Convex mutation → DB update → triggers query refresh
+4. **AI Generation**: `useAction()` → Convex action → OpenAI API → saves via mutation
 
 ## Data Model (Convex)
 - `users`, `userProfiles`, `storyIdentities`
