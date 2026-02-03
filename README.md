@@ -37,99 +37,24 @@ Your personal admissions copilot.
 
 ## Backend Architecture
 
-```mermaid
-flowchart LR
-    subgraph CLIENT["🖥️ Frontend"]
-        direction TB
-        React["React App"]
-        React --> useQuery["useQuery()"]
-        React --> useMutation["useMutation()"]
-        React --> useAction["useAction()"]
-    end
-
-    subgraph AUTH["🔐 Auth"]
-        Clerk["Clerk"]
-    end
-
-    subgraph CONVEX["⚡ Convex Backend"]
-        direction TB
-        
-        subgraph FUNCS["Functions"]
-            direction LR
-            Q["📖 Queries"]
-            M["✏️ Mutations"]
-            A["🚀 Actions"]
-        end
-
-        subgraph AI["🤖 AI Actions"]
-            direction TB
-            AI1["generateStoryIdentity"]
-            AI2["generatePromptStrategy"]
-            AI3["generateSuggestions"]
-            AI4["generateEssayFeedback"]
-            AI5["searchCollegePrompts"]
-        end
-
-        subgraph DB["💾 Database"]
-            direction TB
-            T1[("users<br/>userProfiles")]
-            T2[("storyIdentities<br/>experiences")]
-            T3[("colleges<br/>prompts<br/>essays")]
-            T4[("feedback<br/>cache")]
-        end
-    end
-
-    subgraph EXT["🌐 External"]
-        OpenAI["OpenAI API"]
-        PostHog["PostHog"]
-    end
-
-    %% Client connections
-    React <--> Clerk
-    useQuery --> Q
-    useMutation --> M
-    useAction --> A
-
-    %% Backend connections
-    Q --> DB
-    M --> DB
-    A --> AI
-    AI --> OpenAI
-    AI -.-> M
-
-    %% Auth flow
-    Clerk <-.-> CONVEX
-
-    %% Analytics
-    React -.-> PostHog
-
-    %% Styling
-    classDef client fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef auth fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef convex fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    classDef external fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-    classDef db fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-
-    class CLIENT client
-    class AUTH auth
-    class CONVEX,FUNCS,AI convex
-    class DB db
-    class EXT external
 ```
-
-### Request Flow
-
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────────────────────────┐     ┌─────────────┐
-│   Browser   │────▶│    Clerk    │────▶│         Convex Backend          │────▶│   OpenAI    │
-│  (React)    │◀────│   (Auth)    │◀────│  Queries │ Mutations │ Actions  │◀────│    API      │
-└─────────────┘     └─────────────┘     └─────────────────────────────────┘     └─────────────┘
-                                                       │
-                                                       ▼
-                                              ┌─────────────────┐
-                                              │    Database     │
-                                              │  (Convex DB)    │
-                                              └─────────────────┘
+┌──────────────┐      ┌──────────────┐      ┌──────────────────────────────┐      ┌──────────────┐
+│    React     │◄────►│    Clerk     │◄────►│       Convex Backend         │◄────►│   OpenAI     │
+│   Frontend   │      │    (Auth)    │      │                              │      │     API      │
+└──────────────┘      └──────────────┘      │  Queries   - read data       │      └──────────────┘
+       │                                    │  Mutations - write data      │
+       │                                    │  Actions   - AI generation   │
+       ▼                                    └───────────────┬──────────────┘
+┌──────────────┐                                            │
+│   PostHog    │                                            ▼
+│  (Analytics) │                            ┌──────────────────────────────┐
+└──────────────┘                            │         Convex DB            │
+                                            │                              │
+                                            │  users, userProfiles         │
+                                            │  storyIdentities, experiences│
+                                            │  colleges, prompts, essays   │
+                                            │  feedback, cache tables      │
+                                            └──────────────────────────────┘
 ```
 
 ### How It Works
