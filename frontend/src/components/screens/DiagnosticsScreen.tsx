@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import ColleeLayout from '@/components/ColleeLayout';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 
 interface DiagnosticsScreenProps {
   onContinue: (data: {
@@ -51,6 +53,7 @@ const DiagnosticsScreen: React.FC<DiagnosticsScreenProps> = ({ onContinue, onBac
   const [motivation, setMotivation] = useState<string[]>([]);
   const [storyPreference, setStoryPreference] = useState<string[]>([]);
   const [socialRole, setSocialRole] = useState<string[]>([]);
+  const saveOnboardingStep = useMutation(api.userProfile.saveOnboardingStep);
 
   const toggleSelection = (
     value: string,
@@ -211,9 +214,10 @@ const DiagnosticsScreen: React.FC<DiagnosticsScreenProps> = ({ onContinue, onBac
         <Button
           variant="collee-accent"
           size="collee-sm"
-          onClick={() =>
-            onContinue({ orientation, motivation, storyPreference, socialRole })
-          }
+          onClick={async () => {
+            await saveOnboardingStep({ orientation, motivation, storyPreference, socialRole });
+            onContinue({ orientation, motivation, storyPreference, socialRole });
+          }}
         >
           Continue
         </Button>

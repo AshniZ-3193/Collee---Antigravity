@@ -8,6 +8,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 
 interface AcademicScreenProps {
   onContinue: (data: { primary: string; secondary: string }) => void;
@@ -52,6 +54,7 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
   const [otherMajor, setOtherMajor] = useState('');
   const [secondaryInterest, setSecondaryInterest] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const saveOnboardingStep = useMutation(api.userProfile.saveOnboardingStep);
 
   const toggleMajor = (major: string) => {
     setSelectedMajors((prev) =>
@@ -218,7 +221,15 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
         <Button 
           variant="collee-accent" 
           size="collee-sm"
-          onClick={() => onContinue({ primary: getPrimaryString(), secondary: secondaryInterest })}
+          onClick={async () => {
+            const primary = getPrimaryString();
+            const majors = selectedMajors.filter((m) => m !== 'Other');
+            if (selectedMajors.includes('Other') && otherMajor.trim()) {
+              majors.push(otherMajor.trim());
+            }
+            await saveOnboardingStep({ primaryInterests: majors, secondaryInterest });
+            onContinue({ primary, secondary: secondaryInterest });
+          }}
         >
           Continue
         </Button>

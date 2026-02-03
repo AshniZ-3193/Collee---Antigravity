@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import ColleeLayout from '@/components/ColleeLayout';
 import { Upload, FileText, X } from 'lucide-react';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 
 interface ResumeScreenProps {
   onContinue: (data: string) => void;
@@ -13,6 +15,7 @@ const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack }) => {
   const [activities, setActivities] = useState('');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const saveOnboardingStep = useMutation(api.userProfile.saveOnboardingStep);
 
   const placeholderText = `• Helped younger sibling with homework every night
 • Weekend walks with grandma
@@ -37,9 +40,9 @@ const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack }) => {
     }
   };
 
-  const handleContinue = () => {
-    // Pass either the typed activities or indicate a file was uploaded
+  const handleContinue = async () => {
     const data = uploadedFile ? `[Resume uploaded: ${uploadedFile.name}]\n${activities}` : activities;
+    await saveOnboardingStep({ activitiesText: data });
     onContinue(data);
   };
 

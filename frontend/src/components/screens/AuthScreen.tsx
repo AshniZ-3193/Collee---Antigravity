@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Mail, Lock, User, ArrowRight, Eye, EyeOff } from "lucide-react";
 import ColleeLogo from "@/components/ColleeLogo";
+import { useSignIn, useSignUp } from "@clerk/clerk-react";
 
 interface AuthScreenProps {
   onLogin?: () => void;
@@ -18,13 +19,70 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { signIn, isLoaded: signInLoaded } = useSignIn();
+  const { signUp, isLoaded: signUpLoaded } = useSignUp();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isLogin) {
-      onLogin?.();
-    } else {
-      onSignup?.();
+    setError("");
+    setIsLoading(true);
+
+    try {
+      if (isLogin) {
+        if (!signIn || !signInLoaded) return;
+        const result = await signIn.create({
+          identifier: email,
+          password,
+        });
+        if (result.status === "complete") {
+          await signIn.setActive({ session: result.createdSessionId });
+          onLogin?.();
+        }
+      } else {
+        if (!signUp || !signUpLoaded) return;
+        const result = await signUp.create({
+          emailAddress: email,
+          password,
+          firstName: name,
+        });
+        if (result.status === "complete") {
+          await signUp.setActive({ session: result.createdSessionId });
+          onSignup?.();
+        } else {
+          // May need email verification
+          setError("Please check your email to verify your account.");
+        }
+      }
+    } catch (err: any) {
+      setError(err.errors?.[0]?.message || err.message || "Authentication failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    setError("");
+    try {
+      if (isLogin) {
+        if (!signIn || !signInLoaded) return;
+        await signIn.authenticateWithRedirect({
+          strategy: "oauth_google",
+          redirectUrl: "/",
+          redirectUrlComplete: "/",
+        });
+      } else {
+        if (!signUp || !signUpLoaded) return;
+        await signUp.authenticateWithRedirect({
+          strategy: "oauth_google",
+          redirectUrl: "/",
+          redirectUrlComplete: "/",
+        });
+      }
+    } catch (err: any) {
+      setError(err.errors?.[0]?.message || err.message || "Google auth failed");
     }
   };
 
@@ -62,7 +120,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
           <div className="flex bg-muted rounded-xl p-1 mb-8">
             <button
               type="button"
-              onClick={() => setIsLogin(true)}
+              onClick={() => { setIsLogin(true); setError(""); }}
               className={`flex-1 py-2.5 text-body-sm font-medium rounded-lg transition-all duration-200 ${
                 isLogin
                   ? "bg-card text-foreground shadow-sm"
@@ -73,7 +131,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
             </button>
             <button
               type="button"
-              onClick={() => setIsLogin(false)}
+              onClick={() => { setIsLogin(false); setError(""); }}
               className={`flex-1 py-2.5 text-body-sm font-medium rounded-lg transition-all duration-200 ${
                 !isLogin
                   ? "bg-card text-foreground shadow-sm"
@@ -83,6 +141,13 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
               Sign up
             </button>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-body-sm">
+              {error}
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -177,9 +242,10 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
               variant="collee-accent"
               size="lg"
               className="w-full h-12 mt-6"
+              disabled={isLoading}
             >
-              {isLogin ? "Log in" : "Create account"}
-              <ArrowRight className="ml-2 h-4 w-4" />
+              {isLoading ? "Please wait..." : isLogin ? "Log in" : "Create account"}
+              {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
             </Button>
           </form>
 
@@ -195,6 +261,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
             type="button"
             variant="outline"
             className="w-full h-11 bg-card hover:bg-muted border-border"
+            onClick={handleGoogleAuth}
           >
             <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
               <path

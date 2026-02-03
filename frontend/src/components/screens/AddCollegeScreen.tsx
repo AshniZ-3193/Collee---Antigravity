@@ -13,6 +13,8 @@ import {
 import { ArrowLeft, Search, Check, GraduationCap, Plus, Trash2, FileText, X } from 'lucide-react';
 import ColleeLayout from '@/components/ColleeLayout';
 import ColleeLogo from '@/components/ColleeLogo';
+import { useMutation, useAction } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 
 interface AddCollegeScreenProps {
   onBack: () => void;
@@ -305,6 +307,9 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
   onAddCollege,
   onComplete,
 }) => {
+  const addCollegeMutation = useMutation(api.colleges.add);
+  const searchPromptsAction = useAction(api.ai.searchCollegePrompts.search);
+  const [isSearchingPrompts, setIsSearchingPrompts] = useState(false);
   const [step, setStep] = useState<'select' | 'application-type' | 'prompts'>('select');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedColleges, setSelectedColleges] = useState<Set<string>>(new Set());
@@ -385,14 +390,35 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
     }
   };
 
-  const handleContinueToNextCollegeOrPrompts = () => {
+  const handleContinueToNextCollegeOrPrompts = async () => {
     if (currentConfigIndex < collegeConfigs.length - 1) {
-      // Move to next college's app type selection
       setCurrentConfigIndex(prev => prev + 1);
     } else {
-      // All colleges configured, move to prompts for first college
       setCurrentConfigIndex(0);
       setStep('prompts');
+
+      // Auto-search for prompts using Exa
+      const firstCollege = collegeConfigs[0];
+      if (firstCollege) {
+        setIsSearchingPrompts(true);
+        try {
+          const searchedPrompts = await searchPromptsAction({
+            collegeName: firstCollege.collegeName,
+          });
+          if (searchedPrompts && searchedPrompts.length > 0) {
+            setPrompts(searchedPrompts.map((p: any, i: number) => ({
+              id: `searched-${i}`,
+              promptText: p.text,
+              promptType: p.promptType || '',
+              limitValue: p.wordCountMax || 250,
+              isOptional: p.isOptional || false,
+            })));
+          }
+        } catch (e) {
+          console.error("Prompt search failed:", e);
+        }
+        setIsSearchingPrompts(false);
+      }
     }
   };
 
@@ -424,17 +450,34 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
     ));
   };
 
-  const handleAddCollegeAndContinue = () => {
+  const handleAddCollegeAndContinue = async () => {
     if (canAddCollege) {
-      // Add current college
-      onAddCollege(currentConfig?.collegeId || 'custom');
-      
+      // Save college to Convex
+      const validPrompts = prompts
+        .filter(p => p.promptText.trim() && p.limitValue > 0)
+        .map(p => ({
+          text: p.promptText.trim(),
+          wordCountMax: p.limitValue,
+          isOptional: p.isOptional,
+          promptType: p.promptType || undefined,
+        }));
+
+      try {
+        await addCollegeMutation({
+          name: currentConfig?.collegeName || 'Unknown',
+          applicationType: currentConfig?.applicationType,
+          deadline: currentConfig?.deadline,
+          prompts: validPrompts,
+        });
+        onAddCollege(currentConfig?.collegeId || 'custom');
+      } catch (e) {
+        console.error("Failed to add college:", e);
+      }
+
       if (currentConfigIndex < collegeConfigs.length - 1) {
-        // Move to next college's prompts
         setCurrentConfigIndex(prev => prev + 1);
         setPrompts([{ id: '1', promptText: '', promptType: '', limitValue: 250, isOptional: false }]);
       } else {
-        // All colleges added - call onComplete to navigate away
         onComplete();
       }
     }

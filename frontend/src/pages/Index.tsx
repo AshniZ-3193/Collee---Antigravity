@@ -1,5 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useConvexAuth } from 'convex/react';
+import { useQuery } from 'convex/react';
+import { useClerk } from '@clerk/clerk-react';
+import { api } from '../../convex/_generated/api';
+import { useStoreUserEffect } from '@/hooks/useStoreUserEffect';
 import HomeScreen from '@/components/screens/HomeScreen';
 import { AuthScreen } from '@/components/screens/AuthScreen';
 import WelcomeScreen from '@/components/screens/WelcomeScreen';
@@ -35,81 +40,64 @@ type Screen =
   | 'share-view'
   | 'edit-story-identity';
 
-// Check if Story Identity exists (one-time onboarding detection)
-const hasStoryIdentity = (): boolean => {
-  try {
-    const stored = localStorage.getItem('collee_story_identity');
-    if (stored) {
-      const data = JSON.parse(stored);
-      // Verify it has the required structure
-      return data && data.experiences && data.pillars;
-    }
-    return false;
-  } catch {
-    return false;
-  }
-};
-
-// Mark Story Identity as complete after onboarding
-const markOnboardingComplete = () => {
-  const defaultIdentity = {
-    experiences: [
-      { id: 'exp1', name: 'Teaching Grandma Technology', tags: ['empathy', 'patience', 'family'] },
-      { id: 'exp2', name: 'Robotics Competition Failure', tags: ['resilience', 'leadership', 'teamwork'] },
-      { id: 'exp3', name: 'Starting the Coding Club', tags: ['leadership', 'community', 'initiative'] },
-    ],
-    pillars: [
-      { id: 'p1', theme: 'Bridging worlds through technology' },
-      { id: 'p2', theme: 'Learning through failure' },
-      { id: 'p3', theme: 'Community building' },
-    ],
-    voicePreferences: {
-      tone: 'conversational',
-      reminders: [
-        'Emphasize learning over achievement',
-        'Use specific moments over abstract claims',
-        'Let authenticity come through',
-      ],
-    },
-    createdAt: new Date().toISOString(),
-  };
-  localStorage.setItem('collee_story_identity', JSON.stringify(defaultIdentity));
-};
-
 const Index = () => {
+  const { isAuthenticated: isConvexAuth } = useConvexAuth();
+  const { isAuthenticated: isUserStored, isLoading: isUserLoading } = useStoreUserEffect();
+  const { signOut } = useClerk();
+
+  // Only query profile if user is authenticated and stored
+  const profile = useQuery(
+    api.userProfile.get,
+    isUserStored ? {} : "skip"
+  );
+  const storyIdentity = useQuery(
+    api.storyIdentity.get,
+    isUserStored ? {} : "skip"
+  );
+
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
+
+  // Auto-navigate based on auth state
+  useEffect(() => {
+    if (!isConvexAuth && currentScreen !== 'home' && currentScreen !== 'auth') {
+      setCurrentScreen('home');
+    }
+  }, [isConvexAuth]);
 
   const navigateTo = (screen: Screen) => {
     setCurrentScreen(screen);
   };
 
-  // Navigate to home (for logo click in workspace)
   const handleGoHome = () => {
     navigateTo('home');
   };
 
-  // Handle login - check if onboarding is needed
+  // Handle successful login
   const handleLogin = () => {
-    if (hasStoryIdentity()) {
-      // Skip onboarding, go directly to workspace (College Map)
+    // Auth state will update via Clerk - check if onboarding is complete
+    if (storyIdentity) {
       navigateTo('workspace');
+    } else if (profile?.onboardingComplete) {
+      navigateTo('loading'); // Re-generate story identity
     } else {
-      // First-time user, start onboarding
       navigateTo('welcome');
     }
   };
 
-  // Handle signup - always start fresh onboarding
+  // Handle successful signup
   const handleSignup = () => {
-    // Clear any existing story identity to ensure fresh onboarding
-    localStorage.removeItem('collee_story_identity');
     navigateTo('welcome');
   };
 
   // Handle onboarding completion
   const handleOnboardingComplete = () => {
-    markOnboardingComplete();
     navigateTo('workspace');
+  };
+
+  // Handle logout
+  const handleLogout = async () => {
+    await signOut();
+    navigateTo('home');
   };
 
   return (
@@ -124,96 +112,104 @@ const Index = () => {
       >
         {/* PUBLIC HOME SCREEN */}
         {currentScreen === 'home' && (
-          <HomeScreen 
+          <HomeScreen
             onGetStarted={() => navigateTo('auth')}
-            onLogin={() => navigateTo('auth')}
+            onLogin={() => {
+              if (isUserStored) {
+                // Already logged in, route appropriately
+                if (storyIdentity) {
+                  navigateTo('workspace');
+                } else {
+                  navigateTo('welcome');
+                }
+              } else {
+                navigateTo('auth');
+              }
+            }}
           />
         )}
 
         {currentScreen === 'auth' && (
-          <AuthScreen 
+          <AuthScreen
             onLogin={handleLogin}
             onSignup={handleSignup}
             onLogoClick={handleGoHome}
           />
         )}
-        
-        {/* ONBOARDING FLOW - Only runs if no Story Identity exists */}
+
+        {/* ONBOARDING FLOW */}
         {currentScreen === 'welcome' && (
           <WelcomeScreen onStart={() => navigateTo('resume')} />
         )}
-        
+
         {currentScreen === 'resume' && (
-          <ResumeScreen 
+          <ResumeScreen
             onContinue={() => navigateTo('academic')}
             onBack={() => navigateTo('welcome')}
           />
         )}
-        
+
         {currentScreen === 'academic' && (
-          <AcademicScreen 
+          <AcademicScreen
             onContinue={() => navigateTo('diagnostics')}
             onBack={() => navigateTo('resume')}
           />
         )}
-        
+
         {currentScreen === 'diagnostics' && (
-          <DiagnosticsScreen 
+          <DiagnosticsScreen
             onContinue={() => navigateTo('writing-tone')}
             onBack={() => navigateTo('academic')}
           />
         )}
-        
+
         {currentScreen === 'writing-tone' && (
-          <WritingToneScreen 
+          <WritingToneScreen
             onContinue={() => navigateTo('personal-lens')}
             onBack={() => navigateTo('diagnostics')}
           />
         )}
-        
+
         {currentScreen === 'personal-lens' && (
-          <PersonalLensScreen 
+          <PersonalLensScreen
             onContinue={() => navigateTo('reflection')}
             onBack={() => navigateTo('writing-tone')}
           />
         )}
-        
+
         {currentScreen === 'reflection' && (
-          <ReflectionScreen 
+          <ReflectionScreen
             onContinue={() => navigateTo('loading')}
             onBack={() => navigateTo('personal-lens')}
           />
         )}
-        
+
         {currentScreen === 'loading' && (
           <LoadingScreen onComplete={() => navigateTo('story-card')} />
         )}
-        
+
         {currentScreen === 'story-card' && (
-          <StoryCardScreen 
+          <StoryCardScreen
             onConfirm={handleOnboardingComplete}
             onTweak={() => navigateTo('diagnostics')}
           />
         )}
 
-        {/* MAIN APP - College Map + Essay Editor */}
+        {/* MAIN APP */}
         {currentScreen === 'workspace' && (
-          <ColleeWorkspace 
+          <ColleeWorkspace
             onAddCollege={() => navigateTo('add-college')}
             onExport={() => navigateTo('export')}
             onEditStoryIdentity={() => navigateTo('edit-story-identity')}
             onLogoClick={handleGoHome}
-            onLogout={handleGoHome}
+            onLogout={handleLogout}
           />
         )}
 
         {currentScreen === 'add-college' && (
-          <AddCollegeScreen 
+          <AddCollegeScreen
             onBack={() => navigateTo('workspace')}
             onAddCollege={(collegeId) => {
-              // The AddCollegeScreen handles multi-college flow internally
-              // This callback is called for each college added, but navigation
-              // is handled by onBack when all colleges are complete
               console.log('College added:', collegeId);
             }}
             onComplete={() => navigateTo('workspace')}
@@ -221,7 +217,7 @@ const Index = () => {
         )}
 
         {currentScreen === 'export' && (
-          <ExportScreen 
+          <ExportScreen
             essayTitle="Personal Statement"
             collegeName="Stanford University"
             wordCount={542}
@@ -230,18 +226,18 @@ const Index = () => {
         )}
 
         {currentScreen === 'share-view' && (
-          <ShareViewScreen 
+          <ShareViewScreen
             collegeName="Stanford University"
             promptText="Describe an experience where you had to make a difficult choice."
-            essayContent="The moment I realized I wanted to pursue computer science was not in a classroom — it was in my grandmother's kitchen.\n\nShe had just received a new smartphone from my parents, and the look of confusion and frustration on her face was something I'll never forget."
+            essayContent="The moment I realized I wanted to pursue computer science was not in a classroom — it was in my grandmother's kitchen."
             wordCount={542}
             authorName="Student"
           />
         )}
 
-        {/* EDIT STORY IDENTITY - Modular editing without re-onboarding */}
+        {/* EDIT STORY IDENTITY */}
         {currentScreen === 'edit-story-identity' && (
-          <EditStoryIdentityScreen 
+          <EditStoryIdentityScreen
             onBack={() => navigateTo('workspace')}
             onSave={() => navigateTo('workspace')}
           />

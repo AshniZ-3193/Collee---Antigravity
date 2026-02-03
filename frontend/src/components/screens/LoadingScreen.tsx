@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAction } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 
 interface LoadingScreenProps {
   onComplete: () => void;
@@ -7,12 +9,14 @@ interface LoadingScreenProps {
 
 const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
   const [currentMessage, setCurrentMessage] = useState(0);
-  
+  const generateStoryIdentity = useAction(api.ai.generateStoryIdentity.generate);
+  const hasStarted = useRef(false);
+
   const messages = [
-    "Finding the patterns in what you shared…",
-    "Connecting your experiences…",
-    "Discovering what makes you distinct…",
-    "Building your story identity…",
+    "Finding the patterns in what you shared...",
+    "Connecting your experiences...",
+    "Discovering what makes you distinct...",
+    "Building your story identity...",
   ];
 
   useEffect(() => {
@@ -25,15 +29,25 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
       });
     }, 2000);
 
-    const completeTimeout = setTimeout(() => {
-      onComplete();
-    }, 7000);
-
     return () => {
       clearInterval(messageInterval);
-      clearTimeout(completeTimeout);
     };
-  }, [onComplete]);
+  }, []);
+
+  useEffect(() => {
+    if (hasStarted.current) return;
+    hasStarted.current = true;
+
+    generateStoryIdentity()
+      .then(() => {
+        onComplete();
+      })
+      .catch((error) => {
+        console.error("Failed to generate story identity:", error);
+        // Still navigate forward - user can retry from workspace
+        onComplete();
+      });
+  }, [generateStoryIdentity, onComplete]);
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6 py-12 bg-background">
@@ -80,7 +94,7 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
         </div>
 
         {/* Progress indicator */}
-        <motion.div 
+        <motion.div
           className="mt-12 w-48 h-1 bg-border rounded-full mx-auto overflow-hidden"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -89,8 +103,8 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
           <motion.div
             className="h-full bg-primary/60 rounded-full"
             initial={{ width: "0%" }}
-            animate={{ width: "100%" }}
-            transition={{ duration: 7, ease: "easeInOut" }}
+            animate={{ width: "90%" }}
+            transition={{ duration: 15, ease: "easeInOut" }}
           />
         </motion.div>
       </motion.div>

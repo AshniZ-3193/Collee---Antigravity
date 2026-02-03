@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useQuery, useMutation, useAction } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
+import type { Id } from '../../../convex/_generated/dataModel';
 import {
   Bold,
   Italic,
@@ -107,6 +110,7 @@ const promptTypes = [
 // ===== TYPES =====
 interface Essay {
   id: string;
+  promptId: string;
   title: string;
   prompt: string;
   status: 'not-started' | 'in-progress' | 'complete';
@@ -129,6 +133,7 @@ interface Version {
   timestamp: string;
   wordCount: number;
   preview: string;
+  content?: string;
   isCurrent?: boolean;
 }
 
@@ -140,124 +145,6 @@ interface LaunchPadWorkspaceProps {
   onLogout?: () => void;
 }
 
-// ===== MOCK DATA =====
-const mockColleges: College[] = [
-  {
-    id: '1',
-    name: 'Stanford University',
-    applicationType: 'Common App',
-    deadline: 'Jan 15',
-    essays: [
-      {
-        id: 'e1',
-        title: 'Personal Statement',
-        prompt: 'Describe an experience where you had to make a difficult choice. What did you decide and what did you learn?',
-        status: 'in-progress',
-        wordCount: 542,
-        wordLimit: 650,
-        content: 'The moment I realized I wanted to pursue computer science was not in a classroom — it was in my grandmother\'s kitchen.\n\nShe had just received a new smartphone from my parents, and the look of confusion and frustration on her face was something I\'ll never forget.\n\nI spent the next three hours walking her through every feature, translating the cold, technical language into something that made sense to her.'
-      },
-      {
-        id: 'e2',
-        title: 'Why Stanford?',
-        prompt: 'What is it about Stanford that has led you to apply?',
-        status: 'not-started',
-        wordCount: 0,
-        wordLimit: 250,
-        content: '',
-        promptType: 'why-college'
-      },
-      {
-        id: 'e3',
-        title: 'Meaningful Experience',
-        prompt: 'Tell us about something that has been meaningful to your identity.',
-        status: 'complete',
-        wordCount: 248,
-        wordLimit: 350,
-        content: 'Growing up in two cultures taught me the art of translation—not just of language, but of meaning.'
-      },
-    ]
-  },
-  {
-    id: '2',
-    name: 'MIT',
-    applicationType: 'Common App',
-    deadline: 'Jan 20',
-    essays: [
-      {
-        id: 'e4',
-        title: 'Describe the world you come from',
-        prompt: 'Describe the world you come from; for example, your family, clubs, school, community, city, or town.',
-        status: 'not-started',
-        wordCount: 0,
-        wordLimit: 250,
-        content: ''
-      },
-      {
-        id: 'e5',
-        title: 'Challenge or setback',
-        prompt: 'Tell us about a significant challenge you\'ve faced or something that didn\'t go according to plan.',
-        status: 'in-progress',
-        wordCount: 180,
-        wordLimit: 250,
-        content: 'The first time I failed publicly was at the state robotics competition.'
-      },
-    ]
-  },
-  {
-    id: '3',
-    name: 'Yale University',
-    applicationType: 'Coalition App',
-    deadline: 'Jan 12',
-    essays: [
-      {
-        id: 'e6',
-        title: 'Why Yale?',
-        prompt: 'What is it about Yale that has led you to apply?',
-        status: 'in-progress',
-        wordCount: 120,
-        wordLimit: 125,
-        content: 'Yale\'s unique combination of intimate residential colleges and world-class research opportunities draws me in. I see myself thriving in an environment where intellectual curiosity is celebrated across disciplines.',
-        promptType: 'why-college'
-      },
-      {
-        id: 'e7',
-        title: 'Reflect on something',
-        prompt: 'Reflect on a time when you questioned or challenged a belief or idea.',
-        status: 'not-started',
-        wordCount: 0,
-        wordLimit: 650,
-        content: ''
-      },
-    ]
-  },
-  {
-    id: '4',
-    name: 'UC Berkeley',
-    applicationType: 'UC Application',
-    deadline: 'Mar 15',
-    essays: [
-      {
-        id: 'e8',
-        title: 'Leadership Experience',
-        prompt: 'Describe an example of your leadership experience.',
-        status: 'complete',
-        wordCount: 350,
-        wordLimit: 350,
-        content: 'When I founded the coding club at my high school, I had no idea it would grow into a community of over 50 members.'
-      },
-    ]
-  },
-];
-
-const mockVersions: Version[] = [
-  { id: 'v1', timestamp: 'Today, 3:42 PM', wordCount: 542, preview: 'The moment I realized I wanted to pursue computer science...', isCurrent: true },
-  { id: 'v2', timestamp: 'Today, 2:15 PM', wordCount: 487, preview: 'The moment I realized I wanted to pursue computer science...' },
-  { id: 'v3', timestamp: 'Today, 11:30 AM', wordCount: 320, preview: 'I never expected to find my passion for technology...' },
-  { id: 'v4', timestamp: 'Yesterday, 8:45 PM', wordCount: 156, preview: 'Growing up, I always thought technology was cold...' },
-];
-
-// Story Identity - Experience Bank
 interface StoryExperience {
   id: string;
   name: string;
@@ -265,85 +152,17 @@ interface StoryExperience {
   usedIn: string[];
 }
 
-// Full Experience Bank - all student experiences
-const experienceBank: StoryExperience[] = [
-  { id: 'exp1', name: 'Teaching Grandma Technology', tags: ['empathy', 'bridge-building', 'patience', 'family', 'decision'], usedIn: [] },
-  { id: 'exp2', name: 'Robotics Competition Failure', tags: ['resilience', 'leadership', 'iteration', 'teamwork', 'challenge', 'setback'], usedIn: ['e3'] },
-  { id: 'exp3', name: 'Starting the Coding Club', tags: ['leadership', 'community', 'initiative', 'passion'], usedIn: ['e8'] },
-  { id: 'exp4', name: 'Immigrant Family Dinners', tags: ['identity', 'culture', 'family', 'belonging', 'world'], usedIn: [] },
-  { id: 'exp5', name: 'Questioning Religious Traditions', tags: ['belief', 'questioning', 'growth', 'identity'], usedIn: [] },
-  { id: 'exp6', name: 'First Hackathon All-Nighter', tags: ['passion', 'perseverance', 'discovery', 'teamwork'], usedIn: [] },
-  { id: 'exp7', name: 'Tutoring ESL Students', tags: ['empathy', 'community', 'bridge-building', 'communication'], usedIn: [] },
-  { id: 'exp8', name: 'Climate Strike Organizer', tags: ['society', 'challenge', 'leadership', 'conviction'], usedIn: [] },
-];
-
-// Prompt-specific guidance for each experience (keyed by essayId -> experienceId)
 interface PromptFitGuidance {
   matchStrength: 'strong' | 'moderate';
   whyItFits: string;
   framingTips: string[];
   caution?: string;
-  // Actionable guidance fields
   startWith?: string;
   focusOn?: string;
   avoidFocus?: string;
   starterSentences?: string[];
 }
 
-// Prompt approach guidance - 2-3 line summaries of what each prompt is really asking
-const promptApproachMap: Record<string, string> = {
-  'e1': 'This prompt is asking about your decision-making process. Focus on the internal conflict and what values drove your choice—not just the outcome.',
-  'e2': 'Show that you don\'t just identify problems—you try to solve them. Ground your answer in personal experience, not abstract opinions.',
-  'e3': 'This is about identity formation. Focus on moments that shaped who you are, not just what you\'ve done.',
-  'e4': 'Paint a vivid picture of your everyday world. Show how your environment shaped your perspective and values.',
-  'e5': 'They want to see resilience and self-awareness. Sit in the discomfort of failure before rushing to the lesson.',
-  'e6': 'Be specific about Yale, not generic. Show what you\'ll contribute, not just what you\'ll take.',
-  'e7': 'Intellectual honesty matters here. Show the process of questioning, not just the conclusion you reached.',
-  'e8': 'Focus on how you lead, not just that you led. Show your style, adaptations, and what you learned about leadership.',
-};
-
-// Story Pillars - themes that define the student's narrative
-const storyPillars = [
-  { id: 'p1', theme: 'Bridging worlds through technology', description: 'Making tech accessible across generations and communities' },
-  { id: 'p2', theme: 'Learning through failure', description: 'Embracing setbacks as catalysts for growth' },
-  { id: 'p3', theme: 'Community building', description: 'Creating spaces where people can learn and grow together' },
-  { id: 'p4', theme: 'Cultural navigation', description: 'Moving between identities while staying authentic' },
-];
-
-// Writing reminders based on student's voice preferences
-const writingReminders = [
-  'Show, don\'t tell—use specific moments over abstract claims',
-  'Emphasize learning and growth over achievements',
-  'Let your authentic voice come through, not what you think they want to hear',
-  'One vivid story beats multiple surface-level examples',
-];
-
-// Related essays for overlap awareness
-interface RelatedEssay {
-  collegeId: string;
-  collegeName: string;
-  essayId: string;
-  essayTitle: string;
-  overlapReason: string;
-}
-
-// Which essays share thematic overlap (for awareness, not automation)
-const essayOverlapMap: Record<string, RelatedEssay[]> = {
-  'e1': [
-    { collegeId: '2', collegeName: 'MIT', essayId: 'e5', essayTitle: 'Challenge or setback', overlapReason: 'Both explore decision-making under pressure' },
-  ],
-  'e2': [
-    { collegeId: '4', collegeName: 'UC Berkeley', essayId: 'e8', essayTitle: 'Leadership Experience', overlapReason: 'Both could highlight your community impact work' },
-  ],
-  'e5': [
-    { collegeId: '1', collegeName: 'Stanford', essayId: 'e1', essayTitle: 'Personal Statement', overlapReason: 'Setback themes overlap with difficult choice narrative' },
-  ],
-  'e7': [
-    { collegeId: '1', collegeName: 'Stanford', essayId: 'e3', essayTitle: 'Meaningful Experience', overlapReason: 'Both explore identity and belief formation' },
-  ],
-};
-
-// ===== SMART REUSE: Reusable Excerpts from Other Essays =====
 interface ReusableExcerpt {
   id: string;
   sourceEssayId: string;
@@ -352,87 +171,13 @@ interface ReusableExcerpt {
   sourceCollegeName: string;
   excerpt: string;
   themes: string[];
+  promptType?: string;
+  overlapThemes?: string[];
+  matchesSamePromptType?: boolean;
+  whyItWorks: string;
+  sameSchoolWarning?: string;
 }
 
-// ===== SMART REUSE: Reusable Excerpts from Other Essays =====
-interface ReusableExcerpt {
-  id: string;
-  sourceEssayId: string;
-  sourceEssayTitle: string;
-  sourceCollegeId: string;
-  sourceCollegeName: string;
-  excerpt: string;
-  themes: string[];
-  promptType?: string; // For prioritizing same-type suggestions
-}
-
-// Mock excerpts from completed essays (cross-school reuse encouraged)
-const reusableExcerpts: ReusableExcerpt[] = [
-  {
-    id: 'exc1',
-    sourceEssayId: 'e5',
-    sourceEssayTitle: 'Challenge or setback',
-    sourceCollegeId: '2',
-    sourceCollegeName: 'MIT',
-    excerpt: "Building CardioCatch taught me that engineering isn't just about solving problems, but about choosing problems that matter to real people.",
-    themes: ['responsibility', 'impact', 'decision', 'growth', 'purpose'],
-    promptType: 'challenge'
-  },
-  {
-    id: 'exc2',
-    sourceEssayId: 'e5',
-    sourceEssayTitle: 'Challenge or setback',
-    sourceCollegeId: '2',
-    sourceCollegeName: 'MIT',
-    excerpt: "When our first prototype failed in front of the judges, I felt the weight of my team's months of work crumbling. But in that moment of failure, I discovered something unexpected: the freedom to rebuild from scratch.",
-    themes: ['failure', 'resilience', 'leadership', 'growth', 'decision', 'setback', 'challenge'],
-    promptType: 'challenge'
-  },
-  {
-    id: 'exc3',
-    sourceEssayId: 'e6',
-    sourceEssayTitle: 'Why Yale?',
-    sourceCollegeId: '3',
-    sourceCollegeName: 'Yale University',
-    excerpt: "What draws me most isn't just the name or prestige—it's the genuine intellectual community where debates spill from classrooms into dining halls, and where diverse perspectives sharpen everyone's thinking.",
-    themes: ['community', 'contribution', 'purpose', 'intellectual', 'growth'],
-    promptType: 'why-college'
-  },
-  {
-    id: 'exc4',
-    sourceEssayId: 'e8',
-    sourceEssayTitle: 'Leadership Experience',
-    sourceCollegeId: '4',
-    sourceCollegeName: 'UC Berkeley',
-    excerpt: "Leadership, I learned, isn't about having all the answers—it's about creating space for others to find theirs.",
-    themes: ['leadership', 'community', 'growth', 'empathy'],
-    promptType: 'leadership'
-  },
-  {
-    id: 'exc5',
-    sourceEssayId: 'e6',
-    sourceEssayTitle: 'Why Yale?',
-    sourceCollegeId: '3',
-    sourceCollegeName: 'Yale University',
-    excerpt: "I want to be somewhere that challenges me to connect my technical skills with humanistic questions—where building a robot and discussing Dostoevsky happen in the same week, sometimes in the same conversation.",
-    themes: ['interdisciplinary', 'purpose', 'contribution', 'intellectual', 'curiosity'],
-    promptType: 'why-college'
-  }
-];
-
-// Prompt theme mapping for matching excerpts
-const promptThemeMap: Record<string, string[]> = {
-  'e1': ['decision', 'growth', 'responsibility', 'impact', 'choice'],
-  'e2': ['purpose', 'community', 'contribution', 'intellectual', 'curiosity', 'growth'], // Why Stanford - matches why-college themes
-  'e3': ['identity', 'meaning', 'growth', 'experience'],
-  'e4': ['identity', 'background', 'community', 'world'],
-  'e5': ['failure', 'resilience', 'growth', 'setback', 'challenge'],
-  'e6': ['purpose', 'community', 'contribution'],
-  'e7': ['reflection', 'growth', 'belief', 'questioning'],
-  'e8': ['leadership', 'community', 'impact'],
-};
-
-// Track where excerpts have been reused
 interface ExcerptUsageRecord {
   excerptId: string;
   targetCollegeId: string;
@@ -441,220 +186,7 @@ interface ExcerptUsageRecord {
   targetEssayTitle: string;
 }
 
-// Pillars relevant to each prompt
-const promptPillarMap: Record<string, string[]> = {
-  'e1': ['p1', 'p2'],
-  'e2': ['p3', 'p1'],
-  'e3': ['p4', 'p2'],
-  'e4': ['p4', 'p3'],
-  'e5': ['p2', 'p3'],
-  'e6': ['p3', 'p1'],
-  'e7': ['p4', 'p2'],
-  'e8': ['p3', 'p2'],
-};
-
-// Dynamic mapping: which experiences fit which prompts and how
-const promptExperienceMap: Record<string, Record<string, PromptFitGuidance>> = {
-  // e1: Difficult choice prompt
-  'e1': {
-    'exp1': {
-      matchStrength: 'strong',
-      whyItFits: 'Shows a genuine moment of choice: taking 3 hours to help vs. giving up. Reveals your values through action.',
-      framingTips: [
-        'Focus on the internal tension — your impatience vs. her frustration',
-        'Show the moment you decided to slow down',
-        'End with what you learned about communication, not just tech'
-      ],
-      caution: 'Avoid making grandma a prop — she should feel real',
-      startWith: "The moment of frustration when grandma couldn't swipe properly for the tenth time",
-      focusOn: "How you chose patience over giving up — and what that revealed about yourself",
-      avoidFocus: "Listing all the features you taught her or focusing on outcomes",
-      starterSentences: [
-        "My grandmother held the phone like it might shatter in her hands.",
-        "After the tenth failed swipe, I felt my patience wearing thin.",
-        "That afternoon, I learned that teaching isn't about knowing more — it's about caring more."
-      ]
-    },
-    'exp2': {
-      matchStrength: 'moderate',
-      whyItFits: 'Demonstrates decision-making under pressure and learning from setbacks.',
-      framingTips: [
-        'Highlight a specific pivotal decision, not the whole competition',
-        'Focus on the internal debate — what you almost did vs. what you chose'
-      ],
-      caution: 'Already used in "Meaningful Experience" — consider angle variation',
-      startWith: "The exact moment you realized the robot wasn't going to work",
-      focusOn: "The internal debate between playing it safe and starting over",
-      avoidFocus: "Technical specs or competition results",
-      starterSentences: [
-        "The robot's arm twitched once, then went still.",
-        "I remember looking at my team — exhausted, frustrated — and knowing we had a choice to make."
-      ]
-    }
-  },
-  // e2: Society challenge prompt
-  'e2': {
-    'exp8': {
-      matchStrength: 'strong',
-      whyItFits: 'Directly connects to societal action. Shows you don\'t just identify problems—you try to solve them.',
-      framingTips: [
-        'Ground it in a specific moment, not the whole movement',
-        'Show the human cost you witnessed firsthand',
-        'Connect to why Stanford\'s resources matter for this fight'
-      ]
-    },
-    'exp7': {
-      matchStrength: 'moderate',
-      whyItFits: 'Shows how language barriers create systemic inequity—a societal challenge you\'ve witnessed up close.',
-      framingTips: [
-        'Focus on one student\'s story to make it personal',
-        'Zoom out to the broader access gap',
-        'Avoid savior framing—emphasize mutual learning'
-      ]
-    }
-  },
-  // e3: Identity prompt
-  'e3': {
-    'exp4': {
-      matchStrength: 'strong',
-      whyItFits: 'Family dinners are the perfect lens for exploring cultural identity and belonging.',
-      framingTips: [
-        'Use sensory details—smells, sounds, languages',
-        'Show the tension between two worlds, not just celebration',
-        'End with how this shaped who you are, not just what you do'
-      ]
-    },
-    'exp5': {
-      matchStrength: 'moderate',
-      whyItFits: 'Questioning traditions reveals deep identity formation and intellectual honesty.',
-      framingTips: [
-        'Be specific about what you questioned and why',
-        'Show respect for the tradition even as you diverged',
-        'Focus on what you built, not just what you left'
-      ],
-      caution: 'Handle with care—admissions readers come from all backgrounds'
-    }
-  },
-  // e4: World you come from prompt
-  'e4': {
-    'exp4': {
-      matchStrength: 'strong',
-      whyItFits: 'Immigrant family dinners literally describe the world you come from—culture, language, values.',
-      framingTips: [
-        'Paint the scene vividly—who\'s there, what\'s cooking, what language',
-        'Show how this world shaped your perspective',
-        'Connect the intimacy of home to the broader community'
-      ]
-    },
-    'exp3': {
-      matchStrength: 'moderate',
-      whyItFits: 'The coding club became part of your world—a community you built.',
-      framingTips: [
-        'Focus on the people, not the code',
-        'Show how the club changed the school\'s culture',
-        'Highlight unexpected connections you made'
-      ],
-      caution: 'Already used for Berkeley essay—vary the angle significantly'
-    }
-  },
-  // e5: Challenge/setback prompt
-  'e5': {
-    'exp2': {
-      matchStrength: 'strong',
-      whyItFits: 'A robotics failure is the perfect challenge story—concrete, stakes are clear, growth is visible.',
-      framingTips: [
-        'Don\'t skip the failure—sit in the discomfort',
-        'Show what you tried, what didn\'t work, what you learned',
-        'End with how this changed your approach, not just the outcome'
-      ]
-    },
-    'exp6': {
-      matchStrength: 'moderate',
-      whyItFits: 'The all-nighter likely had setbacks—code breaking, team friction, exhaustion.',
-      framingTips: [
-        'Focus on a specific moment things went wrong',
-        'Show how you adapted under pressure',
-        'Connect to your growth as a collaborator'
-      ]
-    }
-  },
-  // e6: Why Yale prompt
-  'e6': {
-    'exp3': {
-      matchStrength: 'strong',
-      whyItFits: 'Your club-building experience shows you\'ll contribute to Yale\'s community.',
-      framingTips: [
-        'Research a specific Yale program or club to connect to',
-        'Show what you\'ll bring, not just what you\'ll take',
-        'Keep it genuine—don\'t force connections'
-      ]
-    },
-    'exp7': {
-      matchStrength: 'moderate',
-      whyItFits: 'Your tutoring shows values that align with Yale\'s mission.',
-      framingTips: [
-        'Connect to specific Yale resources or programs',
-        'Show how Yale will amplify your impact',
-        'Be specific about what draws you there'
-      ]
-    }
-  },
-  // e7: Questioned a belief prompt
-  'e7': {
-    'exp5': {
-      matchStrength: 'strong',
-      whyItFits: 'This is literally about questioning beliefs—your most authentic answer.',
-      framingTips: [
-        'Be honest about the internal conflict',
-        'Show the process of questioning, not just the conclusion',
-        'Demonstrate intellectual humility and curiosity'
-      ]
-    },
-    'exp1': {
-      matchStrength: 'moderate',
-      whyItFits: 'Teaching grandma challenged your belief that tech skills are what matter most.',
-      framingTips: [
-        'Frame it as a belief you held: "I used to think being good at tech was enough"',
-        'Show how human connection changed your perspective',
-        'Connect to how you approach problems now'
-      ]
-    }
-  },
-  // e8: Leadership prompt
-  'e8': {
-    'exp3': {
-      matchStrength: 'strong',
-      whyItFits: 'Founding a club is direct leadership evidence with clear impact.',
-      framingTips: [
-        'Focus on a specific leadership challenge you faced',
-        'Show how you adapted your style for different people',
-        'Quantify impact if possible, but keep it human'
-      ]
-    },
-    'exp2': {
-      matchStrength: 'moderate',
-      whyItFits: 'Competition failure can show leadership in adversity.',
-      framingTips: [
-        'Focus on leading your team through the setback',
-        'Show vulnerability—leaders don\'t have all answers',
-        'Highlight what you learned about leading under pressure'
-      ],
-      caution: 'Already used in another essay—vary the leadership angle'
-    }
-  }
-};
-
-// Get experiences that match the current prompt
-const getExperiencesForPrompt = (essayId: string): (StoryExperience & { guidance: PromptFitGuidance })[] => {
-  const promptMapping = promptExperienceMap[essayId];
-  if (!promptMapping) return [];
-
-  return Object.entries(promptMapping).map(([expId, guidance]) => {
-    const experience = experienceBank.find(e => e.id === expId);
-    if (!experience) return null;
-    return { ...experience, guidance };
-  }).filter(Boolean) as (StoryExperience & { guidance: PromptFitGuidance })[];
-};
+type FeedbackType = 'overall' | 'opening' | 'structure' | 'voice' | 'specificity';
 
 // ===== HELPER FUNCTIONS =====
 const getEssaySnapshot = (essays: Essay[]): string => {
@@ -708,6 +240,63 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
   onLogoClick,
   onLogout,
 }) => {
+  // Convex queries
+  const convexColleges = useQuery(api.colleges.list) ?? [];
+  const storyIdentityData = useQuery(api.storyIdentity.get);
+  const convexLensNotes = useQuery(api.personalLens.list) ?? [];
+  const saveEssayMutation = useMutation(api.essays.save);
+  const addLensNoteMutation = useMutation(api.personalLens.add);
+  const updateLensNoteMutation = useMutation(api.personalLens.update);
+  const deleteLensNoteMutation = useMutation(api.personalLens.remove);
+  const generateSuggestionsAction = useAction(api.ai.generateSuggestions.generate);
+  const generatePromptStrategyAction = useAction(api.ai.generatePromptStrategy.generate);
+  const generateEssayFeedbackAction = useAction(api.ai.generateEssayFeedback.generate);
+  const restoreVersionMutation = useMutation(api.essays.restoreVersion);
+  const addExperienceUsageMutation = useMutation(api.experienceBank.addUsage);
+  const experienceUsages = useQuery(api.experienceBank.getUsages) ?? [];
+
+  // Transform Convex data to match existing UI types
+  const colleges: College[] = useMemo(() => {
+    return convexColleges.map((c: any) => ({
+      id: c._id,
+      name: c.name,
+      applicationType: c.applicationType,
+      deadline: c.deadline,
+      essays: c.prompts.map((p: any) => ({
+        id: p.essay?._id || p._id,
+        promptId: p._id,
+        title: p.text.length > 50 ? p.text.substring(0, 50) + '...' : p.text,
+        prompt: p.text,
+        status: (p.essay?.status || 'not-started') as Essay['status'],
+        wordCount: p.essay?.wordCount || 0,
+        wordLimit: p.wordCountMax,
+        content: p.essay?.content || '',
+        promptType: p.promptType,
+      })),
+    }));
+  }, [convexColleges]);
+
+  const experienceIndex = useMemo(() => {
+    const map = new Map<string, { name: string; tags: string[] }>();
+    (storyIdentityData?.experiences || []).forEach((experience: any) => {
+      map.set(experience._id, {
+        name: experience.name,
+        tags: experience.tags,
+      });
+    });
+    return map;
+  }, [storyIdentityData]);
+
+  const experienceUsageMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    experienceUsages.forEach((usage: any) => {
+      const current = map.get(usage.experienceId) ?? [];
+      current.push(usage.essayId);
+      map.set(usage.experienceId, current);
+    });
+    return map;
+  }, [experienceUsages]);
+
   // State
   const [expandedColleges, setExpandedColleges] = useState<Set<string>>(new Set());
   const [activeEssay, setActiveEssay] = useState<{ collegeId: string; essayId: string } | null>(null);
@@ -726,6 +315,14 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
   const [isEditorMinimized, setIsEditorMinimized] = useState(false);
   const [selectedExperience, setSelectedExperience] = useState<string | null>(null);
   const [lockedExperience, setLockedExperience] = useState<string | null>(null);
+  const strategyAttempts = useRef<Set<string>>(new Set());
+  const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
+  const [strategyError, setStrategyError] = useState<string | null>(null);
+  const [feedbackType, setFeedbackType] = useState<FeedbackType>('overall');
+  const [feedbackResult, setFeedbackResult] = useState<any | null>(null);
+  const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [previewVersion, setPreviewVersion] = useState<Version | null>(null);
 
   // Smart Reuse state
   const [excerptUsages, setExcerptUsages] = useState<ExcerptUsageRecord[]>([]);
@@ -744,11 +341,15 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
   // Workspace tab state: 'write' or 'personal-lens'
   const [workspaceTab, setWorkspaceTab] = useState<'write' | 'personal-lens'>('write');
 
-  // Personal Lens notes state
-  const [personalLensNotes, setPersonalLensNotes] = useState<PersonalLensNote[]>([
-    { id: 'pl1', content: 'The way my dad hums while cooking—it reminds me that joy doesn\'t need an audience.', category: 'observation', createdAt: new Date() },
-    { id: 'pl2', content: 'Translating for my grandmother at the doctor\'s office made me realize how much trust she places in me.', category: 'responsibility', createdAt: new Date() },
-  ]);
+  // Personal Lens notes - from Convex
+  const personalLensNotes: PersonalLensNote[] = useMemo(() => {
+    return convexLensNotes.map((n: any) => ({
+      id: n._id,
+      content: n.content,
+      category: n.category as PersonalLensNote['category'],
+      createdAt: new Date(n._creationTime),
+    }));
+  }, [convexLensNotes]);
   const [newNoteContent, setNewNoteContent] = useState('');
   const [newNoteCategory, setNewNoteCategory] = useState<PersonalLensNote['category']>('moment');
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -772,11 +373,91 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
   const { showOnboarding, setShowOnboarding, completeOnboarding, resetOnboarding } = useOnboardingState();
 
   // Derived state
-  const currentCollege = activeEssay ? mockColleges.find(c => c.id === activeEssay.collegeId) : null;
+  const currentCollege = activeEssay ? colleges.find(c => c.id === activeEssay.collegeId) : null;
   const currentEssay = currentCollege?.essays.find(e => e.id === activeEssay?.essayId);
+  const currentEssayId = currentEssay?.id;
+  const currentPromptId = currentEssay?.promptId;
+  const promptStrategy = useQuery(
+    api.ai.generatePromptStrategy.getForPrompt,
+    currentPromptId ? { promptId: currentPromptId as Id<"prompts"> } : "skip"
+  );
+  const reuseSuggestions = useQuery(
+    api.experienceBank.getReuseSuggestions,
+    currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
+  ) ?? [];
+  const essayVersions = useQuery(
+    api.essays.getVersions,
+    currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
+  ) ?? [];
+  const essayFeedback = useQuery(
+    api.ai.generateEssayFeedback.getForEssay,
+    currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
+  ) ?? [];
   const wordLimit = currentEssay?.wordLimit || 650;
   const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
   const isOverLimit = wordCount > wordLimit;
+
+  const experienceSuggestions: (StoryExperience & { guidance: PromptFitGuidance })[] = useMemo(() => {
+    if (!promptStrategy?.experienceMatches) return [];
+    return promptStrategy.experienceMatches.map((match: any) => {
+      const experience = experienceIndex.get(match.experienceId);
+      const usedIn = experienceUsageMap.get(match.experienceId) ?? [];
+      return {
+        id: match.experienceId,
+        name: experience?.name || match.experienceName || "Experience",
+        tags: experience?.tags || [],
+        usedIn,
+        guidance: {
+          matchStrength: match.matchStrength || 'moderate',
+          whyItFits: match.whyItFits || '',
+          framingTips: match.framingTips || [],
+          caution: match.caution,
+          startWith: match.startWith,
+          focusOn: match.focusOn,
+          avoidFocus: match.avoidFocus,
+          starterSentences: match.starterSentences,
+        },
+      };
+    });
+  }, [promptStrategy, experienceIndex, experienceUsageMap]);
+
+  const versionsForDisplay: Version[] = useMemo(() => {
+    return essayVersions.map((version: any) => {
+      const previewText = version.content.length > 120
+        ? `${version.content.substring(0, 120)}...`
+        : version.content;
+      const timestamp = new Date(version.timestamp).toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+      return {
+        id: version._id,
+        timestamp,
+        wordCount: version.wordCount,
+        preview: previewText,
+        content: version.content,
+        isCurrent: version.content === currentEssay?.content,
+      };
+    });
+  }, [essayVersions, currentEssay?.content]);
+
+  const feedbackForType = useMemo(() => {
+    if (!essayFeedback) return [];
+    return essayFeedback.filter((entry: any) => entry.feedbackType === feedbackType);
+  }, [essayFeedback, feedbackType]);
+
+  const parsedStoredFeedback = useMemo(() => {
+    if (!feedbackForType || feedbackForType.length === 0) return null;
+    try {
+      return JSON.parse(feedbackForType[0].feedback);
+    } catch {
+      return null;
+    }
+  }, [feedbackForType]);
+
+  const displayedFeedback = feedbackResult ?? parsedStoredFeedback;
 
   // Load essay content when active essay changes
   useEffect(() => {
@@ -785,17 +466,60 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
     }
   }, [activeEssay?.essayId]);
 
-  // Simulated autosave
   useEffect(() => {
-    if (content && activeEssay) {
+    setSelectedExperience(null);
+    setLockedExperience(null);
+    setShowStarterHelper(false);
+    setFeedbackResult(null);
+    setFeedbackError(null);
+    setStrategyError(null);
+    setPreviewVersion(null);
+    setGeneratedSuggestions([]);
+  }, [currentEssayId]);
+
+  useEffect(() => {
+    if (!currentPromptId) return;
+    if (promptStrategy === undefined) return;
+    if (promptStrategy !== null) return;
+    if (strategyAttempts.current.has(currentPromptId)) return;
+
+    strategyAttempts.current.add(currentPromptId);
+    setIsGeneratingStrategy(true);
+    setStrategyError(null);
+    generatePromptStrategyAction({ promptId: currentPromptId as Id<"prompts"> })
+      .catch((error) => {
+        console.error("Failed to generate prompt strategy:", error);
+        setStrategyError("Unable to generate strategy right now.");
+      })
+      .finally(() => {
+        setIsGeneratingStrategy(false);
+      });
+  }, [currentPromptId, promptStrategy, generatePromptStrategyAction]);
+
+  useEffect(() => {
+    setFeedbackResult(null);
+    setFeedbackError(null);
+  }, [feedbackType]);
+
+  // Autosave to Convex
+  useEffect(() => {
+    if (content !== undefined && currentEssayId) {
       setIsSaving(true);
-      const timer = setTimeout(() => {
-        setLastSaved(new Date());
+      const timer = setTimeout(async () => {
+        try {
+          await saveEssayMutation({
+            essayId: currentEssayId as Id<"essays">,
+            content,
+          });
+          setLastSaved(new Date());
+        } catch (e) {
+          console.error("Autosave failed:", e);
+        }
         setIsSaving(false);
-      }, 1000);
+      }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [content, activeEssay]);
+  }, [content, currentEssayId, saveEssayMutation]);
 
   // Handlers
   const toggleCollegeExpanded = (collegeId: string) => {
@@ -858,83 +582,74 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
   // Smart Reuse: Get matching excerpts for current prompt (cross-school only)
   const getSmartReuseExcerpts = () => {
     if (!currentEssay || !currentCollege) return [];
+    const themeLabels: Record<string, string> = {
+      responsibility: 'responsibility',
+      impact: 'meaningful impact',
+      decision: 'decision-making',
+      growth: 'personal growth',
+      failure: 'learning from setbacks',
+      resilience: 'resilience',
+      leadership: 'leadership',
+      challenge: 'facing challenges',
+      setback: 'overcoming setbacks',
+      community: 'community focus',
+      contribution: 'contribution',
+      purpose: 'sense of purpose',
+      intellectual: 'intellectual curiosity',
+      curiosity: 'curiosity',
+      interdisciplinary: 'interdisciplinary thinking',
+      identity: 'identity',
+      culture: 'culture',
+      service: 'service',
+      family: 'family',
+      values: 'values',
+    };
 
-    const promptThemes = promptThemeMap[currentEssay.id] || [];
-    const currentPromptType = currentEssay.promptType; // e.g., 'why-college'
-
-    // Filter: only from DIFFERENT schools, not dismissed, has theme overlap OR same prompt type
-    return reusableExcerpts
-      .filter(exc => {
-        // Must be from different school
-        if (exc.sourceCollegeId === currentCollege.id) return false;
-        // Must not be dismissed for this essay
-        if (dismissedExcerpts.has(`${exc.id}-${currentEssay.id}`)) return false;
-        // Has thematic overlap OR same prompt type
-        const hasOverlap = exc.themes.some(t =>
-          promptThemes.some(pt => t.includes(pt) || pt.includes(t))
-        );
-        const hasSamePromptType = currentPromptType && exc.promptType === currentPromptType;
-        return hasOverlap || hasSamePromptType;
+    return reuseSuggestions
+      .filter((suggestion: any) => {
+        if (dismissedExcerpts.has(`${suggestion.excerptId}-${currentEssay.id}`)) return false;
+        return true;
       })
-      .map(exc => {
-        // Check if already reused at this same school (different essay)
+      .map((suggestion: any) => {
         const sameSchoolReuse = excerptUsages.find(u =>
-          u.excerptId === exc.id &&
+          u.excerptId === suggestion.excerptId &&
           u.targetCollegeId === currentCollege.id &&
           u.targetEssayId !== currentEssay.id
         );
 
-        // Generate "why it works" based on overlapping themes
-        const overlappingThemes = exc.themes.filter(t =>
-          promptThemes.some(pt => t.includes(pt) || pt.includes(t))
-        );
-        const themeLabels: Record<string, string> = {
-          'responsibility': 'responsibility',
-          'impact': 'meaningful impact',
-          'decision': 'decision-making',
-          'growth': 'personal growth',
-          'failure': 'learning from setbacks',
-          'resilience': 'resilience',
-          'leadership': 'leadership',
-          'challenge': 'facing challenges',
-          'setback': 'overcoming setbacks',
-          'community': 'community focus',
-          'contribution': 'contribution',
-          'purpose': 'sense of purpose',
-          'intellectual': 'intellectual curiosity',
-          'curiosity': 'curiosity',
-          'interdisciplinary': 'interdisciplinary thinking'
-        };
-
-        // For same prompt type from other colleges, create a more specific message
-        const hasSamePromptType = currentPromptType && exc.promptType === currentPromptType;
-        let whyItWorks: string;
+        const overlapThemes = suggestion.overlapThemes || [];
+        const hasSamePromptType = !!suggestion.matchesSamePromptType;
+        let whyItWorks = "This excerpt aligns with the prompt themes you're working with.";
 
         if (hasSamePromptType) {
-          whyItWorks = `This is from another "${exc.promptType === 'why-college' ? 'Why This School' : exc.promptType}" essay. The framing and insights may transfer well.`;
-        } else {
-          const descriptions = overlappingThemes.slice(0, 2).map(t => themeLabels[t] || t);
+          whyItWorks = `This is from another "${suggestion.promptType === 'why-college' ? 'Why This School' : suggestion.promptType}" essay. The framing and insights may transfer well.`;
+        } else if (overlapThemes.length > 0) {
+          const descriptions = overlapThemes.slice(0, 2).map((t: string) => themeLabels[t] || t);
           whyItWorks = descriptions.length === 1
             ? `This excerpt reflects ${descriptions[0]}, which aligns with what this prompt is asking.`
             : `This excerpt reflects ${descriptions.join(' and ')}, which aligns with what this prompt is asking.`;
         }
 
         return {
-          ...exc,
+          id: suggestion.excerptId,
+          sourceEssayId: suggestion.sourceEssayId,
+          sourceEssayTitle: suggestion.sourceEssayTitle,
+          sourceCollegeId: suggestion.sourceCollegeId,
+          sourceCollegeName: suggestion.sourceCollegeName,
+          excerpt: suggestion.excerpt,
+          themes: suggestion.themes || [],
+          promptType: suggestion.promptType,
+          overlapThemes,
+          matchesSamePromptType: hasSamePromptType,
           whyItWorks,
           sameSchoolWarning: sameSchoolReuse
             ? `You've already reused a similar passage for "${sameSchoolReuse.targetEssayTitle}". Consider focusing on a different moment or insight here.`
             : undefined,
-          matchesSamePromptType: hasSamePromptType
-        };
+        } as ReusableExcerpt;
       })
-      // Prioritize: same prompt type first, then deprioritize same-school warnings
       .sort((a, b) => {
-        // First priority: same prompt type (from other colleges)
         if (a.matchesSamePromptType && !b.matchesSamePromptType) return -1;
         if (!a.matchesSamePromptType && b.matchesSamePromptType) return 1;
-
-        // Second priority: deprioritize same-school warnings
         if (a.sameSchoolWarning && !b.sameSchoolWarning) return 1;
         if (!a.sameSchoolWarning && b.sameSchoolWarning) return -1;
         return 0;
@@ -942,7 +657,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
   };
 
   // Handle inserting excerpt as reference
-  const handleInsertAsReference = (excerpt: ReusableExcerpt & { whyItWorks: string }) => {
+  const handleInsertAsReference = (excerpt: ReusableExcerpt) => {
     if (!currentCollege || !currentEssay) return;
 
     // Track the usage
@@ -981,21 +696,18 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
   };
 
   // Personal Lens handlers
-  const handleAddPersonalLensNote = () => {
+  const handleAddPersonalLensNote = async () => {
     if (!newNoteContent.trim()) return;
-    const newNote: PersonalLensNote = {
-      id: `pl-${Date.now()}`,
+    await addLensNoteMutation({
       content: newNoteContent.trim(),
       category: newNoteCategory,
-      createdAt: new Date()
-    };
-    setPersonalLensNotes(prev => [newNote, ...prev]);
+    });
     setNewNoteContent('');
     setNewNoteCategory('moment');
   };
 
-  const handleDeletePersonalLensNote = (noteId: string) => {
-    setPersonalLensNotes(prev => prev.filter(n => n.id !== noteId));
+  const handleDeletePersonalLensNote = async (noteId: string) => {
+    await deleteLensNoteMutation({ id: noteId as Id<"personalLensNotes"> });
   };
 
   const handleEditPersonalLensNote = (noteId: string) => {
@@ -1006,11 +718,12 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
     }
   };
 
-  const handleSaveEditedNote = () => {
+  const handleSaveEditedNote = async () => {
     if (!editingNoteId || !editingNoteContent.trim()) return;
-    setPersonalLensNotes(prev => prev.map(n =>
-      n.id === editingNoteId ? { ...n, content: editingNoteContent.trim() } : n
-    ));
+    await updateLensNoteMutation({
+      id: editingNoteId as Id<"personalLensNotes">,
+      content: editingNoteContent.trim(),
+    });
     setEditingNoteId(null);
     setEditingNoteContent('');
   };
@@ -1024,42 +737,26 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
   };
 
   // Generate story suggestions from a Personal Lens note
-  // Generate story suggestions from a Personal Lens note
   const handleGenerateSuggestionsFromNote = async (note: PersonalLensNote) => {
-    // Determine the current essay prompt if available, otherwise generic
-    const promptText = currentEssay?.prompt || "How does your background shape your story?";
-
-    // Optimistic UI or Loading state could be added here
     try {
-      const response = await fetch('/api/generate-suggestions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt_text: promptText,
-          essay_content: `Context: This user has a personal lens note about: ${note.content} (Category: ${note.category})`
-        })
-      });
+      if (currentPromptId) {
+        const result = await generateSuggestionsAction({
+          promptId: currentPromptId as Id<"prompts">,
+          essayContent: `Context: This user has a personal lens note about: ${note.content} (Category: ${note.category}). Current essay content: ${content || "(not started)"}`,
+        });
 
-      if (!response.ok) throw new Error("Failed to fetch suggestion");
-
-      const aiResponse = await response.json();
-      let parsedContent;
-      try {
-        parsedContent = JSON.parse(aiResponse.content);
-      } catch (e) {
-        parsedContent = { why_it_fits: aiResponse.content };
+        const suggestions = result?.suggestions || [];
+        for (const s of suggestions) {
+          const newSuggestion: GeneratedSuggestion = {
+            id: `gen-${Date.now()}-${Math.random()}`,
+            noteId: note.id,
+            noteContent: note.content,
+            suggestion: s.whyItFitsThisPrompt || "No suggestion generated.",
+            matchStrength: s.matchStrength || 'strong',
+          };
+          setGeneratedSuggestions(prev => [...prev, newSuggestion]);
+        }
       }
-
-      const newSuggestion: GeneratedSuggestion = {
-        id: `gen-${Date.now()}`,
-        noteId: note.id,
-        noteContent: note.content,
-        suggestion: parsedContent.why_it_fits || "No suggestion generated.",
-        matchStrength: 'strong'
-      };
-
-      setGeneratedSuggestions(prev => [...prev, newSuggestion]);
-
     } catch (e) {
       console.error("Failed to generate suggestion", e);
     }
@@ -1074,6 +771,53 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
   const handleDismissExperienceSuggestion = (experienceId: string) => {
     if (!currentEssay) return;
     setDismissedSuggestions(prev => new Set(prev).add(`exp-${experienceId}-${currentEssay.id}`));
+  };
+
+  const handleGeneratePromptStrategy = async () => {
+    if (!currentPromptId) return;
+    setIsGeneratingStrategy(true);
+    setStrategyError(null);
+    strategyAttempts.current.add(currentPromptId);
+    try {
+      await generatePromptStrategyAction({ promptId: currentPromptId as Id<"prompts"> });
+    } catch (error) {
+      console.error("Failed to generate prompt strategy:", error);
+      setStrategyError("Unable to generate strategy right now.");
+    } finally {
+      setIsGeneratingStrategy(false);
+    }
+  };
+
+  const handleGenerateFeedback = async () => {
+    if (!currentEssayId) return;
+    setIsGeneratingFeedback(true);
+    setFeedbackError(null);
+    try {
+      const result = await generateEssayFeedbackAction({
+        essayId: currentEssayId as Id<"essays">,
+        feedbackType,
+      });
+      setFeedbackResult(result);
+    } catch (error) {
+      console.error("Failed to generate feedback:", error);
+      setFeedbackError("Unable to generate feedback right now.");
+    } finally {
+      setIsGeneratingFeedback(false);
+    }
+  };
+
+  const handleRestoreVersion = async (version: Version) => {
+    if (!currentEssayId || !version.content) return;
+    try {
+      await restoreVersionMutation({
+        essayId: currentEssayId as Id<"essays">,
+        versionId: version.id as Id<"essayVersions">,
+      });
+      setContent(version.content);
+      setShowVersionHistory(false);
+    } catch (error) {
+      console.error("Failed to restore version:", error);
+    }
   };
 
   // Get Smart Reuse suggestions
@@ -1275,7 +1019,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                         const isValidDay = dayNumber >= 1 && dayNumber <= 31;
 
                         // Find colleges with deadlines on this day
-                        const collegesOnDay = mockColleges.filter(c => {
+                        const collegesOnDay = colleges.filter(c => {
                           if (!c.deadline) return false;
                           const dayMatch = c.deadline.match(/\d+/);
                           return dayMatch && parseInt(dayMatch[0]) === dayNumber;
@@ -1329,7 +1073,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                     <div className="mt-8">
                       <h3 className="text-body-sm font-medium text-foreground mb-3">Upcoming Deadlines</h3>
                       <div className="space-y-2">
-                        {mockColleges
+                        {colleges
                           .filter(c => c.deadline)
                           .sort((a, b) => {
                             const aDay = parseInt(a.deadline?.match(/\d+/)?.[0] || '99');
@@ -1362,7 +1106,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                       ? 'grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto'
                       : 'space-y-3'
                     }`}>
-                    {mockColleges.map((college) => {
+                    {colleges.map((college) => {
                       const deadlineApproaching = isDeadlineApproaching(college.deadline);
                       const essaySnapshot = getEssaySnapshot(college.essays);
                       const [essayCount, essayStatus] = essaySnapshot.split(' • ');
@@ -2085,9 +1829,56 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                             </div>
                           )}
 
+                          {/* Prompt Strategy */}
+                          {currentEssay && (
+                            <div className="rounded-lg bg-muted/20 p-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-body-sm font-semibold text-foreground uppercase tracking-wide flex items-center gap-2">
+                                  <Target className="w-4 h-4 text-primary" />
+                                  Prompt Strategy
+                                </h3>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={handleGeneratePromptStrategy}
+                                  disabled={!currentPromptId || isGeneratingStrategy}
+                                >
+                                  {promptStrategy ? 'Refresh' : 'Generate'}
+                                </Button>
+                              </div>
+
+                              {isGeneratingStrategy && (
+                                <p className="text-xs text-muted-foreground italic">
+                                  Generating a tailored approach for this prompt...
+                                </p>
+                              )}
+
+                              {!isGeneratingStrategy && promptStrategy?.approach && (
+                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                  {promptStrategy.approach}
+                                </p>
+                              )}
+
+                              {!isGeneratingStrategy && !promptStrategy && (
+                                <p className="text-xs text-muted-foreground italic">
+                                  No strategy yet. Generate one to get tailored guidance.
+                                </p>
+                              )}
+
+                              {strategyError && (
+                                <p className="text-xs text-destructive mt-2">{strategyError}</p>
+                              )}
+                            </div>
+                          )}
+
+                          {currentEssay && (
+                            <div className="my-4">
+                              <Separator className="bg-border/60" />
+                            </div>
+                          )}
+
                           {/* Section 3: Story Suggestions for This Prompt */}
                           {(() => {
-                            const experienceSuggestions = currentEssay ? getExperiencesForPrompt(currentEssay.id) : [];
                             const lockedExp = lockedExperience ? experienceSuggestions.find(e => e.id === lockedExperience) : null;
 
                             // If experience is locked in, show Section 4: Selected Angle
@@ -2182,7 +1973,11 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                                 {experienceSuggestions.length === 0 ? (
                                   <div className="space-y-3">
                                     <p className="text-xs text-muted-foreground italic">
-                                      No specific suggestions for this prompt yet. Write from your heart!
+                                      {isGeneratingStrategy
+                                        ? 'Generating suggestions for this prompt...'
+                                        : promptStrategy
+                                          ? 'No specific suggestions for this prompt yet. Write from your heart!'
+                                          : 'Generate a prompt strategy to get tailored suggestions.'}
                                     </p>
 
                                     {/* Contextual Personal Lens entry point */}
@@ -2210,8 +2005,9 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                                       .filter(exp => !dismissedSuggestions.has(`exp-${exp.id}-${currentEssay?.id}`))
                                       .map((experience) => {
                                         const isSelected = selectedExperience === experience.id;
-                                        const isUsedElsewhere = experience.usedIn.length > 0;
-                                        const isUsedInSameSchool = experience.usedIn.some(essayId =>
+                                        const usedInOtherEssays = experience.usedIn.filter(id => id !== currentEssay?.id);
+                                        const isUsedElsewhere = usedInOtherEssays.length > 0;
+                                        const isUsedInSameSchool = usedInOtherEssays.some(essayId =>
                                           currentCollege?.essays.some(e => e.id === essayId)
                                         );
 
@@ -2336,9 +2132,23 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
 
                                                       <button
                                                         className="w-full py-2 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-1.5"
-                                                        onClick={(e) => {
+                                                        onClick={async (e) => {
                                                           e.stopPropagation();
                                                           setLockedExperience(experience.id);
+                                                          if (currentEssayId && currentCollege && experienceIndex.has(experience.id)) {
+                                                            const alreadyUsed = (experienceUsageMap.get(experience.id) ?? []).includes(currentEssayId);
+                                                            if (!alreadyUsed) {
+                                                              try {
+                                                                await addExperienceUsageMutation({
+                                                                  experienceId: experience.id as Id<"experiences">,
+                                                                  essayId: currentEssayId as Id<"essays">,
+                                                                  collegeId: currentCollege.id as Id<"colleges">,
+                                                                });
+                                                              } catch (error) {
+                                                                console.error("Failed to track experience usage:", error);
+                                                              }
+                                                            }
+                                                          }
                                                           // Auto-populate editor with starter sentences if available
                                                           if (experience.guidance.starterSentences && experience.guidance.starterSentences.length > 0) {
                                                             const starterContent = experience.guidance.starterSentences.join(' ');
@@ -2364,9 +2174,109 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                             );
                           })()}
 
-
-
                           {/* (Related Writing section removed for cleaner experience) */}
+
+                          {/* Essay Feedback */}
+                          {currentEssay && (
+                            <>
+                              <div className="my-6">
+                                <Separator className="bg-border/60" />
+                              </div>
+                              <div className="rounded-lg bg-muted/20 p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <h3 className="text-body-sm font-semibold text-foreground uppercase tracking-wide flex items-center gap-2">
+                                    <Wand2 className="w-4 h-4 text-primary" />
+                                    Essay Feedback
+                                  </h3>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <Select
+                                    value={feedbackType}
+                                    onValueChange={(value) => setFeedbackType(value as FeedbackType)}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs w-32">
+                                      <SelectValue placeholder="Type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="overall">Overall</SelectItem>
+                                      <SelectItem value="opening">Opening</SelectItem>
+                                      <SelectItem value="structure">Structure</SelectItem>
+                                      <SelectItem value="voice">Voice</SelectItem>
+                                      <SelectItem value="specificity">Specificity</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handleGenerateFeedback}
+                                    disabled={!currentEssayId || isGeneratingFeedback}
+                                  >
+                                    {isGeneratingFeedback ? 'Generating...' : 'Get Feedback'}
+                                  </Button>
+                                </div>
+
+                                {feedbackError && (
+                                  <p className="text-xs text-destructive mt-2">{feedbackError}</p>
+                                )}
+
+                                {!displayedFeedback && !isGeneratingFeedback && (
+                                  <p className="text-xs text-muted-foreground mt-3 italic">
+                                    No feedback yet. Generate to get coaching.
+                                  </p>
+                                )}
+
+                                {displayedFeedback && (
+                                  <div className="mt-3 space-y-3">
+                                    {displayedFeedback.summary && (
+                                      <p className="text-xs text-foreground leading-relaxed">
+                                        {displayedFeedback.summary}
+                                      </p>
+                                    )}
+
+                                    {displayedFeedback.strengths?.length > 0 && (
+                                      <div>
+                                        <p className="text-xs font-medium text-foreground mb-1">Strengths</p>
+                                        <div className="space-y-1">
+                                          {displayedFeedback.strengths.slice(0, 3).map((strength: string, idx: number) => (
+                                            <p key={idx} className="text-xs text-muted-foreground">
+                                              • {strength}
+                                            </p>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {displayedFeedback.improvements?.length > 0 && (
+                                      <div>
+                                        <p className="text-xs font-medium text-foreground mb-1">Improvements</p>
+                                        <div className="space-y-2">
+                                          {displayedFeedback.improvements.slice(0, 2).map((item: any, idx: number) => (
+                                            <div key={idx} className="p-2 rounded-lg bg-background border border-border">
+                                              <p className="text-xs text-foreground mb-1">{item.issue}</p>
+                                              {item.suggestion && (
+                                                <p className="text-xs text-muted-foreground">
+                                                  Suggestion: {item.suggestion}
+                                                </p>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {displayedFeedback.nextStep && (
+                                      <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+                                        <p className="text-xs text-primary">
+                                          Next step: {displayedFeedback.nextStep}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          )}
 
                           {/* Section 8: Smart Reuse - Reusable Excerpts from Other Schools */}
                           {showSmartReuse && (
@@ -2505,8 +2415,43 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                   </button>
                 </div>
 
+                {previewVersion && (
+                  <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-body-sm font-medium text-foreground">
+                        Preview · {previewVersion.timestamp}
+                      </span>
+                      <button
+                        onClick={() => setPreviewVersion(null)}
+                        className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto text-body-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                      {previewVersion.content ?? ""}
+                    </div>
+                    <div className="mt-3 flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-primary hover:text-primary/80"
+                        onClick={() => handleRestoreVersion(previewVersion)}
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                        Restore this version
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-3">
-                  {mockVersions.map((version) => (
+                  {versionsForDisplay.length === 0 && (
+                    <p className="text-body-sm text-muted-foreground text-center">
+                      No versions yet.
+                    </p>
+                  )}
+                  {versionsForDisplay.map((version) => (
                     <div
                       key={version.id}
                       className={`p-4 rounded-xl border transition-all ${version.isCurrent
@@ -2532,18 +2477,26 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                       <p className="text-body-sm text-muted-foreground line-clamp-2 mb-3">
                         {version.preview}
                       </p>
-                      {!version.isCurrent && (
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                            <Eye className="w-3.5 h-3.5 mr-1.5" />
-                            Preview
-                          </Button>
-                          <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
-                            <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                            Restore
-                          </Button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={() => setPreviewVersion(version)}
+                        >
+                          <Eye className="w-3.5 h-3.5 mr-1.5" />
+                          Preview
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-primary hover:text-primary/80"
+                          onClick={() => handleRestoreVersion(version)}
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                          Restore
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
