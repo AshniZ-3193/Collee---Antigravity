@@ -19,7 +19,9 @@ export const generate = action({
     if (!user) throw new Error("User not found");
 
     // Get profile
-    const profile = await ctx.runQuery(api.userProfile.get);
+    const profile = await ctx.runQuery(api.userProfile.get, {
+      userId: user._id,
+    });
     if (!profile) throw new Error("No profile found - complete onboarding first");
 
     // Build context
@@ -50,7 +52,7 @@ ${profile.reflection || "Not provided"}
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.2-mini",
+      model: "gpt-5.2",
       messages: [
         { role: "system", content: STORY_IDENTITY_SYSTEM_PROMPT },
         { role: "user", content: userContext },

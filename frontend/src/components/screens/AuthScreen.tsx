@@ -39,7 +39,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
         });
         if (result.status === "complete") {
           await signIn.setActive({ session: result.createdSessionId });
-          onLogin?.();
+          // Navigation will be handled by the parent component watching auth state
         }
       } else {
         if (!signUp || !signUpLoaded) return;
@@ -50,7 +50,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
         });
         if (result.status === "complete") {
           await signUp.setActive({ session: result.createdSessionId });
-          onSignup?.();
+          // Navigation will be handled by the parent component watching auth state
         } else {
           // May need email verification
           setError("Please check your email to verify your account.");
@@ -70,14 +70,14 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
         if (!signIn || !signInLoaded) return;
         await signIn.authenticateWithRedirect({
           strategy: "oauth_google",
-          redirectUrl: "/",
+          redirectUrl: "/sso-callback",
           redirectUrlComplete: "/",
         });
       } else {
         if (!signUp || !signUpLoaded) return;
         await signUp.authenticateWithRedirect({
           strategy: "oauth_google",
-          redirectUrl: "/",
+          redirectUrl: "/sso-callback",
           redirectUrlComplete: "/",
         });
       }

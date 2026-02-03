@@ -30,7 +30,7 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
   onBack,
   onSave,
 }) => {
-  const storyIdentity = useQuery(api.storyIdentity.get);
+  const storyIdentity = useQuery(api.storyIdentity.get, {});
   const addExperience = useMutation(api.storyIdentity.addExperience);
   const updateExperience = useMutation(api.storyIdentity.updateExperience);
   const removeExperience = useMutation(api.storyIdentity.removeExperience);

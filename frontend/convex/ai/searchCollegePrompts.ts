@@ -23,13 +23,13 @@ export const search = action({
     const collegeName = args.collegeName;
 
     // Check cache first (using separate non-Node.js file)
-    const cached: { prompts: CollegePrompt[]; cachedAt: number } | null = await ctx.runQuery(api.ai.collegePromptsCache.getCached, {
+    const cached = await ctx.runQuery(api.ai.collegePromptsCache.getCached, {
       collegeName,
       applicationYear: year,
     });
 
     if (cached && Date.now() - cached.cachedAt < 30 * 24 * 60 * 60 * 1000) {
-      return cached.prompts;
+      return cached.prompts as CollegePrompt[];
     }
 
     // Search with Exa

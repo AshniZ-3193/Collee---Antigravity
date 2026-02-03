@@ -24,7 +24,9 @@ export const generate = action({
     const essay = await ctx.runQuery(api.essays.get, { essayId: args.essayId });
     if (!essay) throw new Error("Essay not found");
 
-    const storyIdentity = await ctx.runQuery(api.storyIdentity.get);
+    const storyIdentity = await ctx.runQuery(api.storyIdentity.get, {
+      userId: user._id,
+    });
 
     const context = `
 ESSAY CONTENT:

@@ -21,10 +21,18 @@ export const generate = action({
     if (!user) throw new Error("User not found");
 
     // Gather full user context
-    const profile = await ctx.runQuery(api.userProfile.get);
-    const storyIdentity = await ctx.runQuery(api.storyIdentity.get);
-    const lensNotes = await ctx.runQuery(api.personalLens.list);
-    const colleges = await ctx.runQuery(api.colleges.list);
+    const profile = await ctx.runQuery(api.userProfile.get, {
+      userId: user._id,
+    });
+    const storyIdentity = await ctx.runQuery(api.storyIdentity.get, {
+      userId: user._id,
+    });
+    const lensNotes = await ctx.runQuery(api.personalLens.list, {
+      userId: user._id,
+    });
+    const colleges = await ctx.runQuery(api.colleges.list, {
+      userId: user._id,
+    });
 
     // Build context string
     const context = `

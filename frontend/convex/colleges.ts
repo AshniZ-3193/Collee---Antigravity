@@ -3,22 +3,28 @@ import { v } from "convex/values";
 import { getUserId } from "./authHelpers";
 
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
+  args: { userId: v.optional(v.id("users")) },
+  handler: async (ctx, args) => {
+    let userId = args.userId;
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_token", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier)
-      )
-      .unique();
-    if (!user) return [];
+    if (!userId) {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) return [];
+
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_token", (q) =>
+          q.eq("tokenIdentifier", identity.tokenIdentifier)
+        )
+        .unique();
+      if (!user) return [];
+
+      userId = user._id;
+    }
 
     const colleges = await ctx.db
       .query("colleges")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
     // For each college, fetch prompts and essays

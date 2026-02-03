@@ -5,6 +5,72 @@ import ColleeLayout from '@/components/ColleeLayout';
 import { Upload, FileText, X } from 'lucide-react';
 import { useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min?url';
+import * as mammoth from 'mammoth/mammoth.browser';
+
+GlobalWorkerOptions.workerSrc = pdfjsWorker;
+
+const RESUME_MAX_CHARS = 6000;
+
+const normalizeText = (text: string) =>
+  text
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+const limitText = (text: string) => {
+  if (text.length <= RESUME_MAX_CHARS) return text;
+  return `${text.slice(0, RESUME_MAX_CHARS)}\n\n[Resume truncated to ${RESUME_MAX_CHARS} characters]`;
+};
+
+const parsePdf = async (file: File) => {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await getDocument({ data: arrayBuffer }).promise;
+  let output = '';
+
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const pageText = content.items
+      .map((item: any) => ('str' in item ? item.str : ''))
+      .join(' ');
+    output += `${pageText}\n`;
+  }
+
+  return output;
+};
+
+const parseDocx = async (file: File) => {
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  return result.value;
+};
+
+const parseTxt = async (file: File) => {
+  return await file.text();
+};
+
+const parseResumeFile = async (file: File) => {
+  const name = file.name.toLowerCase();
+  if (file.type === 'application/pdf' || name.endsWith('.pdf')) {
+    return await parsePdf(file);
+  }
+  if (
+    file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    name.endsWith('.docx')
+  ) {
+    return await parseDocx(file);
+  }
+  if (file.type.startsWith('text/') || name.endsWith('.txt')) {
+    return await parseTxt(file);
+  }
+  if (name.endsWith('.doc')) {
+    throw new Error('Legacy .doc files are not supported. Please upload .pdf or .docx.');
+  }
+  throw new Error('Unsupported file type. Please upload a .pdf or .docx file.');
+};
 
 interface ResumeScreenProps {
   onContinue: (data: string) => void;
@@ -14,6 +80,9 @@ interface ResumeScreenProps {
 const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack }) => {
   const [activities, setActivities] = useState('');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [resumeText, setResumeText] = useState('');
+  const [isParsingResume, setIsParsingResume] = useState(false);
+  const [resumeParseError, setResumeParseError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveOnboardingStep = useMutation(api.userProfile.saveOnboardingStep);
 
@@ -24,24 +93,45 @@ const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack }) => {
 • Took care of our family dog after school
 • Noticed how people in my neighborhood never really talked`;
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setUploadedFile(file);
-      // In a real implementation, this would parse the resume
-      // For now, we'll just acknowledge the upload
+      setResumeText('');
+      setResumeParseError(null);
+      setIsParsingResume(true);
+
+      try {
+        const rawText = await parseResumeFile(file);
+        const normalized = normalizeText(rawText);
+        setResumeText(limitText(normalized));
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Failed to parse resume. Please try another file.';
+        setResumeParseError(message);
+      } finally {
+        setIsParsingResume(false);
+      }
     }
   };
 
   const handleRemoveFile = () => {
     setUploadedFile(null);
+    setResumeText('');
+    setResumeParseError(null);
+    setIsParsingResume(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
   const handleContinue = async () => {
-    const data = uploadedFile ? `[Resume uploaded: ${uploadedFile.name}]\n${activities}` : activities;
+    const resumeBlock = resumeText
+      ? `RESUME (parsed):\n${resumeText}`
+      : uploadedFile
+        ? `[Resume uploaded: ${uploadedFile.name}]`
+        : '';
+    const data = [resumeBlock, activities].filter(Boolean).join('\n\n');
     await saveOnboardingStep({ activitiesText: data });
     onContinue(data);
   };
@@ -107,7 +197,13 @@ const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack }) => {
               <div className="text-left">
                 <p className="text-body-sm font-medium text-foreground">{uploadedFile.name}</p>
                 <p className="text-caption text-muted-foreground">
-                  We'll use this as a starting point
+                  {isParsingResume
+                    ? 'Parsing your resume...'
+                    : resumeParseError
+                      ? resumeParseError
+                      : resumeText
+                        ? `Parsed ${resumeText.split(/\s+/).filter(Boolean).length} words`
+                        : 'We will use this as a starting point'}
                 </p>
               </div>
             </div>

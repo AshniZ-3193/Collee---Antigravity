@@ -19,8 +19,12 @@ export const generate = action({
     });
     if (!user) throw new Error("User not found");
 
-    const storyIdentity = await ctx.runQuery(api.storyIdentity.get);
-    const colleges = await ctx.runQuery(api.colleges.list);
+    const storyIdentity = await ctx.runQuery(api.storyIdentity.get, {
+      userId: user._id,
+    });
+    const colleges = await ctx.runQuery(api.colleges.list, {
+      userId: user._id,
+    });
 
     // Find the prompt
     const allPrompts = colleges?.flatMap((c: any) => c.prompts) || [];

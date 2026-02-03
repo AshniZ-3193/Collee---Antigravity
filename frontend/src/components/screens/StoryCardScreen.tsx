@@ -12,7 +12,7 @@ interface StoryCardScreenProps {
 }
 
 const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak }) => {
-  const storyIdentity = useQuery(api.storyIdentity.get);
+  const storyIdentity = useQuery(api.storyIdentity.get, {});
 
   // Fallback data while loading
   const storyData = storyIdentity ? {

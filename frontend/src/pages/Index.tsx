@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useConvexAuth } from 'convex/react';
 import { useQuery } from 'convex/react';
-import { useClerk } from '@clerk/clerk-react';
+import { useClerk, useAuth } from '@clerk/clerk-react';
 import { api } from '../../convex/_generated/api';
 import { useStoreUserEffect } from '@/hooks/useStoreUserEffect';
 import HomeScreen from '@/components/screens/HomeScreen';
@@ -41,7 +41,8 @@ type Screen =
   | 'edit-story-identity';
 
 const Index = () => {
-  const { isAuthenticated: isConvexAuth } = useConvexAuth();
+  const { isAuthenticated: isConvexAuth, isLoading: isConvexLoading } = useConvexAuth();
+  const { isSignedIn, isLoaded: isClerkLoaded } = useAuth();
   const { isAuthenticated: isUserStored, isLoading: isUserLoading } = useStoreUserEffect();
   const { signOut } = useClerk();
 
@@ -56,13 +57,43 @@ const Index = () => {
   );
 
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
+  const hasNavigatedAfterAuth = useRef(false);
 
-  // Auto-navigate based on auth state
+  // Watch for auth state changes and navigate accordingly
   useEffect(() => {
-    if (!isConvexAuth && currentScreen !== 'home' && currentScreen !== 'auth') {
+    // Don't do anything while loading
+    if (!isClerkLoaded || isConvexLoading || isUserLoading) {
+      return;
+    }
+
+    // If user is authenticated and on home or auth screen, navigate based on their profile
+    // This handles both: 1) completing auth on auth screen, 2) returning from OAuth redirect to home
+    if (isSignedIn && isUserStored && (currentScreen === 'auth' || currentScreen === 'home') && !hasNavigatedAfterAuth.current) {
+      hasNavigatedAfterAuth.current = true;
+      
+      if (storyIdentity) {
+        setCurrentScreen('workspace');
+      } else if (profile?.onboardingComplete) {
+        setCurrentScreen('loading'); // Re-generate story identity
+      } else {
+        setCurrentScreen('welcome');
+      }
+    }
+
+    // If user signed out, go back to home
+    if (!isSignedIn && currentScreen !== 'home' && currentScreen !== 'auth') {
+      hasNavigatedAfterAuth.current = false;
       setCurrentScreen('home');
     }
-  }, [isConvexAuth]);
+  }, [isClerkLoaded, isConvexLoading, isUserLoading, isSignedIn, isUserStored, currentScreen, storyIdentity, profile]);
+
+  // Reset the navigation flag only when going to auth screen (user explicitly starting auth flow)
+  // Don't reset when going to home - that would cause re-navigation for intentional home visits
+  useEffect(() => {
+    if (currentScreen === 'auth') {
+      hasNavigatedAfterAuth.current = false;
+    }
+  }, [currentScreen]);
 
   const navigateTo = (screen: Screen) => {
     setCurrentScreen(screen);
@@ -70,23 +101,6 @@ const Index = () => {
 
   const handleGoHome = () => {
     navigateTo('home');
-  };
-
-  // Handle successful login
-  const handleLogin = () => {
-    // Auth state will update via Clerk - check if onboarding is complete
-    if (storyIdentity) {
-      navigateTo('workspace');
-    } else if (profile?.onboardingComplete) {
-      navigateTo('loading'); // Re-generate story identity
-    } else {
-      navigateTo('welcome');
-    }
-  };
-
-  // Handle successful signup
-  const handleSignup = () => {
-    navigateTo('welcome');
   };
 
   // Handle onboarding completion
@@ -115,8 +129,10 @@ const Index = () => {
           <HomeScreen
             onGetStarted={() => navigateTo('auth')}
             onLogin={() => {
-              if (isUserStored) {
-                // Already logged in, route appropriately
+              // Always go to auth screen - let auth state detection handle routing
+              // after successful authentication
+              if (isClerkLoaded && isSignedIn && isUserStored) {
+                // User is already logged in, route appropriately
                 if (storyIdentity) {
                   navigateTo('workspace');
                 } else {
@@ -131,8 +147,6 @@ const Index = () => {
 
         {currentScreen === 'auth' && (
           <AuthScreen
-            onLogin={handleLogin}
-            onSignup={handleSignup}
             onLogoClick={handleGoHome}
           />
         )}

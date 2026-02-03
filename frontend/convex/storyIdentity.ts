@@ -3,34 +3,40 @@ import { v } from "convex/values";
 import { getUserId } from "./authHelpers";
 
 export const get = query({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
+  args: { userId: v.optional(v.id("users")) },
+  handler: async (ctx, args) => {
+    let userId = args.userId;
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_token", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier)
-      )
-      .unique();
-    if (!user) return null;
+    if (!userId) {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) return null;
+
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_token", (q) =>
+          q.eq("tokenIdentifier", identity.tokenIdentifier)
+        )
+        .unique();
+      if (!user) return null;
+
+      userId = user._id;
+    }
 
     const storyIdentity = await ctx.db
       .query("storyIdentities")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .unique();
 
     if (!storyIdentity) return null;
 
     const experiences = await ctx.db
       .query("experiences")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
     const pillars = await ctx.db
       .query("storyPillars")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
     return {

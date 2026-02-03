@@ -241,9 +241,9 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
   onLogout,
 }) => {
   // Convex queries
-  const convexColleges = useQuery(api.colleges.list) ?? [];
-  const storyIdentityData = useQuery(api.storyIdentity.get);
-  const convexLensNotes = useQuery(api.personalLens.list) ?? [];
+  const convexColleges = useQuery(api.colleges.list, {}) ?? [];
+  const storyIdentityData = useQuery(api.storyIdentity.get, {});
+  const convexLensNotes = useQuery(api.personalLens.list, {}) ?? [];
   const saveEssayMutation = useMutation(api.essays.save);
   const addLensNoteMutation = useMutation(api.personalLens.add);
   const updateLensNoteMutation = useMutation(api.personalLens.update);
