@@ -66,6 +66,7 @@ import {
   PenLine,
   Calendar,
   Wand2,
+  Link2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -76,7 +77,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import ColleeLogo from '@/components/ColleeLogo';
 import ThemeToggle from '@/components/ThemeToggle';
-import { Pencil as EditIcon, Link2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import OnboardingWalkthrough, { useOnboardingState } from '@/components/OnboardingWalkthrough';
@@ -924,7 +924,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="cursor-pointer" onClick={onEditStoryIdentity}>
-                  <EditIcon className="w-4 h-4 mr-2" />
+                  <Pencil className="w-4 h-4 mr-2" />
                   Edit Story Identity
                 </DropdownMenuItem>
                 <DropdownMenuItem className="cursor-pointer">
@@ -1573,7 +1573,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                                           className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                                           title="Edit"
                                         >
-                                          <EditIcon className="w-3.5 h-3.5" />
+                                          <Pencil className="w-3.5 h-3.5" />
                                         </button>
                                         <button
                                           onClick={() => handleDeletePersonalLensNote(note.id)}
@@ -1722,7 +1722,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                                 className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                                 title="Edit prompt"
                               >
-                                <EditIcon className="w-3.5 h-3.5" />
+                                <Pencil className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </div>
