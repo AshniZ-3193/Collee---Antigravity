@@ -48,3 +48,5 @@ Your personal admissions copilot.
 
 - **Database**: The `collee.db` SQLite file is automatically created in the root directory on the first run.
 - **AI Suggestions**: Ensure the OpenAI API Key in `app/services/ai_service.py` is valid.
+
+TESTING
