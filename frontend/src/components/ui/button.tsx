@@ -16,8 +16,8 @@ const buttonVariants = cva(
         ghost: "hover:bg-muted hover:text-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         // Collee specific variants
-        collee: "bg-primary text-primary-foreground hover:bg-primary-hover shadow-soft-md active:scale-[0.98] py-4 px-8 text-lg font-medium",
-        "collee-accent": "bg-secondary text-secondary-foreground hover:bg-secondary-hover shadow-soft-md active:scale-[0.98] py-4 px-8 text-lg font-medium",
+        collee: "text-primary-foreground shadow-soft-md active:scale-[0.98] py-4 px-8 text-lg font-medium hover:shadow-glow" + " [background:var(--gradient-primary)] hover:brightness-110",
+        "collee-accent": "text-secondary-foreground shadow-soft-md active:scale-[0.98] py-4 px-8 text-lg font-medium hover:shadow-warm" + " [background:var(--gradient-accent)] hover:brightness-110",
         "collee-secondary": "bg-muted text-foreground hover:bg-muted/80 border border-border py-3 px-6",
         "collee-ghost": "text-muted-foreground hover:text-foreground hover:bg-muted py-3 px-4",
         "collee-outline": "border-2 border-border bg-transparent text-foreground hover:bg-muted hover:border-primary/30 py-3 px-6",

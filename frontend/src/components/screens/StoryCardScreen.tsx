@@ -1,5 +1,5 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Check, Download, Share2, AlertTriangle, Sparkles, Target, User, Lightbulb } from 'lucide-react';
 import ColleeLogo from '@/components/ColleeLogo';
@@ -13,8 +13,14 @@ interface StoryCardScreenProps {
 
 const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak }) => {
   const storyIdentity = useQuery(api.storyIdentity.get, {});
+  const [showCards, setShowCards] = useState(false);
 
-  // Fallback data while loading
+  // Trigger card reveal after splash
+  React.useEffect(() => {
+    const timer = setTimeout(() => setShowCards(true), 1800);
+    return () => clearTimeout(timer);
+  }, []);
+
   const storyData = storyIdentity ? {
     angle: storyIdentity.angle,
     pillars: storyIdentity.pillars?.map((p: any) => p.theme) || [],
@@ -36,7 +42,7 @@ const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak })
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: { staggerChildren: 0.1 }
+      transition: { staggerChildren: 0.15 }
     }
   };
 
@@ -47,11 +53,38 @@ const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak })
 
   return (
     <div className="min-h-screen bg-background px-6 py-12">
+      {/* Splash reveal */}
+      <AnimatePresence>
+        {!showCards && (
+          <motion.div
+            className="fixed inset-0 z-50 bg-background flex items-center justify-center"
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <motion.div
+              className="text-center"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5 }}
+            >
+              <motion.div
+                animate={{ y: [0, -4, 0] }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                className="mb-6"
+              >
+                <ColleeLogo size="md" />
+              </motion.div>
+              <h2 className="font-display text-display-sm text-foreground">Your story is ready</h2>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Top Logo */}
       <motion.div
         className="flex justify-center mb-8"
         initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
+        animate={{ opacity: showCards ? 1 : 0, y: showCards ? 0 : -10 }}
         transition={{ duration: 0.4 }}
       >
         <ColleeLogo size="sm" />
@@ -61,14 +94,14 @@ const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak })
         className="w-full max-w-content mx-auto"
         variants={containerVariants}
         initial="hidden"
-        animate="visible"
+        animate={showCards ? "visible" : "hidden"}
       >
         {/* Header */}
         <motion.div variants={itemVariants} className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/10 mb-4">
             <Sparkles className="w-7 h-7 text-primary" />
           </div>
-          <h1 className="text-display-sm text-foreground mb-2">
+          <h1 className="font-display text-display-sm text-foreground mb-2">
             Your Story Identity
           </h1>
           <p className="text-body-lg text-muted-foreground">
@@ -78,46 +111,56 @@ const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak })
 
         {/* Story Cards */}
         <div className="space-y-6">
-          {/* Application Angle */}
+          {/* Application Angle - editorial feel */}
           <motion.div
             variants={itemVariants}
-            className="bg-card rounded-2xl border border-border p-6 shadow-soft"
+            className="bg-card rounded-2xl border border-border p-8 shadow-soft"
           >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center">
                 <Target className="w-4 h-4 text-primary" />
               </div>
               <h3 className="text-heading-sm text-foreground">Application Angle</h3>
             </div>
-            <p className="text-body-lg text-foreground leading-relaxed">
-              "{storyData.angle}"
-            </p>
+            <div className="relative pl-4">
+              {/* Decorative quote marks */}
+              <span className="absolute -left-1 -top-2 text-4xl font-display text-primary/15 select-none leading-none" aria-hidden="true">"</span>
+              <p className="font-display italic text-body-lg text-foreground leading-relaxed">
+                {storyData.angle}
+              </p>
+            </div>
           </motion.div>
 
-          {/* Story Pillars */}
+          {/* Story Pillars with timeline connector */}
           {storyData.pillars.length > 0 && (
             <motion.div
               variants={itemVariants}
-              className="bg-card rounded-2xl border border-border p-6 shadow-soft"
+              className="bg-card rounded-2xl border border-border p-8 shadow-soft"
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center">
                   <Lightbulb className="w-4 h-4 text-primary" />
                 </div>
                 <h3 className="text-heading-sm text-foreground">Story Pillars</h3>
               </div>
-              <p className="text-body-sm text-muted-foreground mb-4">
+              <p className="text-body-sm text-muted-foreground mb-5">
                 The themes that run through your experiences
               </p>
-              <div className="space-y-3">
-                {storyData.pillars.map((pillar: string, index: number) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-caption font-medium text-primary">{index + 1}</span>
+              <div className="relative">
+                {/* Vertical timeline connector */}
+                {storyData.pillars.length > 1 && (
+                  <div className="absolute left-3 top-4 bottom-4 w-px bg-gradient-to-b from-primary/20 via-primary/10 to-transparent" aria-hidden="true" />
+                )}
+                <div className="space-y-4">
+                  {storyData.pillars.map((pillar: string, index: number) => (
+                    <div key={index} className="flex items-start gap-4">
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/15 flex items-center justify-center flex-shrink-0 mt-0.5 relative z-10">
+                        <span className="text-caption font-semibold text-primary">{index + 1}</span>
+                      </div>
+                      <p className="text-body text-foreground">{pillar}</p>
                     </div>
-                    <p className="text-body text-foreground">{pillar}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </motion.div>
           )}
@@ -125,16 +168,17 @@ const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak })
           {/* Voice Profile */}
           <motion.div
             variants={itemVariants}
-            className="bg-card rounded-2xl border border-border p-6 shadow-soft"
+            className="bg-card rounded-2xl border border-border p-8 shadow-soft"
           >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center">
                 <User className="w-4 h-4 text-primary" />
               </div>
               <h3 className="text-heading-sm text-foreground">Voice Profile</h3>
             </div>
             <div className="space-y-3">
-              <div className="inline-block px-3 py-1.5 rounded-full bg-muted text-body-sm font-medium text-foreground">
+              {/* Tone badge with gradient bg */}
+              <div className="inline-block px-4 py-1.5 rounded-full bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/10 text-body-sm font-medium text-foreground">
                 {storyData.voice.tone}
               </div>
               <p className="text-body text-muted-foreground leading-relaxed">
@@ -147,15 +191,15 @@ const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak })
           {storyData.distinct && (
             <motion.div
               variants={itemVariants}
-              className="bg-gradient-to-br from-primary/5 to-accent/5 rounded-2xl border border-primary/20 p-6"
+              className="bg-gradient-to-br from-primary/[0.06] via-secondary/[0.04] to-primary/[0.06] rounded-2xl border border-primary/20 p-8 shadow-glow"
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center">
                   <Sparkles className="w-4 h-4 text-primary" />
                 </div>
                 <h3 className="text-heading-sm text-foreground">What Makes You Distinct</h3>
               </div>
-              <p className="text-body-lg text-foreground leading-relaxed">
+              <p className="font-display text-heading-sm text-foreground leading-relaxed">
                 {storyData.distinct}
               </p>
             </motion.div>
@@ -165,9 +209,9 @@ const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak })
           {storyData.cautions.length > 0 && (
             <motion.div
               variants={itemVariants}
-              className="bg-card rounded-2xl border border-border p-6 shadow-soft"
+              className="bg-card rounded-2xl border border-border p-8 shadow-soft"
             >
-              <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-3 mb-5">
                 <div className="w-9 h-9 rounded-xl bg-accent flex items-center justify-center">
                   <AlertTriangle className="w-4 h-4 text-accent-foreground" />
                 </div>

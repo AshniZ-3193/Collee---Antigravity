@@ -82,8 +82,10 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
   return (
     <ColleeLayout showProgress currentStep={2} totalSteps={8}>
       <div className="text-center mb-10">
+        {/* Decorative gradient line */}
+        <div className="w-12 h-1 bg-gradient-to-r from-primary to-secondary rounded-full mx-auto mb-6" />
         <motion.h1
-          className="text-display-sm text-foreground mb-4"
+          className="font-display text-display-sm text-foreground mb-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
@@ -107,16 +109,16 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
         transition={{ delay: 0.2, duration: 0.4 }}
       >
         {/* Primary Interest */}
-        <div className="bg-card rounded-2xl border border-border p-6 shadow-soft">
+        <div className="bg-card rounded-2xl border border-border p-6 shadow-soft hover:shadow-soft-md transition-shadow">
           <label className="block text-body-sm font-medium text-foreground mb-3">
             Primary Academic Interest(s)
           </label>
-          
+
           <Popover open={isOpen} onOpenChange={setIsOpen}>
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="w-full bg-muted/50 rounded-xl border-0 px-4 py-4 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full bg-muted/50 rounded-xl border-0 px-4 py-4 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-background focus:shadow-sm transition-all"
               >
                 <span className={selectedMajors.length > 0 ? 'text-foreground' : 'text-foreground-subtle'}>
                   {selectedMajors.length > 0
@@ -126,8 +128,8 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
                 <ChevronDown className="h-5 w-5 text-muted-foreground" />
               </button>
             </PopoverTrigger>
-            <PopoverContent 
-              className="w-[var(--radix-popover-trigger-width)] p-0 bg-card border border-border shadow-lg z-50"
+            <PopoverContent
+              className="w-[var(--radix-popover-trigger-width)] p-0 bg-card border border-border shadow-soft-lg rounded-xl z-50"
               align="start"
             >
               <div className="max-h-64 overflow-y-auto p-2">
@@ -136,7 +138,7 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
                     key={major}
                     type="button"
                     onClick={() => toggleMajor(major)}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-left hover:bg-muted/50 transition-colors"
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left hover:bg-muted/50 transition-colors"
                   >
                     <span className="text-foreground">{major}</span>
                     {selectedMajors.includes(major) && (
@@ -148,12 +150,15 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
             </PopoverContent>
           </Popover>
 
-          {/* Selected majors chips */}
+          {/* Selected majors chips with animated entrance */}
           {selectedMajors.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-3">
-              {selectedMajors.map((major) => (
-                <span
+              {selectedMajors.map((major, index) => (
+                <motion.span
                   key={major}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.2, delay: index * 0.05 }}
                   className="inline-flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-full text-body-sm"
                 >
                   {major}
@@ -164,7 +169,7 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
-                </span>
+                </motion.span>
               ))}
             </div>
           )}
@@ -173,7 +178,7 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
           {selectedMajors.includes('Other') && (
             <input
               type="text"
-              className="w-full bg-muted/50 rounded-xl border-0 px-4 py-4 mt-3 text-foreground placeholder:text-foreground-subtle focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full bg-muted/50 rounded-xl border-0 px-4 py-4 mt-3 text-foreground placeholder:text-foreground-subtle focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-background focus:shadow-sm transition-all"
               placeholder="Type your interest..."
               value={otherMajor}
               onChange={(e) => setOtherMajor(e.target.value)}
@@ -182,7 +187,7 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
         </div>
 
         {/* Secondary Interest */}
-        <div className="bg-card rounded-2xl border border-border p-6 shadow-soft">
+        <div className="bg-card rounded-2xl border border-border p-6 shadow-soft hover:shadow-soft-md transition-shadow">
           <div className="flex items-center gap-2 mb-3">
             <label className="text-body-sm font-medium text-foreground">
               Secondary interest
@@ -193,7 +198,7 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
           </div>
           <input
             type="text"
-            className="w-full bg-muted/50 rounded-xl border-0 px-4 py-4 text-foreground placeholder:text-foreground-subtle focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full bg-muted/50 rounded-xl border-0 px-4 py-4 text-foreground placeholder:text-foreground-subtle focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-background focus:shadow-sm transition-all"
             placeholder="e.g., Music, Philosophy, Economics..."
             value={secondaryInterest}
             onChange={(e) => setSecondaryInterest(e.target.value)}
@@ -206,20 +211,20 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
 
       {/* Actions */}
       <motion.div
-        className="flex justify-between items-center mt-8"
+        className="flex justify-between items-center mt-8 pt-4 border-t border-border/50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.4 }}
       >
-        <Button 
-          variant="collee-ghost" 
+        <Button
+          variant="collee-ghost"
           onClick={onBack}
         >
           Back
         </Button>
-        
-        <Button 
-          variant="collee-accent" 
+
+        <Button
+          variant="collee-accent"
           size="collee-sm"
           onClick={async () => {
             const primary = getPrimaryString();
@@ -230,6 +235,7 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
             await saveOnboardingStep({ primaryInterests: majors, secondaryInterest });
             onContinue({ primary, secondary: secondaryInterest });
           }}
+          className="shadow-warm"
         >
           Continue
         </Button>

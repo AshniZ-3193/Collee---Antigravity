@@ -77,7 +77,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import ColleeLogo from '@/components/ColleeLogo';
 import ThemeToggle from '@/components/ThemeToggle';
-import { Separator } from '@/components/ui/separator';
+
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import OnboardingWalkthrough, { useOnboardingState } from '@/components/OnboardingWalkthrough';
 
@@ -888,7 +888,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* GLOBAL HEADER - Lightweight, persistent */}
-      <header className="h-12 border-b border-border bg-card/80 backdrop-blur-sm flex-shrink-0 z-30">
+      <header className="h-12 bg-card/80 backdrop-blur-md shadow-sm flex-shrink-0 z-30 relative">
         <div className="h-full px-4 flex items-center justify-between">
           {/* Left: LaunchPad logo/name - clicking returns to College Map */}
           <ColleeLogo
@@ -944,6 +944,8 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
             </DropdownMenu>
           </div>
         </div>
+        {/* Gradient bottom border */}
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/15 to-transparent" />
       </header>
 
       {/* MAIN CONTENT AREA */}
@@ -1211,7 +1213,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                             <>
                               <button
                                 onClick={() => toggleCollegeExpanded(college.id)}
-                                className="w-full p-3 text-left hover:bg-muted/50 transition-colors"
+                                className="w-full p-3 text-left hover:bg-muted/50 hover:shadow-soft transition-all"
                               >
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1 min-w-0">
@@ -1269,7 +1271,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                                             setIsEditorMinimized(false);
                                           }}
                                           className={`w-full p-2.5 rounded-lg text-left transition-all ${activeEssay?.essayId === essay.id
-                                              ? 'bg-primary/10 border border-primary/30'
+                                              ? 'bg-primary/10 border border-primary/30 border-l-2 border-l-primary'
                                               : 'hover:bg-muted/50 border border-transparent'
                                             }`}
                                         >
@@ -1341,7 +1343,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Top Header Bar with Tabs */}
             <motion.header
-              className="border-b border-border bg-card/80 backdrop-blur-sm flex-shrink-0 z-20"
+              className="border-b border-border bg-card/80 backdrop-blur-md shadow-sm flex-shrink-0 z-20"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
@@ -1371,7 +1373,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                   {workspaceTab === 'write' && (
                     <div className="hidden sm:flex items-center gap-2 text-body-sm text-muted-foreground mr-2">
                       {isSaving ? (
-                        <span className="animate-pulse">Saving...</span>
+                        <span className="animate-pulse-gentle text-primary">Saving...</span>
                       ) : (
                         <>
                           <Check className="w-3.5 h-3.5 text-primary" />
@@ -1805,7 +1807,15 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                     {/* Footer - Word Count */}
                     <div className="border-t border-border bg-card/50 px-6 py-3 flex items-center justify-between flex-shrink-0">
                       <div className="flex items-center gap-2">
-                        <span className={`text-body font-medium ${isOverLimit ? 'text-destructive' : 'text-foreground'}`}>
+                        <span className={`text-body font-medium transition-colors duration-300 ${
+                          isOverLimit
+                            ? 'text-destructive'
+                            : wordCount > wordLimit * 0.9
+                              ? 'text-amber-600 dark:text-amber-400'
+                              : wordCount > wordLimit * 0.5
+                                ? 'text-foreground'
+                                : 'text-emerald-600 dark:text-emerald-400'
+                        }`}>
                           {wordCount}
                         </span>
                         <span className="text-body text-muted-foreground">/ {wordLimit} words</span>
@@ -1857,7 +1867,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
 
                           {generatedSuggestions.filter(s => !dismissedSuggestions.has(s.id)).length > 0 && (
                             <div className="my-4">
-                              <Separator className="bg-border/60" />
+                              <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
                             </div>
                           )}
 
@@ -1905,7 +1915,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
 
                           {currentEssay && (
                             <div className="my-4">
-                              <Separator className="bg-border/60" />
+                              <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
                             </div>
                           )}
 
@@ -2212,7 +2222,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                           {currentEssay && (
                             <>
                               <div className="my-6">
-                                <Separator className="bg-border/60" />
+                                <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
                               </div>
                               <div className="rounded-lg bg-muted/20 p-4">
                                 <div className="flex items-center justify-between mb-3">
@@ -2314,7 +2324,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                           {showSmartReuse && (
                             <>
                               <div className="my-6">
-                                <Separator className="bg-border/60" />
+                                <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
                               </div>
                               <div className="rounded-lg bg-muted/20 p-4">
                                 <h3 className="text-body-sm font-semibold text-foreground uppercase tracking-wide mb-3 flex items-center gap-2">

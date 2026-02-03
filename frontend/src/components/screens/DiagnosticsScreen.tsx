@@ -48,12 +48,26 @@ const SOCIAL_ROLE_OPTIONS = [
   'Technical help',
 ];
 
+const SECTIONS = [
+  { key: 'orientation', label: 'Which of these feel most like you?', options: ORIENTATION_OPTIONS },
+  { key: 'motivation', label: 'When you\'re working on a project, what part do you enjoy most?', options: MOTIVATION_OPTIONS },
+  { key: 'storyPreference', label: 'If you had to write about one of these, which would you choose?', options: STORY_OPTIONS },
+  { key: 'socialRole', label: 'People usually come to me for\u2026', options: SOCIAL_ROLE_OPTIONS },
+] as const;
+
 const DiagnosticsScreen: React.FC<DiagnosticsScreenProps> = ({ onContinue, onBack }) => {
   const [orientation, setOrientation] = useState<string[]>([]);
   const [motivation, setMotivation] = useState<string[]>([]);
   const [storyPreference, setStoryPreference] = useState<string[]>([]);
   const [socialRole, setSocialRole] = useState<string[]>([]);
   const saveOnboardingStep = useMutation(api.userProfile.saveOnboardingStep);
+
+  const stateMap: Record<string, { value: string[]; setter: React.Dispatch<React.SetStateAction<string[]>> }> = {
+    orientation: { value: orientation, setter: setOrientation },
+    motivation: { value: motivation, setter: setMotivation },
+    storyPreference: { value: storyPreference, setter: setStoryPreference },
+    socialRole: { value: socialRole, setter: setSocialRole },
+  };
 
   const toggleSelection = (
     value: string,
@@ -84,10 +98,10 @@ const DiagnosticsScreen: React.FC<DiagnosticsScreenProps> = ({ onContinue, onBac
       onClick={onClick}
       disabled={disabled && !isSelected}
       className={`
-        flex items-center justify-between w-full px-4 py-3 rounded-xl text-left transition-all
-        ${isSelected 
-          ? 'bg-primary/10 border-2 border-primary text-foreground' 
-          : 'bg-muted/50 border-2 border-transparent text-foreground hover:bg-muted/70'}
+        flex items-center justify-between w-full px-4 py-3 rounded-xl text-left transition-all duration-200
+        ${isSelected
+          ? 'bg-primary/10 border-2 border-primary text-foreground shadow-sm'
+          : 'bg-muted/50 border-2 border-transparent text-foreground hover:bg-muted/70 hover:border-primary/10 hover:scale-[1.01]'}
         ${disabled && !isSelected ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
       `}
     >
@@ -99,8 +113,10 @@ const DiagnosticsScreen: React.FC<DiagnosticsScreenProps> = ({ onContinue, onBac
   return (
     <ColleeLayout showProgress currentStep={3} totalSteps={8}>
       <div className="text-center mb-8">
+        {/* Decorative gradient line */}
+        <div className="w-12 h-1 bg-gradient-to-r from-primary to-secondary rounded-full mx-auto mb-6" />
         <motion.h1
-          className="text-display-sm text-foreground mb-4"
+          className="font-display text-display-sm text-foreground mb-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
@@ -123,86 +139,39 @@ const DiagnosticsScreen: React.FC<DiagnosticsScreenProps> = ({ onContinue, onBac
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, duration: 0.4 }}
       >
-        {/* Section 1 — Orientation */}
-        <div className="bg-card rounded-2xl border border-border p-6 shadow-soft">
-          <label className="block text-body-sm font-medium text-foreground mb-2">
-            Which of these feel most like you?
-          </label>
-          <p className="text-caption text-muted-foreground mb-4">Pick up to two.</p>
-          <div className="space-y-2">
-            {ORIENTATION_OPTIONS.map((option) => (
-              <SelectableOption
-                key={option}
-                label={option}
-                isSelected={orientation.includes(option)}
-                onClick={() => toggleSelection(option, orientation, setOrientation)}
-                disabled={orientation.length >= 2}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Section 2 — Motivation */}
-        <div className="bg-card rounded-2xl border border-border p-6 shadow-soft">
-          <label className="block text-body-sm font-medium text-foreground mb-2">
-            When you're working on a project, what part do you enjoy most?
-          </label>
-          <p className="text-caption text-muted-foreground mb-4">Pick up to two.</p>
-          <div className="space-y-2">
-            {MOTIVATION_OPTIONS.map((option) => (
-              <SelectableOption
-                key={option}
-                label={option}
-                isSelected={motivation.includes(option)}
-                onClick={() => toggleSelection(option, motivation, setMotivation)}
-                disabled={motivation.length >= 2}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Section 3 — Story Preference */}
-        <div className="bg-card rounded-2xl border border-border p-6 shadow-soft">
-          <label className="block text-body-sm font-medium text-foreground mb-2">
-            If you had to write about one of these, which would you choose?
-          </label>
-          <p className="text-caption text-muted-foreground mb-4">Pick up to two.</p>
-          <div className="space-y-2">
-            {STORY_OPTIONS.map((option) => (
-              <SelectableOption
-                key={option}
-                label={option}
-                isSelected={storyPreference.includes(option)}
-                onClick={() => toggleSelection(option, storyPreference, setStoryPreference)}
-                disabled={storyPreference.length >= 2}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Section 4 — Social Role */}
-        <div className="bg-card rounded-2xl border border-border p-6 shadow-soft">
-          <label className="block text-body-sm font-medium text-foreground mb-2">
-            People usually come to me for…
-          </label>
-          <p className="text-caption text-muted-foreground mb-4">Pick up to two.</p>
-          <div className="space-y-2">
-            {SOCIAL_ROLE_OPTIONS.map((option) => (
-              <SelectableOption
-                key={option}
-                label={option}
-                isSelected={socialRole.includes(option)}
-                onClick={() => toggleSelection(option, socialRole, setSocialRole)}
-                disabled={socialRole.length >= 2}
-              />
-            ))}
-          </div>
-        </div>
+        {SECTIONS.map((section, sectionIndex) => {
+          const { value, setter } = stateMap[section.key];
+          return (
+            <div key={section.key} className="bg-card rounded-2xl border border-border p-6 shadow-soft hover:shadow-soft-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-body-sm font-medium text-foreground">
+                  {section.label}
+                </label>
+                {/* Section progress */}
+                <span className="text-caption text-muted-foreground">
+                  {sectionIndex + 1}/{SECTIONS.length}
+                </span>
+              </div>
+              <p className="text-caption text-muted-foreground mb-4">Pick up to two.</p>
+              <div className="space-y-2">
+                {section.options.map((option) => (
+                  <SelectableOption
+                    key={option}
+                    label={option}
+                    isSelected={value.includes(option)}
+                    onClick={() => toggleSelection(option, value, setter)}
+                    disabled={value.length >= 2}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </motion.div>
 
       {/* Actions */}
       <motion.div
-        className="flex justify-between items-center mt-8"
+        className="flex justify-between items-center mt-8 pt-4 border-t border-border/50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.4 }}
@@ -218,6 +187,7 @@ const DiagnosticsScreen: React.FC<DiagnosticsScreenProps> = ({ onContinue, onBac
             await saveOnboardingStep({ orientation, motivation, storyPreference, socialRole });
             onContinue({ orientation, motivation, storyPreference, socialRole });
           }}
+          className="shadow-warm"
         >
           Continue
         </Button>

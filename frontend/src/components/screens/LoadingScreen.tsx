@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
+import ColleeLogo from '@/components/ColleeLogo';
 
 interface LoadingScreenProps {
   onComplete: () => void;
@@ -44,45 +45,58 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
       })
       .catch((error) => {
         console.error("Failed to generate story identity:", error);
-        // Still navigate forward - user can retry from workspace
         onComplete();
       });
   }, [generateStoryIdentity, onComplete]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 py-12 bg-background">
+    <div className="min-h-screen flex items-center justify-center px-6 py-12 bg-background relative overflow-hidden">
+      {/* Subtle blurred gradient orbs */}
+      <div className="absolute top-[20%] left-[10%] w-[300px] h-[300px] rounded-full bg-primary/[0.04] blur-[80px] pointer-events-none" aria-hidden="true" />
+      <div className="absolute bottom-[20%] right-[10%] w-[300px] h-[300px] rounded-full bg-secondary/[0.04] blur-[80px] pointer-events-none" aria-hidden="true" />
+
       <motion.div
-        className="text-center max-w-md"
+        className="text-center max-w-md relative"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
-        {/* Animated dots */}
-        <div className="flex justify-center gap-2 mb-12">
-          {[0, 1, 2].map((i) => (
+        {/* Branded logo animation with float and glow ring */}
+        <div className="flex justify-center mb-12">
+          <div className="relative">
+            {/* Pulsing glow ring */}
             <motion.div
-              key={i}
-              className="w-3 h-3 rounded-full bg-primary"
+              className="absolute inset-0 -m-4 rounded-full bg-primary/10 blur-xl"
               animate={{
-                scale: [1, 1.3, 1],
-                opacity: [0.5, 1, 0.5],
+                scale: [1, 1.2, 1],
+                opacity: [0.3, 0.6, 0.3],
               }}
               transition={{
-                duration: 1.2,
+                duration: 2.5,
                 repeat: Infinity,
-                delay: i * 0.2,
                 ease: "easeInOut",
               }}
+              aria-hidden="true"
             />
-          ))}
+            <motion.div
+              animate={{ y: [0, -6, 0] }}
+              transition={{
+                duration: 3,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            >
+              <ColleeLogo size="md" />
+            </motion.div>
+          </div>
         </div>
 
-        {/* Rotating messages */}
+        {/* Rotating messages with display font */}
         <div className="h-16 flex items-center justify-center">
           <AnimatePresence mode="wait">
             <motion.p
               key={currentMessage}
-              className="text-body-lg text-foreground"
+              className="font-display text-heading text-foreground"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
@@ -93,19 +107,24 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
           </AnimatePresence>
         </div>
 
-        {/* Progress indicator */}
+        {/* Progress bar with gradient fill and shimmer */}
         <motion.div
-          className="mt-12 w-48 h-1 bg-border rounded-full mx-auto overflow-hidden"
+          className="mt-12 w-64 h-2 bg-border rounded-full mx-auto overflow-hidden"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
         >
           <motion.div
-            className="h-full bg-primary/60 rounded-full"
+            className="h-full rounded-full relative overflow-hidden bg-gradient-to-r from-primary to-secondary"
             initial={{ width: "0%" }}
             animate={{ width: "90%" }}
             transition={{ duration: 15, ease: "easeInOut" }}
-          />
+          >
+            {/* Shimmer overlay */}
+            <div className="absolute inset-0 animate-shimmer">
+              <div className="w-full h-full bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+            </div>
+          </motion.div>
         </motion.div>
       </motion.div>
     </div>

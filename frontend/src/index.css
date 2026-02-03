@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -69,6 +69,14 @@
     --shadow: 0 2px 8px -2px hsl(260 15% 22% / 0.06), 0 4px 16px -4px hsl(260 15% 22% / 0.04);
     --shadow-md: 0 4px 12px -4px hsl(260 15% 22% / 0.08), 0 8px 24px -8px hsl(260 15% 22% / 0.06);
     --shadow-lg: 0 8px 24px -8px hsl(260 15% 22% / 0.1), 0 16px 48px -16px hsl(260 15% 22% / 0.08);
+
+    /* Glow Shadows */
+    --shadow-glow: 0 4px 20px -4px hsl(265 65% 52% / 0.25), 0 8px 32px -8px hsl(265 65% 52% / 0.15);
+    --shadow-warm: 0 4px 20px -4px hsl(20 75% 65% / 0.25), 0 8px 32px -8px hsl(20 75% 65% / 0.15);
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(265 65% 52%), hsl(280 60% 58%));
+    --gradient-accent: linear-gradient(135deg, hsl(20 75% 65%), hsl(15 80% 58%));
     
     /* Sidebar */
     --sidebar-background: 30 30% 97%;
@@ -129,6 +137,14 @@
     --shadow-md: 0 4px 12px -4px hsl(0 0% 0% / 0.45), 0 8px 24px -8px hsl(0 0% 0% / 0.35);
     --shadow-lg: 0 8px 24px -8px hsl(0 0% 0% / 0.5), 0 16px 48px -16px hsl(0 0% 0% / 0.4);
 
+    /* Glow Shadows */
+    --shadow-glow: 0 4px 20px -4px hsl(265 70% 60% / 0.3), 0 8px 32px -8px hsl(265 70% 60% / 0.2);
+    --shadow-warm: 0 4px 20px -4px hsl(20 60% 50% / 0.3), 0 8px 32px -8px hsl(20 60% 50% / 0.2);
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(265 70% 60%), hsl(280 65% 65%));
+    --gradient-accent: linear-gradient(135deg, hsl(20 60% 50%), hsl(15 65% 45%));
+
     --sidebar-background: 260 20% 12%;
     --sidebar-foreground: 0 0% 95%;
     --sidebar-primary: 265 70% 60%;
@@ -162,33 +178,65 @@
   .animate-fade-in {
     animation: fadeIn 0.5s ease-out forwards;
   }
-  
+
   .animate-fade-in-up {
     animation: fadeInUp 0.5s ease-out forwards;
   }
-  
+
   .animate-pulse-gentle {
     animation: pulseGentle 2s ease-in-out infinite;
   }
-  
+
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  /* Background gradient utilities */
+  .bg-gradient-subtle {
+    background: radial-gradient(ellipse 80% 60% at 50% 40%, hsl(265 65% 52% / 0.06) 0%, transparent 70%);
+  }
+
+  .bg-gradient-warm {
+    background: radial-gradient(ellipse 80% 60% at 50% 40%, hsl(20 75% 65% / 0.06) 0%, transparent 70%);
+  }
+
+  /* Gradient border utility */
+  .border-gradient-primary {
+    border-image: linear-gradient(to right, hsl(265 65% 52% / 0.3), hsl(20 75% 65% / 0.3)) 1;
+  }
+
   @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
   }
-  
+
   @keyframes fadeInUp {
-    from { 
-      opacity: 0; 
+    from {
+      opacity: 0;
       transform: translateY(12px);
     }
-    to { 
-      opacity: 1; 
+    to {
+      opacity: 1;
       transform: translateY(0);
     }
   }
-  
+
   @keyframes pulseGentle {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.6; }
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
   }
 }

@@ -78,6 +78,7 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['DM Serif Display', 'Georgia', 'serif'],
       },
       fontSize: {
         'display': ['2.5rem', { lineHeight: '1.2', letterSpacing: '-0.02em', fontWeight: '600' }],
@@ -106,6 +107,8 @@ export default {
         'soft': 'var(--shadow)',
         'soft-md': 'var(--shadow-md)',
         'soft-lg': 'var(--shadow-lg)',
+        'glow': 'var(--shadow-glow)',
+        'warm': 'var(--shadow-warm)',
       },
       keyframes: {
         "accordion-down": {

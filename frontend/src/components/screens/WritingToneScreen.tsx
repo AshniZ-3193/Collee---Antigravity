@@ -27,13 +27,15 @@ const WritingToneScreen: React.FC<WritingToneScreenProps> = ({ onContinue, onBac
   return (
     <ColleeLayout showProgress currentStep={4} totalSteps={8}>
       <div className="text-center mb-10">
+        {/* Decorative gradient line */}
+        <div className="w-12 h-1 bg-gradient-to-r from-primary to-secondary rounded-full mx-auto mb-6" />
         <motion.h1
-          className="text-display-sm text-foreground mb-4"
+          className="font-display text-display-sm text-foreground mb-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          When you write honestly, your tone is usually…
+          When you write honestly, your tone is usually...
         </motion.h1>
       </div>
 
@@ -49,10 +51,10 @@ const WritingToneScreen: React.FC<WritingToneScreenProps> = ({ onContinue, onBac
             type="button"
             onClick={() => setSelectedTone(tone)}
             className={`
-              flex items-center justify-between w-full px-5 py-4 rounded-xl text-left transition-all
-              ${selectedTone === tone 
-                ? 'bg-primary/10 border-2 border-primary text-foreground' 
-                : 'bg-card border-2 border-border text-foreground hover:bg-muted/50'}
+              flex items-center justify-between w-full px-5 py-4 rounded-xl text-left transition-all duration-200
+              ${selectedTone === tone
+                ? 'bg-primary/10 border-2 border-primary text-foreground shadow-sm'
+                : 'bg-card border-2 border-border text-foreground hover:bg-muted/50 hover:border-primary/20 hover:scale-[1.01]'}
             `}
           >
             <span className="text-body-md">{tone}</span>
@@ -72,7 +74,7 @@ const WritingToneScreen: React.FC<WritingToneScreenProps> = ({ onContinue, onBac
 
       {/* Actions */}
       <motion.div
-        className="flex justify-between items-center mt-8"
+        className="flex justify-between items-center mt-8 pt-4 border-t border-border/50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4, duration: 0.4 }}
@@ -88,6 +90,7 @@ const WritingToneScreen: React.FC<WritingToneScreenProps> = ({ onContinue, onBac
             await saveOnboardingStep({ writingTone: selectedTone });
             onContinue({ tone: selectedTone });
           }}
+          className="shadow-warm"
         >
           Continue
         </Button>

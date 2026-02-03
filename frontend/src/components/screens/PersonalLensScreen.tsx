@@ -34,12 +34,10 @@ const PersonalLensScreen: React.FC<PersonalLensScreenProps> = ({ onContinue, onB
 
   const toggleIdentity = (identity: string) => {
     if (identity === 'None / I\'m not sure yet') {
-      // If selecting "None", clear other selections
       setSelectedIdentities([identity]);
       setHandlingPreference('');
     } else {
       setSelectedIdentities((prev) => {
-        // Remove "None" if selecting something else
         const filtered = prev.filter((i) => i !== 'None / I\'m not sure yet');
         if (prev.includes(identity)) {
           return filtered.filter((i) => i !== identity);
@@ -49,14 +47,16 @@ const PersonalLensScreen: React.FC<PersonalLensScreenProps> = ({ onContinue, onB
     }
   };
 
-  const showFollowUp = selectedIdentities.length > 0 && 
+  const showFollowUp = selectedIdentities.length > 0 &&
     !selectedIdentities.includes('None / I\'m not sure yet');
 
   return (
     <ColleeLayout showProgress currentStep={5} totalSteps={8}>
       <div className="text-center mb-8">
+        {/* Decorative gradient line */}
+        <div className="w-12 h-1 bg-gradient-to-r from-primary to-secondary rounded-full mx-auto mb-6" />
         <motion.h1
-          className="text-display-sm text-foreground mb-4"
+          className="font-display text-display-sm text-foreground mb-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
@@ -85,10 +85,10 @@ const PersonalLensScreen: React.FC<PersonalLensScreenProps> = ({ onContinue, onB
             type="button"
             onClick={() => toggleIdentity(identity)}
             className={`
-              flex items-center justify-between w-full px-5 py-4 rounded-xl text-left transition-all
-              ${selectedIdentities.includes(identity) 
-                ? 'bg-primary/10 border-2 border-primary text-foreground' 
-                : 'bg-card border-2 border-border text-foreground hover:bg-muted/50'}
+              flex items-center justify-between w-full px-5 py-4 rounded-xl text-left transition-all duration-200
+              ${selectedIdentities.includes(identity)
+                ? 'bg-primary/10 border-2 border-primary text-foreground shadow-sm'
+                : 'bg-card border-2 border-border text-foreground hover:bg-muted/50 hover:border-primary/20 hover:scale-[1.01]'}
             `}
           >
             <span className="text-body-md">{identity}</span>
@@ -99,7 +99,7 @@ const PersonalLensScreen: React.FC<PersonalLensScreenProps> = ({ onContinue, onB
         ))}
       </motion.div>
 
-      {/* Follow-up question - only shows if something other than "None" is selected */}
+      {/* Follow-up question */}
       {showFollowUp && (
         <motion.div
           className="mt-8 max-w-md mx-auto"
@@ -107,7 +107,7 @@ const PersonalLensScreen: React.FC<PersonalLensScreenProps> = ({ onContinue, onB
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <div className="bg-card rounded-2xl border border-border p-6 shadow-soft">
+          <div className="bg-card rounded-2xl border border-border p-6 shadow-soft hover:shadow-soft-md transition-shadow">
             <label className="block text-body-sm font-medium text-foreground mb-4">
               How would you like us to handle this?
             </label>
@@ -118,10 +118,10 @@ const PersonalLensScreen: React.FC<PersonalLensScreenProps> = ({ onContinue, onB
                   type="button"
                   onClick={() => setHandlingPreference(option)}
                   className={`
-                    flex items-center justify-between w-full px-4 py-3 rounded-xl text-left transition-all
-                    ${handlingPreference === option 
-                      ? 'bg-primary/10 border-2 border-primary text-foreground' 
-                      : 'bg-muted/50 border-2 border-transparent text-foreground hover:bg-muted/70'}
+                    flex items-center justify-between w-full px-4 py-3 rounded-xl text-left transition-all duration-200
+                    ${handlingPreference === option
+                      ? 'bg-primary/10 border-2 border-primary text-foreground shadow-sm'
+                      : 'bg-muted/50 border-2 border-transparent text-foreground hover:bg-muted/70 hover:border-primary/10 hover:scale-[1.01]'}
                   `}
                 >
                   <span className="text-body-sm">{option}</span>
@@ -137,7 +137,7 @@ const PersonalLensScreen: React.FC<PersonalLensScreenProps> = ({ onContinue, onB
 
       {/* Actions */}
       <motion.div
-        className="flex justify-between items-center mt-8"
+        className="flex justify-between items-center mt-8 pt-4 border-t border-border/50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.4 }}
@@ -159,6 +159,7 @@ const PersonalLensScreen: React.FC<PersonalLensScreenProps> = ({ onContinue, onB
               handlingPreference,
             });
           }}
+          className="shadow-warm"
         >
           Continue
         </Button>

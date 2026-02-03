@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import ColleeLayout from '@/components/ColleeLayout';
-import { Upload, FileText, X } from 'lucide-react';
+import { Upload, FileText, X, Lightbulb } from 'lucide-react';
 import { useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
@@ -86,12 +86,12 @@ const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveOnboardingStep = useMutation(api.userProfile.saveOnboardingStep);
 
-  const placeholderText = `• Helped younger sibling with homework every night
-• Weekend walks with grandma
-• Part-time job at family restaurant
-• Started learning guitar on my own
-• Took care of our family dog after school
-• Noticed how people in my neighborhood never really talked`;
+  const placeholderText = `\u2022 Helped younger sibling with homework every night
+\u2022 Weekend walks with grandma
+\u2022 Part-time job at family restaurant
+\u2022 Started learning guitar on my own
+\u2022 Took care of our family dog after school
+\u2022 Noticed how people in my neighborhood never really talked`;
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -139,8 +139,10 @@ const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack }) => {
   return (
     <ColleeLayout showProgress currentStep={1} totalSteps={8}>
       <div className="text-center mb-10">
+        {/* Decorative gradient line */}
+        <div className="w-12 h-1 bg-gradient-to-r from-primary to-secondary rounded-full mx-auto mb-6" />
         <motion.h1
-          className="text-display-sm text-foreground mb-4"
+          className="font-display text-display-sm text-foreground mb-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
@@ -172,9 +174,9 @@ const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack }) => {
           className="hidden"
           id="resume-upload"
         />
-        
+
         {!uploadedFile ? (
-          <div className="bg-card/50 rounded-xl border border-dashed border-border p-5 text-center">
+          <div className="bg-card/50 rounded-xl border-2 border-dashed border-primary/15 p-5 text-center hover:border-primary/25 transition-colors">
             <p className="text-body-sm text-muted-foreground mb-3">
               Have a resume? You can upload it. But typing things out works just as well — there's no wrong way to start.
             </p>
@@ -220,7 +222,7 @@ const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack }) => {
       </motion.div>
 
       <motion.div
-        className="bg-card rounded-2xl border border-border p-8 shadow-soft"
+        className="bg-card rounded-2xl border border-border p-8 shadow-soft hover:shadow-soft-md transition-shadow"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, duration: 0.4 }}
@@ -231,32 +233,34 @@ const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack }) => {
           value={activities}
           onChange={(e) => setActivities(e.target.value)}
         />
-        
+
         <div className="border-t border-border pt-4 mt-4">
-          <p className="text-body-sm text-muted-foreground">
-            💡 Bullet points are totally fine. Just brain dump what comes to mind.
+          <p className="text-body-sm text-muted-foreground flex items-center gap-2">
+            <Lightbulb className="w-4 h-4 text-secondary flex-shrink-0" />
+            Bullet points are totally fine. Just brain dump what comes to mind.
           </p>
         </div>
       </motion.div>
 
       {/* Actions */}
       <motion.div
-        className="flex justify-between items-center mt-8"
+        className="flex justify-between items-center mt-8 pt-4 border-t border-border/50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.4 }}
       >
-        <Button 
-          variant="collee-ghost" 
+        <Button
+          variant="collee-ghost"
           onClick={onBack}
         >
           Back
         </Button>
-        
-        <Button 
-          variant="collee-accent" 
+
+        <Button
+          variant="collee-accent"
           size="collee-sm"
           onClick={handleContinue}
+          className="shadow-warm"
         >
           Continue
         </Button>

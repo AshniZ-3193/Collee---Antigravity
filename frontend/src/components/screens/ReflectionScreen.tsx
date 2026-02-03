@@ -17,13 +17,15 @@ const ReflectionScreen: React.FC<ReflectionScreenProps> = ({ onContinue, onBack 
   return (
     <ColleeLayout showProgress currentStep={6} totalSteps={8}>
       <div className="text-center mb-8">
+        {/* Decorative gradient line */}
+        <div className="w-12 h-1 bg-gradient-to-r from-primary to-secondary rounded-full mx-auto mb-6" />
         <motion.div
           className="inline-flex items-center gap-2 mb-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <h1 className="text-display-sm text-foreground">
+          <h1 className="font-display text-display-sm text-foreground">
             One last question
           </h1>
           <span className="text-caption text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
@@ -38,12 +40,12 @@ const ReflectionScreen: React.FC<ReflectionScreenProps> = ({ onContinue, onBack 
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, duration: 0.4 }}
       >
-        <div className="bg-card rounded-2xl border border-border p-6 shadow-soft">
+        <div className="bg-card rounded-2xl border border-border p-6 shadow-soft hover:shadow-soft-md transition-shadow">
           <label className="block text-body-md font-medium text-foreground mb-4">
             What's something you notice, wonder about, or keep coming back to?
           </label>
           <textarea
-            className="w-full bg-muted/50 rounded-xl border-0 px-4 py-4 text-foreground placeholder:text-foreground-subtle focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[140px] resize-none"
+            className="w-full bg-muted/50 rounded-xl border-0 px-4 py-4 text-foreground placeholder:text-foreground-subtle focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-background focus:shadow-sm transition-all min-h-[140px] resize-none"
             placeholder="Maybe a small habit, a recurring thought, something you can't stop observing. A few sentences is perfect."
             value={reflection}
             onChange={(e) => setReflection(e.target.value)}
@@ -56,7 +58,7 @@ const ReflectionScreen: React.FC<ReflectionScreenProps> = ({ onContinue, onBack 
 
       {/* Actions */}
       <motion.div
-        className="flex justify-between items-center mt-8"
+        className="flex justify-between items-center mt-8 pt-4 border-t border-border/50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.4 }}
@@ -72,6 +74,7 @@ const ReflectionScreen: React.FC<ReflectionScreenProps> = ({ onContinue, onBack 
             await saveOnboardingStep({ reflection, onboardingComplete: true });
             onContinue({ reflection });
           }}
+          className="shadow-warm"
         >
           Generate my story
         </Button>

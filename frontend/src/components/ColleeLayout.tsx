@@ -19,19 +19,28 @@ const ColleeLayout: React.FC<ColleeLayoutProps> = ({
 
   return (
     <div className="min-h-screen bg-background relative">
-      {/* Subtle progress bar */}
+      {/* Gradient progress bar */}
       {showProgress && (
-        <div className="fixed top-0 left-0 right-0 h-1 bg-border z-50">
+        <div className="fixed top-0 left-0 right-0 h-[2px] bg-border z-50">
           <motion.div
-            className="h-full bg-primary/60"
+            className="h-full bg-gradient-to-r from-primary to-secondary relative"
             initial={{ width: 0 }}
             animate={{ width: `${progress}%` }}
             transition={{ duration: 0.5, ease: "easeOut" }}
-          />
+          >
+            {/* Glow on leading edge */}
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-8 h-4 bg-primary/40 blur-md rounded-full" />
+          </motion.div>
         </div>
       )}
 
-      <div className="absolute top-4 right-4 z-40">
+      {/* Step indicator + theme toggle */}
+      <div className="absolute top-4 right-4 z-40 flex items-center gap-3">
+        {showProgress && (
+          <span className="text-caption text-foreground-subtle">
+            Step {currentStep} of {totalSteps}
+          </span>
+        )}
         <ThemeToggle />
       </div>
 
