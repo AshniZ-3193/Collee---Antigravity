@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import ColleeLayout from '@/components/ColleeLayout';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 
 interface ReflectionScreenProps {
   onContinue: (data: { reflection: string }) => void;
@@ -10,6 +12,7 @@ interface ReflectionScreenProps {
 
 const ReflectionScreen: React.FC<ReflectionScreenProps> = ({ onContinue, onBack }) => {
   const [reflection, setReflection] = useState('');
+  const saveOnboardingStep = useMutation(api.userProfile.saveOnboardingStep);
 
   return (
     <ColleeLayout showProgress currentStep={6} totalSteps={8}>
@@ -65,7 +68,10 @@ const ReflectionScreen: React.FC<ReflectionScreenProps> = ({ onContinue, onBack 
         <Button
           variant="collee-accent"
           size="collee-sm"
-          onClick={() => onContinue({ reflection })}
+          onClick={async () => {
+            await saveOnboardingStep({ reflection, onboardingComplete: true });
+            onContinue({ reflection });
+          }}
         >
           Generate my story
         </Button>

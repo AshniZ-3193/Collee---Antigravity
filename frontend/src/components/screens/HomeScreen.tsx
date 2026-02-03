@@ -2,14 +2,16 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import ColleeLogo from '@/components/ColleeLogo';
+import ThemeToggle from '@/components/ThemeToggle';
 import { ArrowRight, Sparkles, Compass, PenLine } from 'lucide-react';
 
 interface HomeScreenProps {
   onGetStarted: () => void;
   onLogin: () => void;
+  isLoggedIn?: boolean;
 }
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ onGetStarted, onLogin }) => {
+const HomeScreen: React.FC<HomeScreenProps> = ({ onGetStarted, onLogin, isLoggedIn = false }) => {
   const steps = [
     {
       icon: Sparkles,
@@ -34,13 +36,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onGetStarted, onLogin }) => {
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b border-border-light">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <ColleeLogo size="sm" showText showTagline />
-          <Button
-            variant="ghost"
-            onClick={onLogin}
-            className="text-foreground-muted hover:text-foreground"
-          >
-            Log in
-          </Button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button
+              variant="ghost"
+              onClick={onLogin}
+              className="text-foreground-muted hover:text-foreground"
+            >
+              {isLoggedIn ? 'Continue to dashboard' : 'Log in'}
+            </Button>
+          </div>
         </div>
       </header>
 

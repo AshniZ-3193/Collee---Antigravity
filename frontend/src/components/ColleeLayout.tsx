@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import ThemeToggle from '@/components/ThemeToggle';
 
 interface ColleeLayoutProps {
   children: React.ReactNode;
@@ -17,7 +18,7 @@ const ColleeLayout: React.FC<ColleeLayoutProps> = ({
   const progress = (currentStep / totalSteps) * 100;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
       {/* Subtle progress bar */}
       {showProgress && (
         <div className="fixed top-0 left-0 right-0 h-1 bg-border z-50">
@@ -29,6 +30,10 @@ const ColleeLayout: React.FC<ColleeLayoutProps> = ({
           />
         </div>
       )}
+
+      <div className="absolute top-4 right-4 z-40">
+        <ThemeToggle />
+      </div>
 
       {/* Main content */}
       <main className="flex items-center justify-center min-h-screen px-6 py-12">

@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import ColleeLayout from '@/components/ColleeLayout';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 
 interface WritingToneScreenProps {
   onContinue: (data: { tone: string }) => void;
@@ -20,6 +22,7 @@ const TONE_OPTIONS = [
 
 const WritingToneScreen: React.FC<WritingToneScreenProps> = ({ onContinue, onBack }) => {
   const [selectedTone, setSelectedTone] = useState<string>('');
+  const saveOnboardingStep = useMutation(api.userProfile.saveOnboardingStep);
 
   return (
     <ColleeLayout showProgress currentStep={4} totalSteps={8}>
@@ -81,7 +84,10 @@ const WritingToneScreen: React.FC<WritingToneScreenProps> = ({ onContinue, onBac
         <Button
           variant="collee-accent"
           size="collee-sm"
-          onClick={() => onContinue({ tone: selectedTone })}
+          onClick={async () => {
+            await saveOnboardingStep({ writingTone: selectedTone });
+            onContinue({ tone: selectedTone });
+          }}
         >
           Continue
         </Button>

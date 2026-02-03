@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,8 @@ import {
 import { ArrowLeft, Search, Check, GraduationCap, Plus, Trash2, FileText, X } from 'lucide-react';
 import ColleeLayout from '@/components/ColleeLayout';
 import ColleeLogo from '@/components/ColleeLogo';
+import { useMutation, useAction } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 
 interface AddCollegeScreenProps {
   onBack: () => void;
@@ -47,6 +49,40 @@ interface SelectedCollegeConfig {
   applicationType: string;
   deadline: string;
 }
+
+const toApplicationTypeValue = (label: string) => {
+  const normalized = label
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized || "application";
+};
+
+const toCustomCollegeId = (name: string) => {
+  const normalized = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `custom:${normalized || "college"}`;
+};
+
+const normalizeApplicationTypes = (items: Array<{ label?: string; deadline?: string; value?: string }>) => {
+  const seen = new Set<string>();
+  return items
+    .filter((item) => item && item.label && item.deadline)
+    .map((item) => ({
+      value: item.value || toApplicationTypeValue(item.label as string),
+      label: item.label as string,
+      deadline: item.deadline as string,
+    }))
+    .filter((item) => {
+      if (seen.has(item.value)) return false;
+      seen.add(item.value);
+      return true;
+    });
+};
 
 const promptTypes = [
   { value: 'contribution', label: 'Contribution' },
@@ -305,9 +341,20 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
   onAddCollege,
   onComplete,
 }) => {
+  const addCollegeMutation = useMutation(api.colleges.add);
+  const searchPromptsAction = useAction(api.ai.searchCollegePrompts.search);
+  const searchDeadlinesAction = useAction(api.ai.searchCollegeDeadlines.search);
+  const [isSearchingPrompts, setIsSearchingPrompts] = useState(false);
+  const [isSearchingDeadlines, setIsSearchingDeadlines] = useState(false);
+  const [deadlineSearchError, setDeadlineSearchError] = useState<string | null>(null);
+  const [promptSearchError, setPromptSearchError] = useState<string | null>(null);
+  const [isAutoAdding, setIsAutoAdding] = useState(false);
   const [step, setStep] = useState<'select' | 'application-type' | 'prompts'>('select');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedColleges, setSelectedColleges] = useState<Set<string>>(new Set());
+  const [customColleges, setCustomColleges] = useState<Record<string, CollegeData>>({});
+  const [appTypeOptionsByCollegeId, setAppTypeOptionsByCollegeId] = useState<Record<string, ApplicationType[] | null>>({});
+  const [promptsByCollegeId, setPromptsByCollegeId] = useState<Record<string, EssayPrompt[] | null>>({});
   
   // For multi-college flow: track app types for each selected college
   const [collegeConfigs, setCollegeConfigs] = useState<SelectedCollegeConfig[]>([]);
@@ -322,6 +369,15 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
     college.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const trimmedSearchQuery = searchQuery.trim();
+  const showAddCustom = trimmedSearchQuery.length > 0 && filteredColleges.length === 0;
+  const customCollegeId = showAddCustom ? toCustomCollegeId(trimmedSearchQuery) : null;
+  const customIsSelected = customCollegeId ? selectedColleges.has(customCollegeId) : false;
+
+  const getCollegeById = (collegeId: string) => {
+    return customColleges[collegeId] || popularColleges.find(c => c.id === collegeId) || null;
+  };
+
   // Toggle college selection
   const toggleCollegeSelection = (collegeId: string) => {
     setSelectedColleges(prev => {
@@ -335,17 +391,219 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
     });
   };
 
+  const handleAddCustomCollege = () => {
+    const name = trimmedSearchQuery;
+    if (!name) return;
+    const id = toCustomCollegeId(name);
+
+    setCustomColleges(prev => {
+      if (prev[id]) return prev;
+      return {
+        ...prev,
+        [id]: {
+          id,
+          name,
+          location: 'Custom college',
+          applicationTypes: [],
+        },
+      };
+    });
+
+    setSelectedColleges(prev => {
+      const newSet = new Set(prev);
+      newSet.add(id);
+      return newSet;
+    });
+
+    setSearchQuery('');
+  };
+
   // Get current college being configured
   const currentConfig = collegeConfigs[currentConfigIndex];
-  const currentCollegeData = currentConfig 
-    ? popularColleges.find(c => c.id === currentConfig.collegeId)
+  const currentCollegeId = currentConfig?.collegeId;
+  const currentCollegeName = currentConfig?.collegeName;
+  const currentCollegeData = currentConfig
+    ? getCollegeById(currentConfig.collegeId)
     : null;
-  const currentAvailableAppTypes = currentCollegeData?.applicationTypes || defaultApplicationTypes;
+  const currentAppTypeOptions = currentConfig
+    ? appTypeOptionsByCollegeId[currentConfig.collegeId]
+    : undefined;
+  const currentAvailableAppTypes = currentAppTypeOptions && currentAppTypeOptions.length > 0
+    ? currentAppTypeOptions
+    : currentCollegeData?.applicationTypes || defaultApplicationTypes;
+  const currentPromptsFromSearch = currentConfig
+    ? promptsByCollegeId[currentConfig.collegeId]
+    : undefined;
+  const autoAddGuardRef = useRef<Set<string>>(new Set());
 
   const selectedCollegesCount = selectedColleges.size;
   const canProceedToApplicationType = selectedCollegesCount > 0;
   const canProceedToPrompts = currentConfig?.applicationType !== '';
-  const canAddCollege = prompts.some(p => p.promptText.trim() && p.limitValue > 0);
+  const validPromptCount = prompts.filter(p => p.promptText.trim() && p.limitValue > 0).length;
+  const deadlineSearchAttempted = currentAppTypeOptions !== undefined;
+  const noDeadlinesFound = deadlineSearchAttempted && (currentAppTypeOptions?.length ?? 0) === 0;
+  const promptSearchAttempted = currentPromptsFromSearch !== undefined;
+  const noPromptsFound = promptSearchAttempted && (currentPromptsFromSearch?.length ?? 0) === 0;
+  const canAddCollege = !isSearchingPrompts && (
+    validPromptCount > 0 || noPromptsFound || !!promptSearchError
+  );
+
+  const addCollegeWithPrompts = useCallback(async (config: SelectedCollegeConfig, promptList: EssayPrompt[]) => {
+    const validPrompts = promptList
+      .filter(p => p.promptText.trim() && p.limitValue > 0)
+      .map(p => ({
+        text: p.promptText.trim(),
+        wordCountMax: p.limitValue,
+        isOptional: p.isOptional,
+        promptType: p.promptType || undefined,
+      }));
+
+    try {
+      await addCollegeMutation({
+        name: config.collegeName || 'Unknown',
+        applicationType: config.applicationType,
+        deadline: config.deadline,
+        prompts: validPrompts,
+      });
+      onAddCollege(config.collegeId || 'custom');
+      return true;
+    } catch (e) {
+      console.error("Failed to add college:", e);
+      return false;
+    }
+  }, [addCollegeMutation, onAddCollege]);
+
+  useEffect(() => {
+    if (step !== 'application-type' || !currentCollegeId || !currentCollegeName) return;
+    if (currentAppTypeOptions !== undefined) return;
+
+    let cancelled = false;
+    const loadDeadlines = async () => {
+      setIsSearchingDeadlines(true);
+      setDeadlineSearchError(null);
+      try {
+        const results = await searchDeadlinesAction({
+          collegeName: currentCollegeName,
+        });
+        if (cancelled) return;
+        const normalized = normalizeApplicationTypes(results || []);
+        setAppTypeOptionsByCollegeId((prev) => ({
+          ...prev,
+          [currentCollegeId]: normalized,
+        }));
+      } catch (e) {
+        if (!cancelled) {
+          setDeadlineSearchError("Couldn't auto-fetch deadlines. Showing default options.");
+          setAppTypeOptionsByCollegeId((prev) => ({
+            ...prev,
+            [currentCollegeId]: [],
+          }));
+        }
+      } finally {
+        if (!cancelled) setIsSearchingDeadlines(false);
+      }
+    };
+
+    loadDeadlines();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    step,
+    currentCollegeId,
+    currentCollegeName,
+    currentAppTypeOptions,
+    searchDeadlinesAction,
+  ]);
+
+  useEffect(() => {
+    if (step !== 'prompts' || !currentCollegeId || !currentCollegeName) return;
+    if (currentPromptsFromSearch !== undefined) {
+      if (currentPromptsFromSearch.length > 0) {
+        setPrompts(currentPromptsFromSearch);
+      } else {
+        setPrompts([{ id: '1', promptText: '', promptType: '', limitValue: 250, isOptional: false }]);
+      }
+      return;
+    }
+
+    let cancelled = false;
+    const loadPrompts = async () => {
+      setIsSearchingPrompts(true);
+      setPromptSearchError(null);
+      try {
+        const searchedPrompts = await searchPromptsAction({
+          collegeName: currentCollegeName,
+        });
+        if (cancelled) return;
+        const mappedPrompts = (searchedPrompts || []).map((p: any, i: number) => ({
+          id: `searched-${i}`,
+          promptText: p.text,
+          promptType: p.promptType || '',
+          limitValue: p.wordCountMax || 250,
+          isOptional: p.isOptional || false,
+        }));
+        setPrompts(mappedPrompts.length > 0
+          ? mappedPrompts
+          : [{ id: '1', promptText: '', promptType: '', limitValue: 250, isOptional: false }]
+        );
+        setPromptsByCollegeId((prev) => ({
+          ...prev,
+          [currentCollegeId]: mappedPrompts,
+        }));
+
+        if (mappedPrompts.length > 0 && !autoAddGuardRef.current.has(currentCollegeId)) {
+          autoAddGuardRef.current.add(currentCollegeId);
+          setIsAutoAdding(true);
+          const success = await addCollegeWithPrompts({
+            collegeId: currentCollegeId,
+            collegeName: currentCollegeName,
+            applicationType: currentConfig?.applicationType || '',
+            deadline: currentConfig?.deadline || '',
+          }, mappedPrompts);
+          setIsAutoAdding(false);
+
+          if (success) {
+            if (currentConfigIndex < collegeConfigs.length - 1) {
+              setCurrentConfigIndex(prev => prev + 1);
+              setPrompts([{ id: '1', promptText: '', promptType: '', limitValue: 250, isOptional: false }]);
+            } else {
+              onComplete();
+            }
+          } else {
+            autoAddGuardRef.current.delete(currentCollegeId);
+          }
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setPromptSearchError("Couldn't auto-fetch prompts. You can add them manually.");
+          setPrompts([{ id: '1', promptText: '', promptType: '', limitValue: 250, isOptional: false }]);
+          setPromptsByCollegeId((prev) => ({
+            ...prev,
+            [currentCollegeId]: [],
+          }));
+        }
+      } finally {
+        if (!cancelled) setIsSearchingPrompts(false);
+      }
+    };
+
+    loadPrompts();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    step,
+    currentCollegeId,
+    currentCollegeName,
+    currentConfig,
+    currentConfigIndex,
+    collegeConfigs.length,
+    currentPromptsFromSearch,
+    addCollegeWithPrompts,
+    onComplete,
+    searchPromptsAction,
+  ]);
 
   const handleContinueToApplicationType = () => {
     if (canProceedToApplicationType) {
@@ -353,7 +611,7 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
       const configs: SelectedCollegeConfig[] = [];
       
       selectedColleges.forEach(collegeId => {
-        const college = popularColleges.find(c => c.id === collegeId);
+        const college = getCollegeById(collegeId);
         if (college) {
           configs.push({
             collegeId: college.id,
@@ -387,10 +645,8 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
 
   const handleContinueToNextCollegeOrPrompts = () => {
     if (currentConfigIndex < collegeConfigs.length - 1) {
-      // Move to next college's app type selection
       setCurrentConfigIndex(prev => prev + 1);
     } else {
-      // All colleges configured, move to prompts for first college
       setCurrentConfigIndex(0);
       setStep('prompts');
     }
@@ -424,17 +680,24 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
     ));
   };
 
-  const handleAddCollegeAndContinue = () => {
+  const handleAddCollegeAndContinue = async () => {
     if (canAddCollege) {
-      // Add current college
-      onAddCollege(currentConfig?.collegeId || 'custom');
-      
+      const success = await addCollegeWithPrompts(
+        {
+          collegeId: currentConfig?.collegeId || 'custom',
+          collegeName: currentConfig?.collegeName || 'Unknown',
+          applicationType: currentConfig?.applicationType || '',
+          deadline: currentConfig?.deadline || '',
+        },
+        prompts
+      );
+
+      if (!success) return;
+
       if (currentConfigIndex < collegeConfigs.length - 1) {
-        // Move to next college's prompts
         setCurrentConfigIndex(prev => prev + 1);
         setPrompts([{ id: '1', promptText: '', promptType: '', limitValue: 250, isOptional: false }]);
       } else {
-        // All colleges added - call onComplete to navigate away
         onComplete();
       }
     }
@@ -473,6 +736,15 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
       newSet.delete(collegeId);
       return newSet;
     });
+
+    if (collegeId.startsWith('custom:')) {
+      setCustomColleges(prev => {
+        if (!prev[collegeId]) return prev;
+        const next = { ...prev };
+        delete next[collegeId];
+        return next;
+      });
+    }
   };
 
   return (
@@ -553,7 +825,7 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
               {selectedColleges.size > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {Array.from(selectedColleges).map(collegeId => {
-                    const college = popularColleges.find(c => c.id === collegeId);
+                    const college = getCollegeById(collegeId);
                     return (
                       <motion.div
                         key={collegeId}
@@ -622,6 +894,37 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
                     </motion.button>
                   );
                 })}
+                {showAddCustom && (
+                  <motion.button
+                    key={`add-custom-${customCollegeId}`}
+                    onClick={customIsSelected ? undefined : handleAddCustomCollege}
+                    disabled={customIsSelected}
+                    className={`w-full text-left p-4 rounded-xl border transition-all ${
+                      customIsSelected
+                        ? 'border-primary bg-primary/5 cursor-default'
+                        : 'border-border bg-card hover:border-primary/30'
+                    }`}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-body font-medium text-foreground">
+                          Add “{trimmedSearchQuery}”
+                        </h3>
+                        <p className="text-body-sm text-muted-foreground">Use this custom college</p>
+                      </div>
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                        customIsSelected
+                          ? 'bg-primary border-primary'
+                          : 'border-muted-foreground/30'
+                      }`}>
+                        {customIsSelected && <Check className="w-4 h-4 text-primary-foreground" />}
+                      </div>
+                    </div>
+                  </motion.button>
+                )}
               </div>
               {/* Continue Button */}
               {canProceedToApplicationType && (
@@ -651,6 +954,22 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
               transition={{ duration: 0.3 }}
               className="space-y-4"
             >
+              {isSearchingDeadlines && (
+                <p className="text-body-sm text-muted-foreground">
+                  Searching for application deadlines for {currentConfig?.collegeName}...
+                </p>
+              )}
+              {deadlineSearchError && (
+                <p className="text-body-sm text-destructive">
+                  {deadlineSearchError}
+                </p>
+              )}
+              {noDeadlinesFound && !deadlineSearchError && !isSearchingDeadlines && (
+                <p className="text-body-sm text-muted-foreground">
+                  No deadlines found. Showing default options.
+                </p>
+              )}
+
               {/* Application Type Selection */}
               <div className="space-y-3">
                 {currentAvailableAppTypes.map((appType, index) => (
@@ -712,6 +1031,27 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
               transition={{ duration: 0.3 }}
               className="space-y-4"
             >
+              {isAutoAdding && (
+                <p className="text-body-sm text-muted-foreground">
+                  Adding {currentConfig?.collegeName} with auto-found prompts...
+                </p>
+              )}
+              {isSearchingPrompts && (
+                <p className="text-body-sm text-muted-foreground">
+                  Searching for prompts for {currentConfig?.collegeName}...
+                </p>
+              )}
+              {promptSearchError && (
+                <p className="text-body-sm text-destructive">
+                  {promptSearchError}
+                </p>
+              )}
+              {noPromptsFound && !promptSearchError && !isSearchingPrompts && (
+                <p className="text-body-sm text-muted-foreground">
+                  No prompts found. You can add them manually.
+                </p>
+              )}
+
               {/* Prompt List */}
               {prompts.map((prompt, index) => (
                 <motion.div

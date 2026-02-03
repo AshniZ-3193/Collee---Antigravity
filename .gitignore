@@ -5,3 +5,11 @@
 /LaunchPad Credentials.txt
 /LaunchPad Requirements.docx
 /LaunchPad Requirements.txt
+collee.db
+.claude
+# Convex + Vite
+.convex
+frontend/.convex
+.env.local
+frontend/.env.local
+frontend/.env.*.local

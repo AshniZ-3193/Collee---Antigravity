@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import ColleeLayout from '@/components/ColleeLayout';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 
 interface PersonalLensScreenProps {
   onContinue: (data: { identityAspects: string[]; handlingPreference: string }) => void;
@@ -28,6 +30,7 @@ const HANDLING_OPTIONS = [
 const PersonalLensScreen: React.FC<PersonalLensScreenProps> = ({ onContinue, onBack }) => {
   const [selectedIdentities, setSelectedIdentities] = useState<string[]>([]);
   const [handlingPreference, setHandlingPreference] = useState<string>('');
+  const saveOnboardingStep = useMutation(api.userProfile.saveOnboardingStep);
 
   const toggleIdentity = (identity: string) => {
     if (identity === 'None / I\'m not sure yet') {
@@ -146,12 +149,16 @@ const PersonalLensScreen: React.FC<PersonalLensScreenProps> = ({ onContinue, onB
         <Button
           variant="collee-accent"
           size="collee-sm"
-          onClick={() =>
+          onClick={async () => {
+            await saveOnboardingStep({
+              identityAspects: selectedIdentities,
+              identityHandling: handlingPreference,
+            });
             onContinue({
               identityAspects: selectedIdentities,
               handlingPreference,
-            })
-          }
+            });
+          }}
         >
           Continue
         </Button>

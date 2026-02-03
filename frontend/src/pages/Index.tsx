@@ -1,6 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useConvexAuth } from 'convex/react';
+import { useQuery } from 'convex/react';
+import { useClerk, useAuth } from '@clerk/clerk-react';
+import { api } from '../../convex/_generated/api';
+import { useStoreUserEffect } from '@/hooks/useStoreUserEffect';
 import HomeScreen from '@/components/screens/HomeScreen';
+import AuthLoadingScreen from '@/components/screens/AuthLoadingScreen';
 import { AuthScreen } from '@/components/screens/AuthScreen';
 import WelcomeScreen from '@/components/screens/WelcomeScreen';
 import ResumeScreen from '@/components/screens/ResumeScreen';
@@ -19,6 +25,7 @@ import EditStoryIdentityScreen from '@/components/screens/EditStoryIdentityScree
 
 type Screen =
   | 'home'
+  | 'auth-loading'
   | 'auth'
   | 'welcome'
   | 'resume'
@@ -35,81 +42,103 @@ type Screen =
   | 'share-view'
   | 'edit-story-identity';
 
-// Check if Story Identity exists (one-time onboarding detection)
-const hasStoryIdentity = (): boolean => {
-  try {
-    const stored = localStorage.getItem('collee_story_identity');
-    if (stored) {
-      const data = JSON.parse(stored);
-      // Verify it has the required structure
-      return data && data.experiences && data.pillars;
-    }
-    return false;
-  } catch {
-    return false;
-  }
-};
-
-// Mark Story Identity as complete after onboarding
-const markOnboardingComplete = () => {
-  const defaultIdentity = {
-    experiences: [
-      { id: 'exp1', name: 'Teaching Grandma Technology', tags: ['empathy', 'patience', 'family'] },
-      { id: 'exp2', name: 'Robotics Competition Failure', tags: ['resilience', 'leadership', 'teamwork'] },
-      { id: 'exp3', name: 'Starting the Coding Club', tags: ['leadership', 'community', 'initiative'] },
-    ],
-    pillars: [
-      { id: 'p1', theme: 'Bridging worlds through technology' },
-      { id: 'p2', theme: 'Learning through failure' },
-      { id: 'p3', theme: 'Community building' },
-    ],
-    voicePreferences: {
-      tone: 'conversational',
-      reminders: [
-        'Emphasize learning over achievement',
-        'Use specific moments over abstract claims',
-        'Let authenticity come through',
-      ],
-    },
-    createdAt: new Date().toISOString(),
-  };
-  localStorage.setItem('collee_story_identity', JSON.stringify(defaultIdentity));
-};
-
 const Index = () => {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('home');
+  const { isAuthenticated: isConvexAuth, isLoading: isConvexLoading } = useConvexAuth();
+  const { isSignedIn, isLoaded: isClerkLoaded } = useAuth();
+  const { isAuthenticated: isUserStored, isLoading: isUserLoading } = useStoreUserEffect();
+  const { signOut } = useClerk();
+
+  // Only query profile if user is authenticated and stored
+  const profile = useQuery(
+    api.userProfile.get,
+    isUserStored ? {} : "skip"
+  );
+  const storyIdentity = useQuery(
+    api.storyIdentity.get,
+    isUserStored ? {} : "skip"
+  );
+
+  const [currentScreen, setCurrentScreen] = useState<Screen>('auth-loading');
+  const hasNavigatedAfterAuth = useRef(false);
+
+  const isProfileLoading =
+    isSignedIn && isUserStored && (profile === undefined || storyIdentity === undefined);
+  const isAuthGateLoading =
+    !isClerkLoaded ||
+    isConvexLoading ||
+    isUserLoading ||
+    (isSignedIn && !isUserStored) ||
+    isProfileLoading;
+
+  // Watch for auth state changes and navigate accordingly
+  useEffect(() => {
+    // Don't do anything while loading core auth/state.
+    if (isAuthGateLoading) {
+      if (currentScreen === 'home' || currentScreen === 'auth') {
+        setCurrentScreen('auth-loading');
+      }
+      return;
+    }
+
+    if (!isSignedIn) {
+      if (currentScreen === 'auth-loading') {
+        setCurrentScreen('home');
+      }
+
+      // If user signed out, go back to home
+      if (currentScreen !== 'home' && currentScreen !== 'auth') {
+        hasNavigatedAfterAuth.current = false;
+        setCurrentScreen('home');
+      }
+
+      return;
+    }
+
+    // If user is authenticated and on home or auth screen, navigate based on their profile
+    // This handles both: 1) completing auth on auth screen, 2) returning from OAuth redirect to home
+    if (isSignedIn && isUserStored && (currentScreen === 'auth' || currentScreen === 'home' || currentScreen === 'auth-loading') && !hasNavigatedAfterAuth.current) {
+      hasNavigatedAfterAuth.current = true;
+
+      if (storyIdentity || profile?.onboardingComplete) {
+        setCurrentScreen('workspace');
+      } else {
+        setCurrentScreen('welcome');
+      }
+    }
+  }, [
+    isAuthGateLoading,
+    isSignedIn,
+    isUserStored,
+    currentScreen,
+    storyIdentity,
+    profile,
+  ]);
+
+  // Reset the navigation flag only when going to auth screen (user explicitly starting auth flow)
+  // Don't reset when going to home - that would cause re-navigation for intentional home visits
+  useEffect(() => {
+    if (currentScreen === 'auth') {
+      hasNavigatedAfterAuth.current = false;
+    }
+  }, [currentScreen]);
 
   const navigateTo = (screen: Screen) => {
     setCurrentScreen(screen);
   };
 
-  // Navigate to home (for logo click in workspace)
   const handleGoHome = () => {
     navigateTo('home');
   };
 
-  // Handle login - check if onboarding is needed
-  const handleLogin = () => {
-    if (hasStoryIdentity()) {
-      // Skip onboarding, go directly to workspace (College Map)
-      navigateTo('workspace');
-    } else {
-      // First-time user, start onboarding
-      navigateTo('welcome');
-    }
-  };
-
-  // Handle signup - always start fresh onboarding
-  const handleSignup = () => {
-    // Clear any existing story identity to ensure fresh onboarding
-    localStorage.removeItem('collee_story_identity');
-    navigateTo('welcome');
-  };
-
   // Handle onboarding completion
   const handleOnboardingComplete = () => {
-    markOnboardingComplete();
     navigateTo('workspace');
+  };
+
+  // Handle logout
+  const handleLogout = async () => {
+    await signOut();
+    navigateTo('home');
   };
 
   return (
@@ -123,97 +152,114 @@ const Index = () => {
         className={currentScreen === 'workspace' ? 'h-screen' : ''}
       >
         {/* PUBLIC HOME SCREEN */}
+        {currentScreen === 'auth-loading' && (
+          <AuthLoadingScreen />
+        )}
+
         {currentScreen === 'home' && (
-          <HomeScreen 
+          <HomeScreen
             onGetStarted={() => navigateTo('auth')}
-            onLogin={() => navigateTo('auth')}
+            isLoggedIn={Boolean(isClerkLoaded && isSignedIn)}
+            onLogin={() => {
+              if (isClerkLoaded && isSignedIn && isUserStored) {
+                // If data is still loading, keep the user on home until the auth
+                // effect routes them to the correct screen.
+                if (profile === undefined || storyIdentity === undefined) {
+                  return;
+                }
+
+                // User is already logged in, route appropriately
+                if (storyIdentity || profile?.onboardingComplete) {
+                  navigateTo('workspace');
+                } else {
+                  navigateTo('welcome');
+                }
+              } else {
+                navigateTo('auth');
+              }
+            }}
           />
         )}
 
         {currentScreen === 'auth' && (
-          <AuthScreen 
-            onLogin={handleLogin}
-            onSignup={handleSignup}
+          <AuthScreen
             onLogoClick={handleGoHome}
           />
         )}
-        
-        {/* ONBOARDING FLOW - Only runs if no Story Identity exists */}
+
+        {/* ONBOARDING FLOW */}
         {currentScreen === 'welcome' && (
           <WelcomeScreen onStart={() => navigateTo('resume')} />
         )}
-        
+
         {currentScreen === 'resume' && (
-          <ResumeScreen 
+          <ResumeScreen
             onContinue={() => navigateTo('academic')}
             onBack={() => navigateTo('welcome')}
           />
         )}
-        
+
         {currentScreen === 'academic' && (
-          <AcademicScreen 
+          <AcademicScreen
             onContinue={() => navigateTo('diagnostics')}
             onBack={() => navigateTo('resume')}
           />
         )}
-        
+
         {currentScreen === 'diagnostics' && (
-          <DiagnosticsScreen 
+          <DiagnosticsScreen
             onContinue={() => navigateTo('writing-tone')}
             onBack={() => navigateTo('academic')}
           />
         )}
-        
+
         {currentScreen === 'writing-tone' && (
-          <WritingToneScreen 
+          <WritingToneScreen
             onContinue={() => navigateTo('personal-lens')}
             onBack={() => navigateTo('diagnostics')}
           />
         )}
-        
+
         {currentScreen === 'personal-lens' && (
-          <PersonalLensScreen 
+          <PersonalLensScreen
             onContinue={() => navigateTo('reflection')}
             onBack={() => navigateTo('writing-tone')}
           />
         )}
-        
+
         {currentScreen === 'reflection' && (
-          <ReflectionScreen 
+          <ReflectionScreen
             onContinue={() => navigateTo('loading')}
             onBack={() => navigateTo('personal-lens')}
           />
         )}
-        
+
         {currentScreen === 'loading' && (
           <LoadingScreen onComplete={() => navigateTo('story-card')} />
         )}
-        
+
         {currentScreen === 'story-card' && (
-          <StoryCardScreen 
+          <StoryCardScreen
             onConfirm={handleOnboardingComplete}
             onTweak={() => navigateTo('diagnostics')}
           />
         )}
 
-        {/* MAIN APP - College Map + Essay Editor */}
+        {/* MAIN APP */}
         {currentScreen === 'workspace' && (
-          <ColleeWorkspace 
+          <ColleeWorkspace
             onAddCollege={() => navigateTo('add-college')}
             onExport={() => navigateTo('export')}
             onEditStoryIdentity={() => navigateTo('edit-story-identity')}
             onLogoClick={handleGoHome}
-            onLogout={handleGoHome}
+            onLogout={handleLogout}
           />
         )}
 
         {currentScreen === 'add-college' && (
-          <AddCollegeScreen 
+          <AddCollegeScreen
             onBack={() => navigateTo('workspace')}
             onAddCollege={(collegeId) => {
-              // The AddCollegeScreen handles multi-college flow internally
-              // This callback is called for each college added, but navigation
-              // is handled by onBack when all colleges are complete
               console.log('College added:', collegeId);
             }}
             onComplete={() => navigateTo('workspace')}
@@ -221,7 +267,7 @@ const Index = () => {
         )}
 
         {currentScreen === 'export' && (
-          <ExportScreen 
+          <ExportScreen
             essayTitle="Personal Statement"
             collegeName="Stanford University"
             wordCount={542}
@@ -230,18 +276,18 @@ const Index = () => {
         )}
 
         {currentScreen === 'share-view' && (
-          <ShareViewScreen 
+          <ShareViewScreen
             collegeName="Stanford University"
             promptText="Describe an experience where you had to make a difficult choice."
-            essayContent="The moment I realized I wanted to pursue computer science was not in a classroom — it was in my grandmother's kitchen.\n\nShe had just received a new smartphone from my parents, and the look of confusion and frustration on her face was something I'll never forget."
+            essayContent="The moment I realized I wanted to pursue computer science was not in a classroom — it was in my grandmother's kitchen."
             wordCount={542}
             authorName="Student"
           />
         )}
 
-        {/* EDIT STORY IDENTITY - Modular editing without re-onboarding */}
+        {/* EDIT STORY IDENTITY */}
         {currentScreen === 'edit-story-identity' && (
-          <EditStoryIdentityScreen 
+          <EditStoryIdentityScreen
             onBack={() => navigateTo('workspace')}
             onSave={() => navigateTo('workspace')}
           />

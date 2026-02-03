@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import {
   ArrowLeft,
   BookOpen,
@@ -16,37 +15,14 @@ import {
   Sparkles,
 } from 'lucide-react';
 import ColleeLogo from '@/components/ColleeLogo';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
+import type { Id } from '../../../convex/_generated/dataModel';
 
 interface EditStoryIdentityScreenProps {
   onBack: () => void;
   onSave: () => void;
 }
-
-// Mock data - in real app this would come from database
-const initialExperiences = [
-  { id: 'exp1', name: 'Teaching Grandma Technology', tags: ['empathy', 'patience', 'family'] },
-  { id: 'exp2', name: 'Robotics Competition Failure', tags: ['resilience', 'leadership', 'teamwork'] },
-  { id: 'exp3', name: 'Starting the Coding Club', tags: ['leadership', 'community', 'initiative'] },
-  { id: 'exp4', name: 'Immigrant Family Dinners', tags: ['identity', 'culture', 'belonging'] },
-  { id: 'exp5', name: 'First Hackathon All-Nighter', tags: ['passion', 'perseverance', 'discovery'] },
-];
-
-const initialPillars = [
-  { id: 'p1', theme: 'Bridging worlds through technology' },
-  { id: 'p2', theme: 'Learning through failure' },
-  { id: 'p3', theme: 'Community building' },
-  { id: 'p4', theme: 'Cultural navigation' },
-];
-
-const initialVoicePreferences = {
-  tone: 'conversational',
-  style: 'Show, don\'t tell',
-  reminders: [
-    'Emphasize learning over achievement',
-    'Use specific moments over abstract claims',
-    'Let authenticity come through',
-  ],
-};
 
 type Tab = 'experiences' | 'pillars' | 'voice';
 
@@ -54,10 +30,16 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
   onBack,
   onSave,
 }) => {
+  const storyIdentity = useQuery(api.storyIdentity.get, {});
+  const addExperience = useMutation(api.storyIdentity.addExperience);
+  const updateExperience = useMutation(api.storyIdentity.updateExperience);
+  const removeExperience = useMutation(api.storyIdentity.removeExperience);
+  const addPillar = useMutation(api.storyIdentity.addPillar);
+  const updatePillar = useMutation(api.storyIdentity.updatePillar);
+  const removePillar = useMutation(api.storyIdentity.removePillar);
+  const updateIdentity = useMutation(api.storyIdentity.updateIdentity);
+
   const [activeTab, setActiveTab] = useState<Tab>('experiences');
-  const [experiences, setExperiences] = useState(initialExperiences);
-  const [pillars, setPillars] = useState(initialPillars);
-  const [voicePreferences, setVoicePreferences] = useState(initialVoicePreferences);
   const [editingExperience, setEditingExperience] = useState<string | null>(null);
   const [editingPillar, setEditingPillar] = useState<string | null>(null);
   const [newExperienceName, setNewExperienceName] = useState('');
@@ -66,114 +48,86 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
   const [showAddPillar, setShowAddPillar] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Local copy of writing reminders for editing
+  const [localReminders, setLocalReminders] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (storyIdentity?.writingReminders) {
+      setLocalReminders(storyIdentity.writingReminders);
+    }
+  }, [storyIdentity?.writingReminders]);
+
+  const experiences = storyIdentity?.experiences || [];
+  const pillars = storyIdentity?.pillars || [];
+
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'experiences', label: 'Experiences', icon: <BookOpen className="w-4 h-4" /> },
     { id: 'pillars', label: 'Story Pillars', icon: <Target className="w-4 h-4" /> },
     { id: 'voice', label: 'Voice & Style', icon: <Mic className="w-4 h-4" /> },
   ];
 
-  const handleDeleteExperience = (id: string) => {
-    setExperiences(experiences.filter(e => e.id !== id));
+  const handleDeleteExperience = async (id: string) => {
+    await removeExperience({ id: id as Id<"experiences"> });
     setHasChanges(true);
   };
 
-  const handleAddExperience = () => {
+  const handleAddExperience = async () => {
     if (newExperienceName.trim()) {
-      setExperiences([
-        ...experiences,
-        { id: Date.now().toString(), name: newExperienceName.trim(), tags: [] }
-      ]);
+      await addExperience({ name: newExperienceName.trim(), tags: [] });
       setNewExperienceName('');
       setShowAddExperience(false);
       setHasChanges(true);
     }
   };
 
-  const handleUpdateExperience = (id: string, name: string) => {
-    setExperiences(experiences.map(e => e.id === id ? { ...e, name } : e));
+  const handleUpdateExperience = async (id: string, name: string) => {
+    await updateExperience({ id: id as Id<"experiences">, name });
     setEditingExperience(null);
     setHasChanges(true);
   };
 
-  const handleDeletePillar = (id: string) => {
-    setPillars(pillars.filter(p => p.id !== id));
+  const handleDeletePillar = async (id: string) => {
+    await removePillar({ id: id as Id<"storyPillars"> });
     setHasChanges(true);
   };
 
-  const handleAddPillar = () => {
+  const handleAddPillar = async () => {
     if (newPillarTheme.trim()) {
-      setPillars([
-        ...pillars,
-        { id: Date.now().toString(), theme: newPillarTheme.trim() }
-      ]);
+      await addPillar({ theme: newPillarTheme.trim() });
       setNewPillarTheme('');
       setShowAddPillar(false);
       setHasChanges(true);
     }
   };
 
-  const handleUpdatePillar = (id: string, theme: string) => {
-    setPillars(pillars.map(p => p.id === id ? { ...p, theme } : p));
+  const handleUpdatePillar = async (id: string, theme: string) => {
+    await updatePillar({ id: id as Id<"storyPillars">, theme });
     setEditingPillar(null);
     setHasChanges(true);
   };
 
   const handleUpdateReminder = (index: number, value: string) => {
-    const newReminders = [...voicePreferences.reminders];
+    const newReminders = [...localReminders];
     newReminders[index] = value;
-    setVoicePreferences({ ...voicePreferences, reminders: newReminders });
+    setLocalReminders(newReminders);
     setHasChanges(true);
   };
 
-  /* MODIFIED: Save to Backend for AI Context */
   const handleSave = async () => {
-    // 1. Save to local storage (legacy frontend behavior)
-    localStorage.setItem('collee_story_identity', JSON.stringify({
-      experiences,
-      pillars,
-      voicePreferences,
-      updatedAt: new Date().toISOString(),
-    }));
-
-    // 2. Save to Backend (for AI)
-    // We construct a summary note of the current state
-    const summaryContent = [
-      "Current Experiences:",
-      ...experiences.map(e => `- ${e.name} (Tags: ${e.tags.join(', ')})`),
-      "\nStory Pillars:",
-      ...pillars.map(p => `- ${p.theme}`),
-      "\nVoice Preferences:",
-      `Tone: ${voicePreferences.tone}`,
-      `Style: ${voicePreferences.style}`,
-      "Reminders:",
-      ...voicePreferences.reminders.map(r => `- ${r}`)
-    ].join('\n');
-
-    try {
-      await fetch('/api/lens/', { // Note: using /api/lens based on vite proxy or verify path
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: summaryContent })
-      });
-      // Note: The router prefix is /lens, so vite proxy needs to handle it.
-      // Wait, vite proxy handles /api -> backend.
-      // Backend router prefix is /lens.
-      // So the full URL is /lens... wait.
-      // Let's check main.py. app.include_router(lens.router).
-      // lens.router prefix is "/lens".
-      // So it is at root /lens.
-      // But vite proxy only proxies /api.
-      // I should have put it under /api/lens or update proxy for /lens.
-      // I'll update main.py to prefix /api/lens OR update vite config.
-      // Easier to update main.py to put everything under /api for consistenty.
-      // OR just fetch('/api/lens') if router prefix is updated.
-      // Let's assume I'll fix the router prefix in main.py momentarily.
-    } catch (e) {
-      console.error("Failed to save lens note to backend", e);
+    // Save writing reminders to Convex
+    if (hasChanges && localReminders.length > 0) {
+      await updateIdentity({ writingReminders: localReminders });
     }
-
     onSave();
   };
+
+  if (!storyIdentity) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Loading story identity...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -296,21 +250,21 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
 
               {/* Experience List */}
               <div className="space-y-2">
-                {experiences.map((experience) => (
+                {experiences.map((experience: any) => (
                   <motion.div
-                    key={experience.id}
+                    key={experience._id}
                     layout
                     className="p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-colors"
                   >
-                    {editingExperience === experience.id ? (
+                    {editingExperience === experience._id ? (
                       <div className="flex gap-2">
                         <Input
                           defaultValue={experience.name}
                           autoFocus
-                          onBlur={(e) => handleUpdateExperience(experience.id, e.target.value)}
+                          onBlur={(e) => handleUpdateExperience(experience._id, e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
-                              handleUpdateExperience(experience.id, e.currentTarget.value);
+                              handleUpdateExperience(experience._id, e.currentTarget.value);
                             }
                             if (e.key === 'Escape') {
                               setEditingExperience(null);
@@ -329,9 +283,9 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
                             <p className="text-body-sm font-medium text-foreground">
                               {experience.name}
                             </p>
-                            {experience.tags.length > 0 && (
+                            {experience.tags?.length > 0 && (
                               <div className="flex gap-1 mt-1">
-                                {experience.tags.slice(0, 3).map((tag) => (
+                                {experience.tags.slice(0, 3).map((tag: string) => (
                                   <span
                                     key={tag}
                                     className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
@@ -345,13 +299,13 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
                         </div>
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => setEditingExperience(experience.id)}
+                            onClick={() => setEditingExperience(experience._id)}
                             className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDeleteExperience(experience.id)}
+                            onClick={() => handleDeleteExperience(experience._id)}
                             className="p-2 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -434,21 +388,21 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
 
               {/* Pillar List */}
               <div className="space-y-2">
-                {pillars.map((pillar) => (
+                {pillars.map((pillar: any) => (
                   <motion.div
-                    key={pillar.id}
+                    key={pillar._id}
                     layout
                     className="p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-colors"
                   >
-                    {editingPillar === pillar.id ? (
+                    {editingPillar === pillar._id ? (
                       <div className="flex gap-2">
                         <Input
                           defaultValue={pillar.theme}
                           autoFocus
-                          onBlur={(e) => handleUpdatePillar(pillar.id, e.target.value)}
+                          onBlur={(e) => handleUpdatePillar(pillar._id, e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
-                              handleUpdatePillar(pillar.id, e.currentTarget.value);
+                              handleUpdatePillar(pillar._id, e.currentTarget.value);
                             }
                             if (e.key === 'Escape') {
                               setEditingPillar(null);
@@ -469,13 +423,13 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
                         </div>
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => setEditingPillar(pillar.id)}
+                            onClick={() => setEditingPillar(pillar._id)}
                             className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDeletePillar(pillar.id)}
+                            onClick={() => handleDeletePillar(pillar._id)}
                             className="p-2 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -513,7 +467,7 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
                   Writing Reminders
                 </h3>
                 <div className="space-y-3">
-                  {voicePreferences.reminders.map((reminder, index) => (
+                  {localReminders.map((reminder, index) => (
                     <div key={index} className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
                       <Input
@@ -529,10 +483,7 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
                   size="sm"
                   className="mt-3 w-full"
                   onClick={() => {
-                    setVoicePreferences({
-                      ...voicePreferences,
-                      reminders: [...voicePreferences.reminders, ''],
-                    });
+                    setLocalReminders([...localReminders, '']);
                     setHasChanges(true);
                   }}
                 >
