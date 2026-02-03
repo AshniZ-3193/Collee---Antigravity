@@ -50,6 +50,6 @@ Your personal admissions copilot.
 - **AI Suggestions**: Ensure the OpenAI API Key in `app/services/ai_service.py` is valid.
 
 
-Hello
+
 
 
