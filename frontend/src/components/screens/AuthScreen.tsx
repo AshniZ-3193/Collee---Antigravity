@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock, User, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Eye, EyeOff, KeyRound, ArrowLeft } from "lucide-react";
 import ColleeLogo from "@/components/ColleeLogo";
 import { useSignIn, useSignUp } from "@clerk/clerk-react";
 
@@ -21,6 +21,10 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Email verification state
+  const [pendingVerification, setPendingVerification] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
 
   const { signIn, isLoaded: signInLoaded } = useSignIn();
   const { signUp, isLoaded: signUpLoaded } = useSignUp();
@@ -42,22 +46,69 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
         }
       } else {
         if (!signUp || !signUpLoaded) return;
-        const result = await signUp.create({
+        
+        // Create the sign-up
+        await signUp.create({
           emailAddress: email,
           password,
           firstName: name,
         });
-        if (result.status === "complete") {
-          await signUp.setActive({ session: result.createdSessionId });
-        } else {
-          setError("Please check your email to verify your account.");
-        }
+        
+        // Send email verification code
+        await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+        
+        // Show verification UI
+        setPendingVerification(true);
       }
     } catch (err: any) {
       setError(err.errors?.[0]?.message || err.message || "Authentication failed");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleVerifyEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+
+    try {
+      if (!signUp || !signUpLoaded) return;
+
+      const result = await signUp.attemptEmailAddressVerification({
+        code: verificationCode,
+      });
+
+      if (result.status === "complete") {
+        await signUp.setActive({ session: result.createdSessionId });
+        // Reset states
+        setPendingVerification(false);
+        setVerificationCode("");
+      } else {
+        setError("Verification incomplete. Please try again.");
+      }
+    } catch (err: any) {
+      setError(err.errors?.[0]?.message || err.message || "Verification failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setError("");
+    try {
+      if (!signUp || !signUpLoaded) return;
+      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      setError(""); // Clear any previous errors
+    } catch (err: any) {
+      setError(err.errors?.[0]?.message || err.message || "Failed to resend code");
+    }
+  };
+
+  const handleBackToSignUp = () => {
+    setPendingVerification(false);
+    setVerificationCode("");
+    setError("");
   };
 
   const handleGoogleAuth = async () => {
@@ -82,6 +133,119 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
       setError(err.errors?.[0]?.message || err.message || "Google auth failed");
     }
   };
+
+  // Verification Screen UI
+  if (pendingVerification) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6 relative overflow-hidden">
+        {/* Blurred gradient orbs for depth */}
+        <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/[0.06] blur-[100px] pointer-events-none" aria-hidden="true" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-secondary/[0.06] blur-[100px] pointer-events-none" aria-hidden="true" />
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md relative"
+        >
+          {/* Logo / Brand */}
+          <div className="text-center mb-10">
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="flex flex-col items-center gap-4"
+            >
+              <ColleeLogo size="lg" showText onClick={onLogoClick} />
+            </motion.div>
+            <p className="text-body text-foreground-muted mt-2">
+              Check your email for a verification code
+            </p>
+          </div>
+
+          {/* Verification Card */}
+          <motion.div
+            layout
+            className="bg-card rounded-2xl shadow-soft-md p-8 border border-card-border relative overflow-hidden transition-shadow duration-300 hover:shadow-soft-lg"
+          >
+            {/* Top gradient accent line */}
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary/40 via-secondary/40 to-primary/40" />
+
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Mail className="w-8 h-8 text-primary" />
+              </div>
+              <h2 className="text-heading-sm text-foreground mb-2">Verify your email</h2>
+              <p className="text-body-sm text-foreground-muted">
+                We sent a verification code to<br />
+                <span className="font-medium text-foreground">{email}</span>
+              </p>
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-body-sm">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleVerifyEmail} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="code" className="text-foreground-muted text-body-sm">
+                  Verification code
+                </Label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-subtle" />
+                  <Input
+                    id="code"
+                    type="text"
+                    placeholder="Enter 6-digit code"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    className="pl-10 h-12 bg-muted border-0 focus:ring-2 focus:ring-primary/20 focus:bg-background focus:shadow-sm transition-all text-center text-lg tracking-widest"
+                    maxLength={6}
+                    autoComplete="one-time-code"
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                variant="collee-accent"
+                size="lg"
+                className="w-full h-12"
+                disabled={isLoading || verificationCode.length < 6}
+              >
+                {isLoading ? "Verifying..." : "Verify Email"}
+                {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+              </Button>
+            </form>
+
+            <div className="mt-6 text-center space-y-3">
+              <p className="text-body-sm text-foreground-muted">
+                Didn't receive a code?{" "}
+                <button
+                  type="button"
+                  onClick={handleResendCode}
+                  className="text-secondary hover:text-secondary-hover transition-colors font-medium"
+                >
+                  Resend code
+                </button>
+              </p>
+              <button
+                type="button"
+                onClick={handleBackToSignUp}
+                className="flex items-center justify-center gap-2 text-body-sm text-foreground-muted hover:text-foreground transition-colors mx-auto"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to sign up
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6 relative overflow-hidden">
