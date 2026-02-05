@@ -29,6 +29,7 @@ import type * as essays from "../essays.js";
 import type * as experienceBank from "../experienceBank.js";
 import type * as experienceBankHelpers from "../experienceBankHelpers.js";
 import type * as personalLens from "../personalLens.js";
+import type * as shares from "../shares.js";
 import type * as storyIdentity from "../storyIdentity.js";
 import type * as userProfile from "../userProfile.js";
 import type * as users from "../users.js";
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   experienceBank: typeof experienceBank;
   experienceBankHelpers: typeof experienceBankHelpers;
   personalLens: typeof personalLens;
+  shares: typeof shares;
   storyIdentity: typeof storyIdentity;
   userProfile: typeof userProfile;
   users: typeof users;

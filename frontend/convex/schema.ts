@@ -197,4 +197,14 @@ export default defineSchema({
     timestamp: v.number(),
   }).index("by_essay", ["essayId"])
     .index("by_user", ["userId"]),
+
+  // Share links for essays (permanent, no expiration)
+  shares: defineTable({
+    userId: v.id("users"),
+    essayId: v.id("essays"),
+    token: v.string(),
+    createdAt: v.number(),
+  }).index("by_token", ["token"])
+    .index("by_essay", ["essayId"])
+    .index("by_user", ["userId"]),
 });

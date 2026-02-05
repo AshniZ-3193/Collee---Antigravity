@@ -138,9 +138,17 @@ interface Version {
   isCurrent?: boolean;
 }
 
-interface LaunchPadWorkspaceProps {
+interface ExportData {
+  essayTitle: string;
+  collegeName: string;
+  wordCount: number;
+  essayContent: string;
+  essayId?: string;
+}
+
+interface ColleeWorkspaceProps {
   onAddCollege: () => void;
-  onExport: () => void;
+  onExport: (data: ExportData) => void;
   onEditStoryIdentity?: () => void;
   onLogoClick?: () => void;
   onLogout?: () => void;
@@ -234,7 +242,7 @@ const isDeadlineApproaching = (deadline?: string): boolean => {
 };
 
 // ===== MAIN COMPONENT =====
-const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
+const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   onAddCollege,
   onExport,
   onEditStoryIdentity,
@@ -1391,7 +1399,17 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                     <History className="w-4 h-4 text-muted-foreground" />
                   </button>
                   <button
-                    onClick={onExport}
+                    onClick={() => {
+                      if (currentEssay && currentCollege) {
+                        onExport({
+                          essayTitle: currentEssay.title,
+                          collegeName: currentCollege.name,
+                          wordCount: wordCount,
+                          essayContent: content,
+                          essayId: currentEssay.id,
+                        });
+                      }
+                    }}
                     className="p-2 rounded-lg hover:bg-muted transition-colors"
                     title="Export"
                   >
@@ -2844,4 +2862,4 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
   );
 };
 
-export default LaunchPadWorkspace;
+export default ColleeWorkspace;
