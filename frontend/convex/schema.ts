@@ -150,6 +150,8 @@ export default defineSchema({
       wordCountMax: v.number(),
       isOptional: v.boolean(),
       promptType: v.optional(v.string()),
+      targetProgram: v.optional(v.string()),
+      relevantMajors: v.optional(v.array(v.string())),
     })),
     cachedAt: v.number(),
   }).index("by_college_year", ["collegeName", "applicationYear"]),
@@ -194,5 +196,15 @@ export default defineSchema({
     feedback: v.string(),
     timestamp: v.number(),
   }).index("by_essay", ["essayId"])
+    .index("by_user", ["userId"]),
+
+  // Share links for essays (permanent, no expiration)
+  shares: defineTable({
+    userId: v.id("users"),
+    essayId: v.id("essays"),
+    token: v.string(),
+    createdAt: v.number(),
+  }).index("by_token", ["token"])
+    .index("by_essay", ["essayId"])
     .index("by_user", ["userId"]),
 });

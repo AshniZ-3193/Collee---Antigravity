@@ -25,6 +25,8 @@ export const saveCache = mutation({
       wordCountMax: v.number(),
       isOptional: v.boolean(),
       promptType: v.optional(v.string()),
+      targetProgram: v.optional(v.string()),
+      relevantMajors: v.optional(v.array(v.string())),
     })),
     cachedAt: v.number(),
   },

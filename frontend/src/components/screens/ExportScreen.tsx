@@ -1,17 +1,24 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { 
-  ArrowLeft, 
-  FileText, 
-  Download, 
-  Copy, 
-  Link, 
+import {
+  ArrowLeft,
+  FileText,
+  Download,
+  Copy,
+  Link,
   Check,
-  FileDown
+  FileDown,
+  Loader2
 } from 'lucide-react';
 import ColleeLayout from '@/components/ColleeLayout';
 import ColleeLogo from '@/components/ColleeLogo';
+import { jsPDF } from 'jspdf';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+import { saveAs } from 'file-saver';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
+import type { Id } from '../../../convex/_generated/dataModel';
 
 interface ExportOption {
   id: string;
@@ -24,6 +31,8 @@ interface ExportScreenProps {
   essayTitle: string;
   collegeName: string;
   wordCount: number;
+  essayContent: string;
+  essayId?: string;
   onBack: () => void;
 }
 
@@ -58,31 +67,188 @@ const ExportScreen: React.FC<ExportScreenProps> = ({
   essayTitle,
   collegeName,
   wordCount,
+  essayContent,
+  essayId,
   onBack,
 }) => {
   const [exportedOption, setExportedOption] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [shareLink, setShareLink] = useState<string | null>(null);
 
-  const handleExport = (optionId: string) => {
+  const createShareMutation = useMutation(api.shares.create);
+
+  const handleExportPDF = async () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const maxWidth = pageWidth - margin * 2;
+
+    // Title
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(collegeName, margin, margin);
+
+    // Subtitle
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(essayTitle, margin, margin + 8);
+
+    // Divider line
+    doc.setDrawColor(200);
+    doc.line(margin, margin + 14, pageWidth - margin, margin + 14);
+
+    // Essay content
+    doc.setFontSize(11);
+    const lines = doc.splitTextToSize(essayContent, maxWidth);
+    let yPosition = margin + 24;
+    const lineHeight = 6;
+
+    lines.forEach((line: string) => {
+      if (yPosition > doc.internal.pageSize.getHeight() - margin) {
+        doc.addPage();
+        yPosition = margin;
+      }
+      doc.text(line, margin, yPosition);
+      yPosition += lineHeight;
+    });
+
+    // Footer
+    yPosition += 10;
+    doc.setFontSize(9);
+    doc.setTextColor(128);
+    doc.text(`${wordCount} words`, margin, yPosition);
+    doc.text('Created with Collee', pageWidth - margin - 35, yPosition);
+
+    // Save
+    const fileName = `${collegeName.replace(/\s+/g, '_')}_${essayTitle.replace(/\s+/g, '_')}.pdf`;
+    doc.save(fileName);
+  };
+
+  const handleExportDOCX = async () => {
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children: [
+            new Paragraph({
+              text: collegeName,
+              heading: HeadingLevel.HEADING_1,
+              spacing: { after: 200 },
+            }),
+            new Paragraph({
+              text: essayTitle,
+              heading: HeadingLevel.HEADING_2,
+              spacing: { after: 400 },
+            }),
+            ...essayContent.split('\n\n').map(
+              (para) =>
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: para,
+                      size: 24, // 12pt
+                    }),
+                  ],
+                  spacing: { after: 240 },
+                })
+            ),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `\n${wordCount} words`,
+                  size: 20,
+                  color: '808080',
+                }),
+              ],
+              spacing: { before: 400 },
+            }),
+          ],
+        },
+      ],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    const fileName = `${collegeName.replace(/\s+/g, '_')}_${essayTitle.replace(/\s+/g, '_')}.docx`;
+    saveAs(blob, fileName);
+  };
+
+  const handleCopyToClipboard = async () => {
+    await navigator.clipboard.writeText(essayContent);
+  };
+
+  const handleCreateShareLink = async () => {
+    if (!essayId) {
+      console.error('No essay ID provided for share link');
+      return;
+    }
+
+    try {
+      const result = await createShareMutation({
+        essayId: essayId as Id<"essays">,
+      });
+
+      const shareUrl = `${window.location.origin}/share/${result.token}`;
+      setShareLink(shareUrl);
+
+      // Also copy to clipboard
+      await navigator.clipboard.writeText(shareUrl);
+    } catch (error) {
+      console.error('Failed to create share link:', error);
+    }
+  };
+
+  const handleExport = async (optionId: string) => {
     setIsExporting(true);
-    
-    // Simulate export action
-    setTimeout(() => {
+
+    try {
+      switch (optionId) {
+        case 'pdf':
+          await handleExportPDF();
+          break;
+        case 'docx':
+          await handleExportDOCX();
+          break;
+        case 'copy':
+          await handleCopyToClipboard();
+          break;
+        case 'share':
+          await handleCreateShareLink();
+          break;
+      }
+
       setExportedOption(optionId);
-      setIsExporting(false);
-      
-      // Reset success state after 2 seconds
+
+      // Reset success state after 3 seconds (longer for share link)
       setTimeout(() => {
         setExportedOption(null);
-      }, 2000);
-    }, 1000);
+      }, optionId === 'share' ? 5000 : 2000);
+    } catch (error) {
+      console.error('Export failed:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const getSuccessMessage = (optionId: string) => {
+    switch (optionId) {
+      case 'pdf':
+        return 'PDF downloaded!';
+      case 'docx':
+        return 'Word doc downloaded!';
+      case 'copy':
+        return 'Copied to clipboard!';
+      case 'share':
+        return shareLink ? 'Link copied!' : 'Creating link...';
+      default:
+        return 'Done!';
+    }
   };
 
   return (
     <ColleeLayout>
       <div className="space-y-6">
         {/* Top Logo */}
-        <motion.div 
+        <motion.div
           className="flex justify-center mb-4"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -138,7 +304,7 @@ const ExportScreen: React.FC<ExportScreenProps> = ({
             <motion.button
               key={option.id}
               onClick={() => handleExport(option.id)}
-              disabled={isExporting}
+              disabled={isExporting || (option.id === 'share' && !essayId)}
               className="w-full p-4 rounded-xl border border-border bg-card hover:border-primary/30 hover:shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -150,7 +316,9 @@ const ExportScreen: React.FC<ExportScreenProps> = ({
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-primary/10 text-primary'
                 }`}>
-                  {exportedOption === option.id ? (
+                  {isExporting && exportedOption === null ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : exportedOption === option.id ? (
                     <Check className="w-5 h-5" />
                   ) : (
                     option.icon
@@ -158,10 +326,12 @@ const ExportScreen: React.FC<ExportScreenProps> = ({
                 </div>
                 <div className="flex-1 text-left">
                   <h3 className="text-body font-medium text-foreground">
-                    {exportedOption === option.id ? 'Done!' : option.title}
+                    {exportedOption === option.id ? getSuccessMessage(option.id) : option.title}
                   </h3>
                   <p className="text-body-sm text-muted-foreground">
-                    {option.description}
+                    {option.id === 'share' && shareLink && exportedOption === 'share'
+                      ? shareLink
+                      : option.description}
                   </p>
                 </div>
               </div>

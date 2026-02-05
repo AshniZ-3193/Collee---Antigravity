@@ -42,6 +42,15 @@ type Screen =
   | 'share-view'
   | 'edit-story-identity';
 
+// Export data for ExportScreen
+interface ExportData {
+  essayTitle: string;
+  collegeName: string;
+  wordCount: number;
+  essayContent: string;
+  essayId?: string;
+}
+
 const Index = () => {
   const { isAuthenticated: isConvexAuth, isLoading: isConvexLoading } = useConvexAuth();
   const { isSignedIn, isLoaded: isClerkLoaded } = useAuth();
@@ -60,6 +69,7 @@ const Index = () => {
 
   const [currentScreen, setCurrentScreen] = useState<Screen>('auth-loading');
   const hasNavigatedAfterAuth = useRef(false);
+  const [exportData, setExportData] = useState<ExportData | null>(null);
 
   const isProfileLoading =
     isSignedIn && isUserStored && (profile === undefined || storyIdentity === undefined);
@@ -127,7 +137,12 @@ const Index = () => {
   };
 
   const handleGoHome = () => {
-    navigateTo('home');
+    // When user is logged in, stay in the app instead of going to public home
+    if (isSignedIn && isUserStored) {
+      navigateTo('workspace');
+    } else {
+      navigateTo('home');
+    }
   };
 
   // Handle onboarding completion
@@ -249,7 +264,10 @@ const Index = () => {
         {currentScreen === 'workspace' && (
           <ColleeWorkspace
             onAddCollege={() => navigateTo('add-college')}
-            onExport={() => navigateTo('export')}
+            onExport={(data: ExportData) => {
+              setExportData(data);
+              navigateTo('export');
+            }}
             onEditStoryIdentity={() => navigateTo('edit-story-identity')}
             onLogoClick={handleGoHome}
             onLogout={handleLogout}
@@ -266,11 +284,13 @@ const Index = () => {
           />
         )}
 
-        {currentScreen === 'export' && (
+        {currentScreen === 'export' && exportData && (
           <ExportScreen
-            essayTitle="Personal Statement"
-            collegeName="Stanford University"
-            wordCount={542}
+            essayTitle={exportData.essayTitle}
+            collegeName={exportData.collegeName}
+            wordCount={exportData.wordCount}
+            essayContent={exportData.essayContent}
+            essayId={exportData.essayId}
             onBack={() => navigateTo('workspace')}
           />
         )}
