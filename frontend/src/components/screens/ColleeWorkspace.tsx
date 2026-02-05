@@ -920,7 +920,7 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
               <DropdownMenuContent align="end" className="w-52">
                 <DropdownMenuItem className="cursor-pointer" onClick={resetOnboarding}>
                   <HelpCircle className="w-4 h-4 mr-2" />
-                  How LaunchPad works
+                  Take the tour again
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="cursor-pointer" onClick={onEditStoryIdentity}>
@@ -1520,6 +1520,12 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                             <p className="text-xs text-muted-foreground/70 mt-1">
                               Start by capturing a moment, observation, or value that matters to you.
                             </p>
+                            <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                              <p className="text-xs text-primary">
+                                <Sparkles className="w-3 h-3 inline mr-1" />
+                                Add a note above, then click "Generate story suggestions" to get personalized writing ideas for your current essay.
+                              </p>
+                            </div>
                           </div>
                         ) : (
                           <AnimatePresence>
@@ -1890,9 +1896,12 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                               </div>
 
                               {isGeneratingStrategy && (
-                                <p className="text-xs text-muted-foreground italic">
-                                  Generating a tailored approach for this prompt...
-                                </p>
+                                <div className="flex items-center gap-2 py-2">
+                                  <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                                  <p className="text-xs text-muted-foreground">
+                                    Analyzing prompt and finding your best story angles...
+                                  </p>
+                                </div>
                               )}
 
                               {!isGeneratingStrategy && promptStrategy?.approach && (
@@ -2014,13 +2023,20 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
 
                                 {experienceSuggestions.length === 0 ? (
                                   <div className="space-y-3">
-                                    <p className="text-xs text-muted-foreground italic">
-                                      {isGeneratingStrategy
-                                        ? 'Generating suggestions for this prompt...'
-                                        : promptStrategy
+                                    {isGeneratingStrategy ? (
+                                      <div className="flex items-center gap-2 py-2">
+                                        <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                                        <p className="text-xs text-muted-foreground">
+                                          Finding experiences that match this prompt...
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-muted-foreground italic">
+                                        {promptStrategy
                                           ? 'No specific suggestions for this prompt yet. Write from your heart!'
                                           : 'Generate a prompt strategy to get tailored suggestions.'}
-                                    </p>
+                                      </p>
+                                    )}
 
                                     {/* Contextual Personal Lens entry point */}
                                     <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
@@ -2254,7 +2270,12 @@ const LaunchPadWorkspace: React.FC<LaunchPadWorkspaceProps> = ({
                                     onClick={handleGenerateFeedback}
                                     disabled={!currentEssayId || isGeneratingFeedback}
                                   >
-                                    {isGeneratingFeedback ? 'Generating...' : 'Get Feedback'}
+                                    {isGeneratingFeedback ? (
+                                      <span className="flex items-center gap-1.5">
+                                        <div className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                                        Analyzing...
+                                      </span>
+                                    ) : 'Get Feedback'}
                                   </Button>
                                 </div>
 
