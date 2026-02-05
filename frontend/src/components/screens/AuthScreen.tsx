@@ -18,7 +18,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
@@ -26,8 +26,8 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
   const [pendingVerification, setPendingVerification] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
 
-  const { signIn, isLoaded: signInLoaded } = useSignIn();
-  const { signUp, isLoaded: signUpLoaded } = useSignUp();
+  const { signIn, setActive: setSignInActive, isLoaded: signInLoaded } = useSignIn();
+  const { signUp, setActive: setSignUpActive, isLoaded: signUpLoaded } = useSignUp();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,17 +41,17 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
           identifier: email,
           password,
         });
-        if (result.status === "complete") {
-          await signIn.setActive({ session: result.createdSessionId });
+        if (result.status === "complete" && setSignInActive) {
+          await setSignInActive({ session: result.createdSessionId });
         }
       } else {
         if (!signUp || !signUpLoaded) return;
         
-        // Create the sign-up
+        // Create the sign-up with email, password, and first name
         await signUp.create({
           emailAddress: email,
           password,
-          firstName: name,
+          firstName,
         });
         
         // Send email verification code
@@ -61,7 +61,11 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
         setPendingVerification(true);
       }
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || err.message || "Authentication failed");
+      // Better error extraction from Clerk errors
+      const clerkError = err.errors?.[0];
+      const errorMessage = clerkError?.longMessage || clerkError?.message || err.message || "Authentication failed";
+      console.error("Auth error:", err);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -79,16 +83,19 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
         code: verificationCode,
       });
 
-      if (result.status === "complete") {
-        await signUp.setActive({ session: result.createdSessionId });
+      if (result.status === "complete" && setSignUpActive) {
+        await setSignUpActive({ session: result.createdSessionId });
         // Reset states
         setPendingVerification(false);
         setVerificationCode("");
-      } else {
+      } else if (result.status !== "complete") {
         setError("Verification incomplete. Please try again.");
       }
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || err.message || "Verification failed");
+      const clerkError = err.errors?.[0];
+      const errorMessage = clerkError?.longMessage || clerkError?.message || err.message || "Verification failed";
+      console.error("Verification error:", err);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -101,7 +108,10 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setError(""); // Clear any previous errors
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || err.message || "Failed to resend code");
+      const clerkError = err.errors?.[0];
+      const errorMessage = clerkError?.longMessage || clerkError?.message || err.message || "Failed to resend code";
+      console.error("Resend code error:", err);
+      setError(errorMessage);
     }
   };
 
@@ -326,7 +336,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
             <AnimatePresence mode="wait">
               {!isLogin && (
                 <motion.div
-                  key="name"
+                  key="firstName"
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
@@ -334,17 +344,17 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
                   className="overflow-hidden"
                 >
                   <div className="space-y-2 pb-1">
-                    <Label htmlFor="name" className="text-foreground-muted text-body-sm">
-                      Your name
+                    <Label htmlFor="firstName" className="text-foreground-muted text-body-sm">
+                      First name
                     </Label>
                     <div className="relative">
                       <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-subtle" />
                       <Input
-                        id="name"
+                        id="firstName"
                         type="text"
                         placeholder="What should we call you?"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
                         className="pl-10 h-12 bg-muted border-0 focus:ring-2 focus:ring-primary/20 focus:bg-background focus:shadow-sm transition-all"
                       />
                     </div>
