@@ -7,7 +7,7 @@
 /LaunchPad Requirements.txt
 collee.db
 .claude
-
+.playwright-mcp
 # Convex + Vite
 .convex
 frontend/.convex
