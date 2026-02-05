@@ -5,7 +5,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Mail, Lock, User, ArrowRight, Eye, EyeOff, KeyRound, ArrowLeft } from "lucide-react";
 import ColleeLogo from "@/components/ColleeLogo";
+import ThemeToggle from "@/components/ThemeToggle";
 import { useSignIn, useSignUp } from "@clerk/clerk-react";
+
+// User-friendly error message mapper for Clerk errors
+const getAuthErrorMessage = (errorCode: string, defaultMessage: string): string => {
+  const errorMap: Record<string, string> = {
+    'form_identifier_not_found': 'No account found with this email address.',
+    'form_password_incorrect': 'Incorrect password. Please try again or use "Forgot password?"',
+    'form_identifier_exists': 'An account with this email already exists. Please log in instead.',
+    'form_password_pwned': 'This password has been found in a data breach. Please choose a different password.',
+    'form_password_length_too_short': 'Password must be at least 8 characters long.',
+    'form_code_incorrect': 'Invalid verification code. Please check and try again.',
+    'form_code_expired': 'This code has expired. Please request a new one.',
+    'too_many_attempts': 'Too many attempts. Please wait a moment before trying again.',
+    'session_exists': 'You are already signed in. Please refresh the page.',
+  };
+  return errorMap[errorCode] || defaultMessage;
+};
 
 interface AuthScreenProps {
   onLogin?: () => void;
@@ -21,10 +38,17 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
   const [firstName, setFirstName] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Email verification state
   const [pendingVerification, setPendingVerification] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
+
+  // Forgot password state
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetStep, setResetStep] = useState<'email' | 'code' | 'password'>('email');
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   const { signIn, setActive: setSignInActive, isLoaded: signInLoaded } = useSignIn();
   const { signUp, setActive: setSignUpActive, isLoaded: signUpLoaded } = useSignUp();
@@ -61,9 +85,13 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
         setPendingVerification(true);
       }
     } catch (err: any) {
-      // Better error extraction from Clerk errors
+      // Better error extraction from Clerk errors with user-friendly mapping
       const clerkError = err.errors?.[0];
-      const errorMessage = clerkError?.longMessage || clerkError?.message || err.message || "Authentication failed";
+      const errorCode = clerkError?.code || '';
+      const errorMessage = getAuthErrorMessage(
+        errorCode,
+        clerkError?.longMessage || clerkError?.message || err.message || "Authentication failed"
+      );
       console.error("Auth error:", err);
       setError(errorMessage);
     } finally {
@@ -93,7 +121,11 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
       }
     } catch (err: any) {
       const clerkError = err.errors?.[0];
-      const errorMessage = clerkError?.longMessage || clerkError?.message || err.message || "Verification failed";
+      const errorCode = clerkError?.code || '';
+      const errorMessage = getAuthErrorMessage(
+        errorCode,
+        clerkError?.longMessage || clerkError?.message || err.message || "Verification failed"
+      );
       console.error("Verification error:", err);
       setError(errorMessage);
     } finally {
@@ -109,7 +141,11 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
       setError(""); // Clear any previous errors
     } catch (err: any) {
       const clerkError = err.errors?.[0];
-      const errorMessage = clerkError?.longMessage || clerkError?.message || err.message || "Failed to resend code";
+      const errorCode = clerkError?.code || '';
+      const errorMessage = getAuthErrorMessage(
+        errorCode,
+        clerkError?.longMessage || clerkError?.message || err.message || "Failed to resend code"
+      );
       console.error("Resend code error:", err);
       setError(errorMessage);
     }
@@ -119,6 +155,131 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
     setPendingVerification(false);
     setVerificationCode("");
     setError("");
+  };
+
+  // Forgot password handlers
+  const handleForgotPasswordStart = async () => {
+    if (!email.trim()) {
+      setError("Please enter your email address first.");
+      return;
+    }
+    setError("");
+    setIsLoading(true);
+
+    try {
+      if (!signIn || !signInLoaded) return;
+      await signIn.create({
+        strategy: "reset_password_email_code",
+        identifier: email,
+      });
+      setShowForgotPassword(true);
+      setResetStep('code');
+    } catch (err: any) {
+      const clerkError = err.errors?.[0];
+      const errorCode = clerkError?.code || '';
+      const errorMessage = getAuthErrorMessage(
+        errorCode,
+        clerkError?.longMessage || clerkError?.message || err.message || "Failed to send reset code"
+      );
+      console.error("Forgot password error:", err);
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetCodeVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+
+    try {
+      if (!signIn || !signInLoaded) return;
+      const result = await signIn.attemptFirstFactor({
+        strategy: "reset_password_email_code",
+        code: resetCode,
+      });
+
+      if (result.status === "needs_new_password") {
+        setResetStep('password');
+      } else {
+        setError("Unexpected status. Please try again.");
+      }
+    } catch (err: any) {
+      const clerkError = err.errors?.[0];
+      const errorCode = clerkError?.code || '';
+      const errorMessage = getAuthErrorMessage(
+        errorCode,
+        clerkError?.longMessage || clerkError?.message || err.message || "Invalid code"
+      );
+      console.error("Reset code error:", err);
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+
+    try {
+      if (!signIn || !signInLoaded) return;
+      const result = await signIn.resetPassword({
+        password: newPassword,
+      });
+
+      if (result.status === "complete" && setSignInActive) {
+        await setSignInActive({ session: result.createdSessionId });
+        // Reset all forgot password state
+        setShowForgotPassword(false);
+        setResetStep('email');
+        setResetCode("");
+        setNewPassword("");
+      } else {
+        setError("Password reset incomplete. Please try again.");
+      }
+    } catch (err: any) {
+      const clerkError = err.errors?.[0];
+      const errorCode = clerkError?.code || '';
+      const errorMessage = getAuthErrorMessage(
+        errorCode,
+        clerkError?.longMessage || clerkError?.message || err.message || "Failed to reset password"
+      );
+      console.error("Reset password error:", err);
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBackToLogin = () => {
+    setShowForgotPassword(false);
+    setResetStep('email');
+    setResetCode("");
+    setNewPassword("");
+    setError("");
+  };
+
+  const handleResendResetCode = async () => {
+    setError("");
+    try {
+      if (!signIn || !signInLoaded) return;
+      await signIn.create({
+        strategy: "reset_password_email_code",
+        identifier: email,
+      });
+    } catch (err: any) {
+      const clerkError = err.errors?.[0];
+      const errorCode = clerkError?.code || '';
+      const errorMessage = getAuthErrorMessage(
+        errorCode,
+        clerkError?.longMessage || clerkError?.message || err.message || "Failed to resend code"
+      );
+      console.error("Resend reset code error:", err);
+      setError(errorMessage);
+    }
   };
 
   const handleGoogleAuth = async () => {
@@ -144,10 +305,186 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
     }
   };
 
+  // Forgot Password Screen UI
+  if (showForgotPassword) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6 relative overflow-hidden">
+        {/* Theme Toggle */}
+        <div className="absolute top-4 right-4 z-10">
+          <ThemeToggle />
+        </div>
+
+        {/* Blurred gradient orbs for depth */}
+        <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/[0.06] blur-[100px] pointer-events-none" aria-hidden="true" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-secondary/[0.06] blur-[100px] pointer-events-none" aria-hidden="true" />
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md relative"
+        >
+          {/* Logo / Brand */}
+          <div className="text-center mb-10">
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="flex flex-col items-center gap-4"
+            >
+              <ColleeLogo size="lg" showText onClick={onLogoClick} />
+            </motion.div>
+            <p className="text-body text-foreground-muted mt-2">
+              {resetStep === 'code' ? 'Check your email for a reset code' : 'Create a new password'}
+            </p>
+          </div>
+
+          {/* Forgot Password Card */}
+          <motion.div
+            layout
+            className="bg-card rounded-2xl shadow-soft-md p-8 border border-card-border relative overflow-hidden transition-shadow duration-300 hover:shadow-soft-lg"
+          >
+            {/* Top gradient accent line */}
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary/40 via-secondary/40 to-primary/40" />
+
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Lock className="w-8 h-8 text-primary" />
+              </div>
+              <h2 className="text-heading-sm text-foreground mb-2">
+                {resetStep === 'code' ? 'Enter reset code' : 'Set new password'}
+              </h2>
+              <p className="text-body-sm text-foreground-muted">
+                {resetStep === 'code' ? (
+                  <>
+                    We sent a password reset code to<br />
+                    <span className="font-medium text-foreground">{email}</span>
+                  </>
+                ) : (
+                  'Choose a strong password for your account'
+                )}
+              </p>
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-body-sm">
+                {error}
+              </div>
+            )}
+
+            {resetStep === 'code' ? (
+              <form onSubmit={handleResetCodeVerify} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="resetCode" className="text-foreground-muted text-body-sm">
+                    Reset code
+                  </Label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-subtle" />
+                    <Input
+                      id="resetCode"
+                      type="text"
+                      placeholder="Enter 6-digit code"
+                      value={resetCode}
+                      onChange={(e) => setResetCode(e.target.value)}
+                      className="pl-10 h-12 bg-muted border-0 focus:ring-2 focus:ring-primary/20 focus:bg-background focus:shadow-sm transition-all text-center text-lg tracking-widest"
+                      maxLength={6}
+                      autoComplete="one-time-code"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="collee-accent"
+                  size="lg"
+                  className="w-full h-12"
+                  disabled={isLoading || resetCode.length < 6}
+                >
+                  {isLoading ? "Verifying..." : "Verify Code"}
+                  {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleResetPassword} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="newPassword" className="text-foreground-muted text-body-sm">
+                    New password
+                  </Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-subtle" />
+                    <Input
+                      id="newPassword"
+                      type={showNewPassword ? "text" : "password"}
+                      placeholder="Enter new password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="pl-10 pr-10 h-12 bg-muted border-0 focus:ring-2 focus:ring-primary/20 focus:bg-background focus:shadow-sm transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-foreground-subtle hover:text-foreground-muted transition-colors"
+                    >
+                      {showNewPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="collee-accent"
+                  size="lg"
+                  className="w-full h-12"
+                  disabled={isLoading || newPassword.length < 8}
+                >
+                  {isLoading ? "Resetting..." : "Reset Password"}
+                  {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+                </Button>
+              </form>
+            )}
+
+            <div className="mt-6 text-center space-y-3">
+              {resetStep === 'code' && (
+                <p className="text-body-sm text-foreground-muted">
+                  Didn't receive a code?{" "}
+                  <button
+                    type="button"
+                    onClick={handleResendResetCode}
+                    className="text-secondary hover:text-secondary-hover transition-colors font-medium"
+                  >
+                    Resend code
+                  </button>
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={handleBackToLogin}
+                className="flex items-center justify-center gap-2 text-body-sm text-foreground-muted hover:text-foreground transition-colors mx-auto"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to login
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      </div>
+    );
+  }
+
   // Verification Screen UI
   if (pendingVerification) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6 relative overflow-hidden">
+        {/* Theme Toggle */}
+        <div className="absolute top-4 right-4 z-10">
+          <ThemeToggle />
+        </div>
+
         {/* Blurred gradient orbs for depth */}
         <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/[0.06] blur-[100px] pointer-events-none" aria-hidden="true" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-secondary/[0.06] blur-[100px] pointer-events-none" aria-hidden="true" />
@@ -259,6 +596,11 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Theme Toggle */}
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
+
       {/* Blurred gradient orbs for depth */}
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/[0.06] blur-[100px] pointer-events-none" aria-hidden="true" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-secondary/[0.06] blur-[100px] pointer-events-none" aria-hidden="true" />
@@ -412,6 +754,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
               <div className="text-right">
                 <button
                   type="button"
+                  onClick={handleForgotPasswordStart}
                   className="text-body-sm text-secondary hover:text-secondary-hover transition-colors"
                 >
                   Forgot password?
