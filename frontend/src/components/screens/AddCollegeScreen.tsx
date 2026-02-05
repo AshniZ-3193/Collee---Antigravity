@@ -10,10 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Search, Check, GraduationCap, Plus, Trash2, FileText, X } from 'lucide-react';
+import { ArrowLeft, Search, Check, GraduationCap, Plus, Trash2, FileText, X, Eye, EyeOff } from 'lucide-react';
 import ColleeLayout from '@/components/ColleeLayout';
 import ColleeLogo from '@/components/ColleeLogo';
-import { useMutation, useAction } from 'convex/react';
+import { useMutation, useAction, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 
 interface AddCollegeScreenProps {
@@ -28,6 +28,8 @@ interface EssayPrompt {
   promptType: string;
   limitValue: number;
   isOptional: boolean;
+  targetProgram?: string;
+  relevantMajors?: string[];
 }
 
 interface ApplicationType {
@@ -93,6 +95,29 @@ const promptTypes = [
   { value: 'challenge', label: 'Challenge/Setback' },
   { value: 'other', label: 'Other' },
 ];
+
+// Filter prompts based on user's primary interests
+const filterPromptsForUser = (prompts: EssayPrompt[], userInterests: string[]): EssayPrompt[] => {
+  if (!userInterests || userInterests.length === 0) {
+    return prompts; // No interests = show all
+  }
+
+  return prompts.filter(prompt => {
+    // Always show prompts with no specific target or "all" majors
+    if (!prompt.relevantMajors || prompt.relevantMajors.length === 0 || prompt.relevantMajors.includes("all")) {
+      return true;
+    }
+
+    // Check if any user interest matches any relevant major
+    const normalizedInterests = userInterests.map(i => i.toLowerCase());
+    return prompt.relevantMajors.some(major => {
+      const normalizedMajor = major.toLowerCase();
+      return normalizedInterests.some(interest =>
+        normalizedMajor.includes(interest) || interest.includes(normalizedMajor)
+      );
+    });
+  });
+};
 
 // College data with available application types and their deadlines
 const popularColleges: CollegeData[] = [
@@ -344,6 +369,7 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
   const addCollegeMutation = useMutation(api.colleges.add);
   const searchPromptsAction = useAction(api.ai.searchCollegePrompts.search);
   const searchDeadlinesAction = useAction(api.ai.searchCollegeDeadlines.search);
+  const userProfile = useQuery(api.userProfile.get, {});
   const [isSearchingPrompts, setIsSearchingPrompts] = useState(false);
   const [isSearchingDeadlines, setIsSearchingDeadlines] = useState(false);
   const [deadlineSearchError, setDeadlineSearchError] = useState<string | null>(null);
@@ -355,6 +381,7 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
   const [customColleges, setCustomColleges] = useState<Record<string, CollegeData>>({});
   const [appTypeOptionsByCollegeId, setAppTypeOptionsByCollegeId] = useState<Record<string, ApplicationType[] | null>>({});
   const [promptsByCollegeId, setPromptsByCollegeId] = useState<Record<string, EssayPrompt[] | null>>({});
+  const [showAllPrompts, setShowAllPrompts] = useState(false);
   
   // For multi-college flow: track app types for each selected college
   const [collegeConfigs, setCollegeConfigs] = useState<SelectedCollegeConfig[]>([]);
@@ -444,6 +471,13 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
   const noDeadlinesFound = deadlineSearchAttempted && (currentAppTypeOptions?.length ?? 0) === 0;
   const promptSearchAttempted = currentPromptsFromSearch !== undefined;
   const noPromptsFound = promptSearchAttempted && (currentPromptsFromSearch?.length ?? 0) === 0;
+
+  // Filter prompts based on user's interests
+  const userInterests = userProfile?.primaryInterests || [];
+  const filteredPrompts = filterPromptsForUser(prompts, userInterests);
+  const hiddenPromptCount = prompts.length - filteredPrompts.length;
+  const displayPrompts = showAllPrompts ? prompts : filteredPrompts;
+
   const canAddCollege = !isSearchingPrompts && (
     validPromptCount > 0 || noPromptsFound || !!promptSearchError
   );
@@ -542,6 +576,8 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
           promptType: p.promptType || '',
           limitValue: p.wordCountMax || 250,
           isOptional: p.isOptional || false,
+          targetProgram: p.targetProgram || undefined,
+          relevantMajors: p.relevantMajors || undefined,
         }));
         setPrompts(mappedPrompts.length > 0
           ? mappedPrompts
@@ -567,6 +603,7 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
             if (currentConfigIndex < collegeConfigs.length - 1) {
               setCurrentConfigIndex(prev => prev + 1);
               setPrompts([{ id: '1', promptText: '', promptType: '', limitValue: 250, isOptional: false }]);
+              setShowAllPrompts(false);
             } else {
               onComplete();
             }
@@ -697,6 +734,7 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
       if (currentConfigIndex < collegeConfigs.length - 1) {
         setCurrentConfigIndex(prev => prev + 1);
         setPrompts([{ id: '1', promptText: '', promptType: '', limitValue: 250, isOptional: false }]);
+        setShowAllPrompts(false);
       } else {
         onComplete();
       }
@@ -709,6 +747,7 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
         // Go back to previous college's prompts
         setCurrentConfigIndex(prev => prev - 1);
         setPrompts([{ id: '1', promptText: '', promptType: '', limitValue: 250, isOptional: false }]);
+        setShowAllPrompts(false);
       } else {
         // Go back to application type for last college
         setCurrentConfigIndex(collegeConfigs.length - 1);
@@ -1052,8 +1091,33 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
                 </p>
               )}
 
+              {/* Show hidden prompts toggle */}
+              {hiddenPromptCount > 0 && !isSearchingPrompts && (
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border">
+                  <span className="text-body-sm text-muted-foreground">
+                    {hiddenPromptCount} specialized program prompt{hiddenPromptCount > 1 ? 's' : ''} hidden
+                  </span>
+                  <button
+                    onClick={() => setShowAllPrompts(!showAllPrompts)}
+                    className="flex items-center gap-1.5 text-body-sm text-primary hover:text-primary/80 transition-colors"
+                  >
+                    {showAllPrompts ? (
+                      <>
+                        <EyeOff className="w-4 h-4" />
+                        Hide
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-4 h-4" />
+                        Show all
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
               {/* Prompt List */}
-              {prompts.map((prompt, index) => (
+              {displayPrompts.map((prompt, index) => (
                 <motion.div
                   key={prompt.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -1062,9 +1126,16 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
                   className="p-4 rounded-xl border border-border bg-card space-y-4"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-body-sm font-medium text-foreground">
-                      Essay {index + 1}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-body-sm font-medium text-foreground">
+                        Essay {index + 1}
+                      </span>
+                      {prompt.targetProgram && (
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                          {prompt.targetProgram}
+                        </span>
+                      )}
+                    </div>
                     {prompts.length > 1 && (
                       <button
                         onClick={() => removePrompt(prompt.id)}

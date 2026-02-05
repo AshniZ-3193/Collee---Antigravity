@@ -11,6 +11,8 @@ interface CollegePrompt {
   wordCountMax: number;
   isOptional: boolean;
   promptType?: string;
+  targetProgram?: string;
+  relevantMajors?: string[];
 }
 
 export const search = action({
@@ -62,10 +64,26 @@ export const search = action({
       "text": "The full prompt text",
       "wordCountMax": 250,
       "isOptional": false,
-      "promptType": "why-college" | "contribution" | "why-major" | "extracurricular" | "identity" | "challenge" | "other"
+      "promptType": "why-college" | "contribution" | "why-major" | "extracurricular" | "identity" | "challenge" | "other",
+      "targetProgram": "Name of specific school/program if applicable, otherwise null",
+      "relevantMajors": ["Array of relevant majors, or 'all' for general prompts"]
     }
   ]
 }
+
+Guidelines for targetProgram and relevantMajors:
+- If a prompt is for a SPECIFIC school/program (e.g., "Ross School of Business", "College of Engineering", "School of Nursing"), set targetProgram to that name.
+- For general prompts applicable to all applicants, set targetProgram to null and relevantMajors to ["all"].
+- For business school prompts, use relevantMajors: ["Business Administration", "Economics", "Finance", "Accounting", "Marketing"].
+- For engineering prompts, use relevantMajors: ["Engineering", "Computer Science", "Physics", "Mathematics"].
+- For arts/humanities prompts, use relevantMajors: ["Art", "Music", "Theater", "English", "History", "Philosophy"].
+- For science prompts, use relevantMajors: ["Biology", "Chemistry", "Physics", "Neuroscience", "Environmental Science"].
+- For nursing/health prompts, use relevantMajors: ["Nursing", "Public Health", "Pre-Med", "Health Sciences"].
+
+Examples:
+- "Why do you want to attend Ross School of Business?" → targetProgram: "Ross School of Business", relevantMajors: ["Business Administration", "Economics", "Finance"]
+- "What would you contribute to our campus community?" → targetProgram: null, relevantMajors: ["all"]
+- "Describe your interest in engineering" → targetProgram: "College of Engineering", relevantMajors: ["Engineering", "Computer Science", "Physics"]
 
 Only include actual essay prompts, not application instructions. If word count is not specified, use 250 as default. If you cannot find real prompts, return an empty array.`,
         },
