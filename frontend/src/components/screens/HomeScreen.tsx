@@ -8,10 +8,11 @@ import { ArrowRight, Sparkles, Compass, PenLine } from 'lucide-react';
 interface HomeScreenProps {
   onGetStarted: () => void;
   onLogin: () => void;
+  onLogoClick?: () => void;
   isLoggedIn?: boolean;
 }
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ onGetStarted, onLogin, isLoggedIn = false }) => {
+const HomeScreen: React.FC<HomeScreenProps> = ({ onGetStarted, onLogin, onLogoClick, isLoggedIn = false }) => {
   const steps = [
     {
       icon: Sparkles,
@@ -35,7 +36,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onGetStarted, onLogin, isLogged
       {/* Header with gradient bottom border */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <ColleeLogo size="sm" showText showTagline />
+          <ColleeLogo size="sm" showText showTagline onClick={onLogoClick} />
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <Button

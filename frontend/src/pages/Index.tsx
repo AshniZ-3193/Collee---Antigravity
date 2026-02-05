@@ -145,6 +145,10 @@ const Index = () => {
     }
   };
 
+  const handleGoDashboard = () => {
+    navigateTo('workspace');
+  };
+
   // Handle onboarding completion
   const handleOnboardingComplete = () => {
     navigateTo('workspace');
@@ -193,6 +197,7 @@ const Index = () => {
                 navigateTo('auth');
               }
             }}
+            onLogoClick={handleGoDashboard}
           />
         )}
 
@@ -269,7 +274,7 @@ const Index = () => {
               navigateTo('export');
             }}
             onEditStoryIdentity={() => navigateTo('edit-story-identity')}
-            onLogoClick={handleGoHome}
+            onLogoClick={handleGoDashboard}
             onLogout={handleLogout}
           />
         )}

@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import ShareViewScreen from '@/components/screens/ShareViewScreen';
+import ShareEditScreen from '@/components/screens/ShareEditScreen';
+import ShareCommentScreen from '@/components/screens/ShareCommentScreen';
 import { motion } from 'framer-motion';
 import { FileX } from 'lucide-react';
 import ColleeLogo from '@/components/ColleeLogo';
@@ -54,6 +56,35 @@ const SharePage: React.FC = () => {
     );
   }
 
+  // Route based on permission level
+  if (shareData.permission === 'edit') {
+    return (
+      <ShareEditScreen
+        token={token!}
+        collegeName={shareData.collegeName}
+        promptText={shareData.promptText}
+        essayContent={shareData.essayContent}
+        wordCount={shareData.wordCount}
+        wordLimit={shareData.wordLimit}
+        authorName={shareData.authorName}
+      />
+    );
+  }
+
+  if (shareData.permission === 'comment') {
+    return (
+      <ShareCommentScreen
+        token={token!}
+        collegeName={shareData.collegeName}
+        promptText={shareData.promptText}
+        essayContent={shareData.essayContent}
+        wordCount={shareData.wordCount}
+        authorName={shareData.authorName}
+      />
+    );
+  }
+
+  // Default to view-only
   return (
     <ShareViewScreen
       collegeName={shareData.collegeName}

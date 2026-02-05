@@ -203,8 +203,39 @@ export default defineSchema({
     userId: v.id("users"),
     essayId: v.id("essays"),
     token: v.string(),
+    // Temporarily optional to allow backfill of legacy documents.
+    // TODO: Make required after backfill migration runs.
+    permission: v.optional(v.string()), // 'view' | 'comment' | 'edit'
+    recipientEmail: v.optional(v.string()),
+    recipientType: v.optional(v.string()), // 'parent' | 'counselor'
     createdAt: v.number(),
   }).index("by_token", ["token"])
     .index("by_essay", ["essayId"])
     .index("by_user", ["userId"]),
+
+  // Inline comments on shared essays
+  shareComments: defineTable({
+    shareId: v.id("shares"),
+    essayId: v.id("essays"),
+    authorName: v.string(),
+    authorEmail: v.optional(v.string()),
+    content: v.string(),
+    selectionStart: v.number(), // Character position start
+    selectionEnd: v.number(), // Character position end
+    selectedText: v.string(), // The highlighted text
+    resolved: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_share", ["shareId"])
+    .index("by_essay", ["essayId"]),
+
+  // Replies to comments (threaded conversation)
+  shareCommentReplies: defineTable({
+    commentId: v.id("shareComments"),
+    authorName: v.string(),
+    authorEmail: v.optional(v.string()),
+    isOwner: v.boolean(), // true if reply is from the essay owner
+    content: v.string(),
+    createdAt: v.number(),
+  }).index("by_comment", ["commentId"]),
 });

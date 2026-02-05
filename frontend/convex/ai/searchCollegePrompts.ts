@@ -23,6 +23,13 @@ export const search = action({
   handler: async (ctx, args): Promise<CollegePrompt[]> => {
     const year = args.applicationYear || new Date().getFullYear().toString();
     const collegeName = args.collegeName;
+    const exaKey = process.env.EXA_API_KEY;
+    if (!exaKey) {
+      throw new Error("EXA_API_KEY is not set. Auto-fetch prompts is disabled.");
+    }
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY is not set. Auto-fetch prompts is disabled.");
+    }
 
     // Check cache first (using separate non-Node.js file)
     const cached = await ctx.runQuery(api.ai.collegePromptsCache.getCached, {
@@ -35,29 +42,40 @@ export const search = action({
     }
 
     // Search with Exa
-    const exa = new Exa(process.env.EXA_API_KEY);
-    const results = await exa.searchAndContents(
-      `${collegeName} supplemental essay prompts ${year}`,
-      {
-        text: { maxCharacters: 5000 },
-        numResults: 5,
-        type: "auto",
-      }
-    );
+    const exa = new Exa(exaKey);
+    let results;
+    try {
+      results = await exa.searchAndContents(
+        `${collegeName} supplemental essay prompts ${year}`,
+        {
+          text: { maxCharacters: 5000 },
+          numResults: 5,
+          type: "auto",
+        }
+      );
+    } catch (error) {
+      console.error("Exa search failed for prompts:", error);
+      throw new Error("Exa search failed while fetching prompts.");
+    }
 
     // Extract structured prompts with GPT
     const searchContent = results.results
       .map((r: any) => r.text || "")
       .join("\n\n---\n\n");
+    if (!searchContent.trim()) {
+      return [];
+    }
 
     const openai = createOpenAIClient();
 
-    const completion = await openai.chat.completions.create({
-      model: AI_MODEL,
-      messages: [
-        {
-          role: "system",
-          content: `Extract college essay prompts from the following search results for ${collegeName}. Return JSON:
+    let completion;
+    try {
+      completion = await openai.chat.completions.create({
+        model: AI_MODEL,
+        messages: [
+          {
+            role: "system",
+            content: `Extract college essay prompts from the following search results for ${collegeName}. Return JSON:
 {
   "prompts": [
     {
@@ -86,18 +104,42 @@ Examples:
 - "Describe your interest in engineering" → targetProgram: "College of Engineering", relevantMajors: ["Engineering", "Computer Science", "Physics"]
 
 Only include actual essay prompts, not application instructions. If word count is not specified, use 250 as default. If you cannot find real prompts, return an empty array.`,
-        },
-        { role: "user", content: searchContent },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.3,
-    });
+          },
+          { role: "user", content: searchContent },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3,
+      });
+    } catch (error) {
+      console.error("OpenAI extraction failed for prompts:", error);
+      throw new Error("OpenAI extraction failed while processing prompts.");
+    }
 
     const responseText = completion.choices[0]?.message?.content;
     if (!responseText) return [];
 
-    const result = JSON.parse(responseText);
-    const prompts = result.prompts || [];
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (error) {
+      console.error("Failed to parse OpenAI prompt extraction response:", responseText);
+      throw new Error("Failed to parse AI response for prompts.");
+    }
+    const rawPrompts = result.prompts || [];
+    const prompts = rawPrompts
+      .filter((p: any) => p && typeof p.text === "string" && p.text.trim().length > 0)
+      .map((p: any) => ({
+        text: p.text.trim(),
+        wordCountMax: typeof p.wordCountMax === "number" && p.wordCountMax > 0 ? p.wordCountMax : 250,
+        isOptional: typeof p.isOptional === "boolean" ? p.isOptional : false,
+        promptType: typeof p.promptType === "string" && p.promptType.trim().length > 0 ? p.promptType : undefined,
+        targetProgram: typeof p.targetProgram === "string" && p.targetProgram.trim().length > 0
+          ? p.targetProgram
+          : undefined,
+        relevantMajors: Array.isArray(p.relevantMajors)
+          ? p.relevantMajors.filter((m: any) => typeof m === "string" && m.trim().length > 0)
+          : undefined,
+      }));
 
     // Cache results (using separate non-Node.js file)
     if (prompts.length > 0) {

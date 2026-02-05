@@ -67,6 +67,8 @@ import {
   Calendar,
   Wand2,
   Link2,
+  MessageSquare,
+  Reply,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -241,6 +243,164 @@ const isDeadlineApproaching = (deadline?: string): boolean => {
   return daysUntil <= 14 && daysUntil >= 0;
 };
 
+// ===== OWNER COMMENT CARD COMPONENT =====
+interface OwnerCommentCardProps {
+  comment: {
+    _id: Id<"shareComments">;
+    authorName: string;
+    authorEmail?: string;
+    content: string;
+    selectedText: string;
+    resolved: boolean;
+    createdAt: number;
+  };
+  onResolve: () => void;
+  onAddReply: (content: string) => Promise<{ replyId: Id<"shareCommentReplies"> }>;
+}
+
+const OwnerCommentCard: React.FC<OwnerCommentCardProps> = ({
+  comment,
+  onResolve,
+  onAddReply,
+}) => {
+  const [isReplying, setIsReplying] = useState(false);
+  const [replyContent, setReplyContent] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch replies for this comment
+  const replies = useQuery(api.shares.getReplies, { commentId: comment._id }) ?? [];
+
+  const handleSubmitReply = async () => {
+    if (!replyContent.trim() || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await onAddReply(replyContent.trim());
+      setReplyContent('');
+      setIsReplying(false);
+    } catch (error) {
+      console.error('Failed to add reply:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className={`p-3 rounded-lg border ${
+        comment.resolved
+          ? 'bg-muted/30 border-border/50 opacity-60'
+          : 'bg-card border-border'
+      }`}
+    >
+      {/* Comment Header */}
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+            <span className="text-xs font-medium text-primary">
+              {comment.authorName.charAt(0).toUpperCase()}
+            </span>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-foreground">
+              {comment.authorName}
+            </p>
+            <p className="text-[10px] text-muted-foreground">
+              {new Date(comment.createdAt).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0"
+          onClick={onResolve}
+          title={comment.resolved ? "Unresolve" : "Resolve"}
+        >
+          <Check className={`w-3.5 h-3.5 ${comment.resolved ? 'text-green-500' : 'text-muted-foreground'}`} />
+        </Button>
+      </div>
+
+      {/* Highlighted Text */}
+      {comment.selectedText && (
+        <div className="mb-2 p-2 rounded bg-yellow-500/10 border-l-2 border-yellow-500">
+          <p className="text-xs text-muted-foreground italic line-clamp-2">
+            "{comment.selectedText}"
+          </p>
+        </div>
+      )}
+
+      {/* Comment Content */}
+      <p className="text-xs text-foreground mb-3">{comment.content}</p>
+
+      {/* Existing Replies */}
+      {replies.length > 0 && (
+        <div className="space-y-2 mb-3 pl-3 border-l-2 border-border">
+          {replies.map((reply) => (
+            <div key={reply._id} className="text-xs">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className={`font-medium ${reply.isOwner ? 'text-primary' : 'text-foreground'}`}>
+                  {reply.authorName}
+                  {reply.isOwner && <span className="text-[10px] ml-1">(You)</span>}
+                </span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground text-[10px]">
+                  {new Date(reply.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+              <p className="text-muted-foreground">{reply.content}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Reply Section */}
+      <div className="space-y-2">
+        {isReplying ? (
+          <div className="space-y-2">
+            <Textarea
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+              placeholder="Write your reply..."
+              className="min-h-[60px] text-xs resize-none"
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                disabled={!replyContent.trim() || isSubmitting}
+                onClick={handleSubmitReply}
+              >
+                {isSubmitting ? 'Sending...' : 'Send Reply'}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() => {
+                  setIsReplying(false);
+                  setReplyContent('');
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs gap-1"
+            onClick={() => setIsReplying(true)}
+          >
+            <Reply className="w-3 h-3" />
+            Reply
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ===== MAIN COMPONENT =====
 const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   onAddCollege,
@@ -257,12 +417,17 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const addLensNoteMutation = useMutation(api.personalLens.add);
   const updateLensNoteMutation = useMutation(api.personalLens.update);
   const deleteLensNoteMutation = useMutation(api.personalLens.remove);
+  const createShareMutation = useMutation(api.shares.create);
   const generateSuggestionsAction = useAction(api.ai.generateSuggestions.generate);
   const generatePromptStrategyAction = useAction(api.ai.generatePromptStrategy.generate);
   const generateEssayFeedbackAction = useAction(api.ai.generateEssayFeedback.generate);
   const restoreVersionMutation = useMutation(api.essays.restoreVersion);
   const addExperienceUsageMutation = useMutation(api.experienceBank.addUsage);
   const experienceUsages = useQuery(api.experienceBank.getUsages) ?? [];
+  
+  // Comments from reviewers
+  const addOwnerReplyMutation = useMutation(api.shares.addOwnerReply);
+  const resolveCommentAsOwnerMutation = useMutation(api.shares.resolveCommentAsOwner);
 
   // Transform Convex data to match existing UI types
   const colleges: College[] = useMemo(() => {
@@ -321,6 +486,9 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const [shareRecipientType, setShareRecipientType] = useState<'parent' | 'counselor'>('parent');
   const [sharePermission, setSharePermission] = useState<'view' | 'comment' | 'edit'>('view');
   const [isShareSent, setIsShareSent] = useState(false);
+  const [generatedShareLink, setGeneratedShareLink] = useState<string | null>(null);
+  const [isCreatingShare, setIsCreatingShare] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
   const [isEditorMinimized, setIsEditorMinimized] = useState(false);
   const [selectedExperience, setSelectedExperience] = useState<string | null>(null);
   const [lockedExperience, setLockedExperience] = useState<string | null>(null);
@@ -408,6 +576,10 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   ) ?? [];
   const essayFeedback = useQuery(
     api.ai.essayFeedback.getForEssay,
+    currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
+  ) ?? [];
+  const reviewerComments = useQuery(
+    api.shares.getCommentsForEssay,
     currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
   ) ?? [];
   const wordLimit = currentEssay?.wordLimit || 650;
@@ -595,15 +767,43 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     });
   };
 
-  const handleShareSubmit = () => {
-    if (shareEmail.trim()) {
+  const handleShareSubmit = async () => {
+    if (!shareEmail.trim() || !currentEssayId) return;
+    
+    setIsCreatingShare(true);
+    setShareError(null);
+    
+    try {
+      // Create the share link using the mutation with permission level
+      const result = await createShareMutation({
+        essayId: currentEssayId as Id<"essays">,
+        permission: sharePermission,
+        recipientEmail: shareEmail.trim(),
+        recipientType: shareRecipientType,
+      });
+      
+      // Generate the full share URL
+      const shareUrl = `${window.location.origin}/share/${result.token}`;
+      setGeneratedShareLink(shareUrl);
+      
+      // Copy to clipboard automatically
+      await navigator.clipboard.writeText(shareUrl);
+      
       setIsShareSent(true);
+      
+      // Keep the dialog open longer so user can see/copy the link
       setTimeout(() => {
         setShowShareDialog(false);
         setIsShareSent(false);
         setShareEmail('');
         setSharePermission('view');
-      }, 2000);
+        setGeneratedShareLink(null);
+      }, 5000);
+    } catch (error) {
+      console.error('Failed to create share link:', error);
+      setShareError('Failed to create share link. Please try again.');
+    } finally {
+      setIsCreatingShare(false);
     }
   };
 
@@ -893,18 +1093,21 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     setIsEditorMinimized(false);
   };
 
+  const handleLogoClick = () => {
+    setActiveEssay(null);
+    setIsEditorMinimized(false);
+    onLogoClick?.();
+  };
+
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* GLOBAL HEADER - Lightweight, persistent */}
       <header className="h-12 bg-card/80 backdrop-blur-md shadow-sm flex-shrink-0 z-30 relative">
         <div className="h-full px-4 flex items-center justify-between">
-          {/* Left: LaunchPad logo/name - clicking returns to College Map */}
+          {/* Left: LaunchPad logo/name - clicking returns to dashboard */}
           <ColleeLogo
             size="sm"
-            onClick={onLogoClick || (() => {
-              setActiveEssay(null);
-              setIsEditorMinimized(false);
-            })}
+            onClick={handleLogoClick}
           />
 
           {/* Center: Context label (only when writing) */}
@@ -2359,6 +2562,34 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                             </>
                           )}
 
+                          {/* Reviewer Comments Section */}
+                          {reviewerComments.length > 0 && (
+                            <>
+                              <div className="my-6">
+                                <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+                              </div>
+                              <div className="rounded-lg bg-muted/20 p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <h3 className="text-body-sm font-semibold text-foreground uppercase tracking-wide flex items-center gap-2">
+                                    <MessageSquare className="w-4 h-4 text-primary" />
+                                    Reviewer Comments ({reviewerComments.filter(c => !c.resolved).length})
+                                  </h3>
+                                </div>
+
+                                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                                  {reviewerComments.map((comment) => (
+                                    <OwnerCommentCard
+                                      key={comment._id}
+                                      comment={comment}
+                                      onResolve={() => resolveCommentAsOwnerMutation({ commentId: comment._id })}
+                                      onAddReply={(content) => addOwnerReplyMutation({ commentId: comment._id, content })}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            </>
+                          )}
+
                           {/* Section 8: Smart Reuse - Reusable Excerpts from Other Schools */}
                           {showSmartReuse && (
                             <>
@@ -2600,9 +2831,11 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => {
-                if (!isShareSent) {
+                if (!isShareSent && !isCreatingShare) {
                   setShowShareDialog(false);
                   setShareEmail('');
+                  setShareError(null);
+                  setGeneratedShareLink(null);
                 }
               }}
             />
@@ -2628,10 +2861,32 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                     <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
                       <CheckCircle className="w-8 h-8 text-emerald-600" />
                     </div>
-                    <h3 className="text-heading-sm text-foreground mb-2">Invitation Sent!</h3>
-                    <p className="text-body-sm text-muted-foreground">
-                      A {sharePermission === 'view' ? 'view-only' : sharePermission === 'comment' ? 'commenting' : 'editing'} link has been sent to {shareEmail}
+                    <h3 className="text-heading-sm text-foreground mb-2">Share Link Created!</h3>
+                    <p className="text-body-sm text-muted-foreground mb-4">
+                      Share this link with {shareEmail} for {sharePermission === 'view' ? 'view-only' : sharePermission === 'comment' ? 'commenting' : 'editing'} access
                     </p>
+                    {generatedShareLink && (
+                      <div className="mt-4 space-y-3">
+                        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border">
+                          <Link2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <span className="text-body-sm text-foreground truncate flex-1 text-left">
+                            {generatedShareLink}
+                          </span>
+                          <button
+                            onClick={async () => {
+                              await navigator.clipboard.writeText(generatedShareLink);
+                            }}
+                            className="p-1.5 rounded-md hover:bg-muted transition-colors flex-shrink-0"
+                            title="Copy link"
+                          >
+                            <Copy className="w-4 h-4 text-muted-foreground" />
+                          </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Link copied to clipboard!
+                        </p>
+                      </div>
+                    )}
                   </motion.div>
                 ) : (
                   <>
@@ -2653,6 +2908,8 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                             setShowShareDialog(false);
                             setShareEmail('');
                             setSharePermission('view');
+                            setShareError(null);
+                            setGeneratedShareLink(null);
                           }}
                           className="p-2 rounded-lg hover:bg-muted transition-colors"
                         >
@@ -2773,15 +3030,34 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                           You remain the owner of this essay. You can revoke access anytime.
                         </p>
                       </div>
+                      {shareError && (
+                        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                          <p className="text-xs text-destructive text-center">{shareError}</p>
+                        </div>
+                      )}
+                      {!currentEssayId && (
+                        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                          <p className="text-xs text-amber-600 text-center">Please select an essay first to create a share link.</p>
+                        </div>
+                      )}
                       <Button
                         variant="collee-accent"
                         size="collee"
                         onClick={handleShareSubmit}
-                        disabled={!shareEmail.trim()}
+                        disabled={!shareEmail.trim() || isCreatingShare || !currentEssayId}
                         className="w-full"
                       >
-                        <Send className="w-4 h-4 mr-2" />
-                        Send invitation
+                        {isCreatingShare ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                            Creating link...
+                          </>
+                        ) : (
+                          <>
+                            <Link2 className="w-4 h-4 mr-2" />
+                            Create share link
+                          </>
+                        )}
                       </Button>
                     </div>
                   </>
