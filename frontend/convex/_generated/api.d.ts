@@ -29,6 +29,8 @@ import type * as essays from "../essays.js";
 import type * as experienceBank from "../experienceBank.js";
 import type * as experienceBankHelpers from "../experienceBankHelpers.js";
 import type * as personalLens from "../personalLens.js";
+import type * as prosemirror from "../prosemirror.js";
+import type * as richTextHelpers from "../richTextHelpers.js";
 import type * as shares from "../shares.js";
 import type * as storyIdentity from "../storyIdentity.js";
 import type * as userProfile from "../userProfile.js";
@@ -62,6 +64,8 @@ declare const fullApi: ApiFromModules<{
   experienceBank: typeof experienceBank;
   experienceBankHelpers: typeof experienceBankHelpers;
   personalLens: typeof personalLens;
+  prosemirror: typeof prosemirror;
+  richTextHelpers: typeof richTextHelpers;
   shares: typeof shares;
   storyIdentity: typeof storyIdentity;
   userProfile: typeof userProfile;
@@ -94,4 +98,81 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  prosemirrorSync: {
+    lib: {
+      deleteDocument: FunctionReference<
+        "mutation",
+        "internal",
+        { id: string },
+        null
+      >;
+      deleteSnapshots: FunctionReference<
+        "mutation",
+        "internal",
+        { afterVersion?: number; beforeVersion?: number; id: string },
+        null
+      >;
+      deleteSteps: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          afterVersion?: number;
+          beforeTs: number;
+          deleteNewerThanLatestSnapshot?: boolean;
+          id: string;
+        },
+        null
+      >;
+      getSnapshot: FunctionReference<
+        "query",
+        "internal",
+        { id: string; version?: number },
+        { content: null } | { content: string; version: number }
+      >;
+      getSteps: FunctionReference<
+        "query",
+        "internal",
+        { id: string; version: number },
+        {
+          clientIds: Array<string | number>;
+          steps: Array<string>;
+          version: number;
+        }
+      >;
+      latestVersion: FunctionReference<
+        "query",
+        "internal",
+        { id: string },
+        null | number
+      >;
+      submitSnapshot: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          content: string;
+          id: string;
+          pruneSnapshots?: boolean;
+          version: number;
+        },
+        null
+      >;
+      submitSteps: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          clientId: string | number;
+          id: string;
+          steps: Array<string>;
+          version: number;
+        },
+        | {
+            clientIds: Array<string | number>;
+            status: "needs-rebase";
+            steps: Array<string>;
+          }
+        | { status: "synced" }
+      >;
+    };
+  };
+};

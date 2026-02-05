@@ -5,6 +5,7 @@ import { v } from "convex/values";
 import { api } from "../_generated/api";
 import { SUGGESTION_SYSTEM_PROMPT } from "./prompts";
 import { getAuthenticatedUser, createOpenAIClient, AI_MODEL } from "./aiHelpers";
+import { stripRichTextFormatting } from "../richTextHelpers";
 
 export const generate = action({
   args: {
@@ -27,6 +28,7 @@ export const generate = action({
     const colleges = await ctx.runQuery(api.colleges.list, {
       userId: user._id,
     });
+    const plainEssayContent = stripRichTextFormatting(args.essayContent || "");
 
     // Build context string
     const context = `
@@ -56,7 +58,7 @@ ${lensNotes?.map((n: any) => `- [${n.category}] ${n.content}`).join("\n") || "No
 OTHER ESSAYS (for overlap awareness):
 ${colleges?.flatMap((c: any) =>
   c.prompts
-    .filter((p: any) => p.essay?.content && p.essay.content.length > 50)
+    .filter((p: any) => p.essay?.content && stripRichTextFormatting(p.essay.content).length > 50)
     .map((p: any) => `- ${c.name}: "${p.text.substring(0, 80)}..." (${p.essay.wordCount} words)`)
 ).join("\n") || "None written yet"}
     `.trim();
@@ -74,7 +76,7 @@ ${colleges?.flatMap((c: any) =>
         { role: "system", content: SUGGESTION_SYSTEM_PROMPT },
         {
           role: "user",
-          content: `ESSAY PROMPT: ${promptText}\n\nCURRENT ESSAY CONTENT: ${args.essayContent || "(not started)"}\n\n${context}`,
+          content: `ESSAY PROMPT: ${promptText}\n\nCURRENT ESSAY CONTENT: ${plainEssayContent || "(not started)"}\n\n${context}`,
         },
       ],
       response_format: { type: "json_object" },

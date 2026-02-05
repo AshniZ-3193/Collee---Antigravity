@@ -5,6 +5,7 @@ import { v } from "convex/values";
 import { api } from "../_generated/api";
 import { ESSAY_FEEDBACK_SYSTEM_PROMPT } from "./prompts";
 import { getAuthenticatedUser, createOpenAIClient, AI_MODEL } from "./aiHelpers";
+import { stripRichTextFormatting } from "../richTextHelpers";
 
 export const generate = action({
   args: {
@@ -21,10 +22,11 @@ export const generate = action({
     const storyIdentity = await ctx.runQuery(api.storyIdentity.get, {
       userId: user._id,
     });
+    const plainEssayContent = stripRichTextFormatting(essay.content || "");
 
     const context = `
 ESSAY CONTENT:
-${essay.content}
+${plainEssayContent}
 
 FEEDBACK TYPE REQUESTED: ${args.feedbackType}
 
