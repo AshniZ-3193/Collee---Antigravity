@@ -79,6 +79,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import ColleeLogo from '@/components/ColleeLogo';
 import ThemeToggle from '@/components/ThemeToggle';
+import {
+  countRichTextWords,
+  createStoredRichTextFromPlainText,
+  parseStoredRichTextToDoc,
+  stripRichTextFormatting,
+} from '@/lib/richText';
+import type { Editor } from '@tiptap/react';
+import SyncEssayEditor, {
+  type ActiveRichTextFormats,
+} from '@/components/editor/SyncEssayEditor';
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import OnboardingWalkthrough, { useOnboardingState } from '@/components/OnboardingWalkthrough';
@@ -121,6 +131,7 @@ interface Essay {
   wordLimit: number;
   content: string;
   promptType?: string; // e.g., 'why-college', 'why-major', 'challenge', 'identity'
+  lastUpdated?: number; // Timestamp for detecting external changes
 }
 
 interface College {
@@ -413,7 +424,6 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const convexColleges = useQuery(api.colleges.list, {}) ?? [];
   const storyIdentityData = useQuery(api.storyIdentity.get, {});
   const convexLensNotes = useQuery(api.personalLens.list, {}) ?? [];
-  const saveEssayMutation = useMutation(api.essays.save);
   const addLensNoteMutation = useMutation(api.personalLens.add);
   const updateLensNoteMutation = useMutation(api.personalLens.update);
   const deleteLensNoteMutation = useMutation(api.personalLens.remove);
@@ -428,6 +438,8 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   // Comments from reviewers
   const addOwnerReplyMutation = useMutation(api.shares.addOwnerReply);
   const resolveCommentAsOwnerMutation = useMutation(api.shares.resolveCommentAsOwner);
+  // ProseMirror sync reset (for external changes from share links)
+  const resetSyncDocumentMutation = useMutation(api.prosemirror.resetDocument);
 
   // Transform Convex data to match existing UI types
   const colleges: College[] = useMemo(() => {
@@ -446,6 +458,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
         wordLimit: p.wordCountMax,
         content: p.essay?.content || '',
         promptType: p.promptType,
+        lastUpdated: p.essay?.lastUpdated,
       })),
     }));
   }, [convexColleges]);
@@ -477,7 +490,21 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const [content, setContent] = useState('');
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [isSaving, setIsSaving] = useState(false);
-  const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
+  const [activeFormats, setActiveFormats] = useState<ActiveRichTextFormats>({
+    bold: false,
+    italic: false,
+    underline: false,
+    bullet: false,
+    numbered: false,
+  });
+  const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
+  const saveIndicatorTimerRef = useRef<number | null>(null);
+  
+  // Track external changes from guest edits via share links
+  const [editorSyncKey, setEditorSyncKey] = useState(0);
+  const lastLocalEditTimeRef = useRef<number>(0);
+  const lastProcessedUpdateRef = useRef<number>(0);
+  const syncResetInFlightRef = useRef(false);
   const [showRightPanel, setShowRightPanel] = useState(true);
   const [showLeftPanel, setShowLeftPanel] = useState(true);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
@@ -487,6 +514,8 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const [sharePermission, setSharePermission] = useState<'view' | 'comment' | 'edit'>('view');
   const [isShareSent, setIsShareSent] = useState(false);
   const [generatedShareLink, setGeneratedShareLink] = useState<string | null>(null);
+  const [shareLinkCopyState, setShareLinkCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [shareLinkCopyMessage, setShareLinkCopyMessage] = useState('');
   const [isCreatingShare, setIsCreatingShare] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const [isEditorMinimized, setIsEditorMinimized] = useState(false);
@@ -546,7 +575,6 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
 
   // Calendar view state
   const [viewMode, setViewMode] = useState<'cards' | 'calendar'>('cards');
-
   // Onboarding state
   const {
     hasCompletedOnboarding,
@@ -583,7 +611,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
   ) ?? [];
   const wordLimit = currentEssay?.wordLimit || 650;
-  const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
+  const wordCount = countRichTextWords(content);
   const isOverLimit = wordCount > wordLimit;
 
   const experienceSuggestions: (StoryExperience & { guidance: PromptFitGuidance })[] = useMemo(() => {
@@ -612,9 +640,10 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
 
   const versionsForDisplay: Version[] = useMemo(() => {
     return essayVersions.map((version: any) => {
-      const previewText = version.content.length > 120
-        ? `${version.content.substring(0, 120)}...`
-        : version.content;
+      const plainVersionContent = stripRichTextFormatting(version.content ?? "");
+      const previewText = plainVersionContent.length > 120
+        ? `${plainVersionContent.substring(0, 120)}...`
+        : plainVersionContent;
       const timestamp = new Date(version.timestamp).toLocaleString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -672,8 +701,66 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   useEffect(() => {
     if (currentEssay) {
       setContent(currentEssay.content);
+      lastProcessedUpdateRef.current = currentEssay.lastUpdated ?? 0;
+      setActiveFormats({
+        bold: false,
+        italic: false,
+        underline: false,
+        bullet: false,
+        numbered: false,
+      });
     }
   }, [activeEssay?.essayId]);
+
+  // Detect external changes (e.g., from guest edits via share links)
+  // When the essay is updated externally, reset the ProseMirror sync document
+  // and force the sync editor to reload with the fresh content from the DB.
+  useEffect(() => {
+    if (!currentEssay) return;
+    
+    const essayLastUpdated = currentEssay.lastUpdated ?? 0;
+    const timeSinceLocalEdit = Date.now() - lastLocalEditTimeRef.current;
+    
+    // If we haven't processed this update yet
+    if (essayLastUpdated > lastProcessedUpdateRef.current) {
+      // Mark as processed
+      lastProcessedUpdateRef.current = essayLastUpdated;
+
+      // If local and database content are already aligned, don't reset.
+      if (currentEssay.content === content) return;
+      
+      // If the user hasn't edited in the last 3 seconds, this is likely an external change
+      if (timeSinceLocalEdit > 3000 && currentEssayId && !syncResetInFlightRef.current) {
+        syncResetInFlightRef.current = true;
+
+        // First, delete the stale ProseMirror sync document so the editor
+        // doesn't reload the old collaborative state. Once the reset completes,
+        // remount the editor which will recreate the sync doc from essay.content.
+        const newContent = currentEssay.content;
+        resetSyncDocumentMutation({ id: currentEssayId })
+          .then(() => {
+            setEditorSyncKey(prev => prev + 1);
+            setContent(newContent);
+          })
+          .catch((err) => {
+            console.error("Failed to reset sync document:", err);
+            // Fallback: still try to remount even if reset fails
+            setEditorSyncKey(prev => prev + 1);
+            setContent(newContent);
+          })
+          .finally(() => {
+            syncResetInFlightRef.current = false;
+          });
+      }
+    }
+  }, [currentEssay?.lastUpdated, currentEssay?.content, currentEssayId, content, resetSyncDocumentMutation]);
+
+  useEffect(() => {
+    if (!showShareDialog) {
+      setShareLinkCopyState('idle');
+      setShareLinkCopyMessage('');
+    }
+  }, [showShareDialog]);
 
   useEffect(() => {
     setSelectedExperience(null);
@@ -684,6 +771,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     setStrategyError(null);
     setPreviewVersion(null);
     setGeneratedSuggestions([]);
+    setEditorInstance(null);
   }, [currentEssayId]);
 
   useEffect(() => {
@@ -710,25 +798,13 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     setFeedbackError(null);
   }, [feedbackType]);
 
-  // Autosave to Convex
   useEffect(() => {
-    if (content !== undefined && currentEssayId) {
-      setIsSaving(true);
-      const timer = setTimeout(async () => {
-        try {
-          await saveEssayMutation({
-            essayId: currentEssayId as Id<"essays">,
-            content,
-          });
-          setLastSaved(new Date());
-        } catch (e) {
-          console.error("Autosave failed:", e);
-        }
-        setIsSaving(false);
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [content, currentEssayId, saveEssayMutation]);
+    return () => {
+      if (saveIndicatorTimerRef.current !== null) {
+        window.clearTimeout(saveIndicatorTimerRef.current);
+      }
+    };
+  }, []);
 
   // Handlers
   const toggleCollegeExpanded = (collegeId: string) => {
@@ -747,16 +823,41 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     setActiveEssay({ collegeId, essayId });
   };
 
-  const toggleFormat = (format: string) => {
-    setActiveFormats(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(format)) {
-        newSet.delete(format);
-      } else {
-        newSet.add(format);
-      }
-      return newSet;
-    });
+  const handleEditorContentChange = (nextContent: string) => {
+    setContent(nextContent);
+    setIsSaving(true);
+    // Track when user made a local edit
+    lastLocalEditTimeRef.current = Date.now();
+    if (saveIndicatorTimerRef.current !== null) {
+      window.clearTimeout(saveIndicatorTimerRef.current);
+    }
+    saveIndicatorTimerRef.current = window.setTimeout(() => {
+      setIsSaving(false);
+      setLastSaved(new Date());
+    }, 1400);
+  };
+
+  const applyFormatting = (format: keyof ActiveRichTextFormats) => {
+    if (!editorInstance) return;
+
+    const chain = editorInstance.chain().focus();
+    if (format === "bold") {
+      chain.toggleBold().run();
+      return;
+    }
+    if (format === "italic") {
+      chain.toggleItalic().run();
+      return;
+    }
+    if (format === "underline") {
+      chain.toggleUnderline().run();
+      return;
+    }
+    if (format === "bullet") {
+      chain.toggleBulletList().run();
+      return;
+    }
+    chain.toggleOrderedList().run();
   };
 
   const formatTime = (date: Date) => {
@@ -772,6 +873,8 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     
     setIsCreatingShare(true);
     setShareError(null);
+    setShareLinkCopyState('idle');
+    setShareLinkCopyMessage('');
     
     try {
       // Create the share link using the mutation with permission level
@@ -787,7 +890,15 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
       setGeneratedShareLink(shareUrl);
       
       // Copy to clipboard automatically
-      await navigator.clipboard.writeText(shareUrl);
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareLinkCopyState('copied');
+        setShareLinkCopyMessage('Copied to clipboard automatically.');
+      } catch (clipboardError) {
+        console.error('Auto-copy failed:', clipboardError);
+        setShareLinkCopyState('error');
+        setShareLinkCopyMessage('Could not auto-copy. Use the copy button.');
+      }
       
       setIsShareSent(true);
       
@@ -798,12 +909,28 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
         setShareEmail('');
         setSharePermission('view');
         setGeneratedShareLink(null);
+        setShareLinkCopyState('idle');
+        setShareLinkCopyMessage('');
       }, 5000);
     } catch (error) {
       console.error('Failed to create share link:', error);
       setShareError('Failed to create share link. Please try again.');
     } finally {
       setIsCreatingShare(false);
+    }
+  };
+
+  const handleCopyShareLink = async () => {
+    if (!generatedShareLink) return;
+
+    try {
+      await navigator.clipboard.writeText(generatedShareLink);
+      setShareLinkCopyState('copied');
+      setShareLinkCopyMessage('Link copied to clipboard.');
+    } catch (error) {
+      console.error('Manual copy failed:', error);
+      setShareLinkCopyState('error');
+      setShareLinkCopyMessage('Copy failed. Select the link and copy manually.');
     }
   };
 
@@ -979,7 +1106,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
       if (currentPromptId) {
         const result = await generateSuggestionsAction({
           promptId: currentPromptId as Id<"prompts">,
-          essayContent: `Context: This user has a personal lens note about: ${note.content} (Category: ${note.category}). Current essay content: ${content || "(not started)"}`,
+          essayContent: `Context: This user has a personal lens note about: ${note.content} (Category: ${note.category}). Current essay content: ${stripRichTextFormatting(content) || "(not started)"}`,
         });
 
         const suggestions = result?.suggestions || [];
@@ -1051,6 +1178,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
         versionId: version.id as Id<"essayVersions">,
       });
       setContent(version.content);
+      editorInstance?.commands.setContent(parseStoredRichTextToDoc(version.content));
       setShowVersionHistory(false);
     } catch (error) {
       console.error("Failed to restore version:", error);
@@ -1060,7 +1188,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   // Get Smart Reuse suggestions
   const smartReuseExcerpts = getSmartReuseExcerpts();
   // Show smart reuse when there are suggestions (for essays with same prompt type, we show early)
-  const hasWrittenContent = content.trim().length > 50;
+  const hasWrittenContent = stripRichTextFormatting(content).trim().length > 50;
   const hasSameTypeExcerpts = smartReuseExcerpts.some(e => e.matchesSamePromptType);
   const showSmartReuse = (hasWrittenContent || hasSameTypeExcerpts) && smartReuseExcerpts.length > 0;
 
@@ -1608,7 +1736,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                           essayTitle: currentEssay.title,
                           collegeName: currentCollege.name,
                           wordCount: wordCount,
-                          essayContent: content,
+                          essayContent: stripRichTextFormatting(content),
                           essayId: currentEssay.id,
                         });
                       }
@@ -1865,66 +1993,76 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                   <main className="flex-1 flex flex-col overflow-hidden">
                     {/* Formatting Toolbar */}
                     <div className="border-b border-border bg-card/50 px-4 py-2 flex items-center justify-between flex-shrink-0">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => toggleFormat('bold')}
-                          className={`p-2 rounded-lg transition-colors ${activeFormats.has('bold')
+                          onClick={() => applyFormatting('bold')}
+                          className={`p-2 rounded-lg transition-colors ${activeFormats.bold
                               ? 'bg-primary/10 text-primary'
                               : 'hover:bg-muted text-muted-foreground'
                             }`}
+                          title="Bold (Cmd/Ctrl + B)"
                         >
                           <Bold className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => toggleFormat('italic')}
-                          className={`p-2 rounded-lg transition-colors ${activeFormats.has('italic')
+                          onClick={() => applyFormatting('italic')}
+                          className={`p-2 rounded-lg transition-colors ${activeFormats.italic
                               ? 'bg-primary/10 text-primary'
                               : 'hover:bg-muted text-muted-foreground'
                             }`}
+                          title="Italic (Cmd/Ctrl + I)"
                         >
                           <Italic className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => toggleFormat('underline')}
-                          className={`p-2 rounded-lg transition-colors ${activeFormats.has('underline')
+                          onClick={() => applyFormatting('underline')}
+                          className={`p-2 rounded-lg transition-colors ${activeFormats.underline
                               ? 'bg-primary/10 text-primary'
                               : 'hover:bg-muted text-muted-foreground'
                             }`}
+                          title="Underline (Cmd/Ctrl + U)"
                         >
                           <Underline className="w-4 h-4" />
                         </button>
                         <div className="w-px h-5 bg-border mx-1" />
                         <button
-                          onClick={() => toggleFormat('bullet')}
-                          className={`p-2 rounded-lg transition-colors ${activeFormats.has('bullet')
+                          onClick={() => applyFormatting('bullet')}
+                          className={`p-2 rounded-lg transition-colors ${activeFormats.bullet
                               ? 'bg-primary/10 text-primary'
                               : 'hover:bg-muted text-muted-foreground'
                             }`}
+                          title="Bulleted list"
                         >
                           <List className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => toggleFormat('numbered')}
-                          className={`p-2 rounded-lg transition-colors ${activeFormats.has('numbered')
+                          onClick={() => applyFormatting('numbered')}
+                          className={`p-2 rounded-lg transition-colors ${activeFormats.numbered
                               ? 'bg-primary/10 text-primary'
                               : 'hover:bg-muted text-muted-foreground'
                             }`}
+                          title="Numbered list"
                         >
                           <ListOrdered className="w-4 h-4" />
                         </button>
                       </div>
 
-                      <button
-                        onClick={() => setShowRightPanel(!showRightPanel)}
-                        className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
-                        title={showRightPanel ? 'Hide guidance' : 'Show guidance'}
-                      >
-                        {showRightPanel ? (
-                          <PanelRightClose className="w-4 h-4" />
-                        ) : (
-                          <PanelRightOpen className="w-4 h-4" />
-                        )}
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <p className="hidden md:block text-xs text-muted-foreground">
+                          Select text, then format.
+                        </p>
+                        <button
+                          onClick={() => setShowRightPanel(!showRightPanel)}
+                          className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+                          title={showRightPanel ? 'Hide guidance' : 'Show guidance'}
+                        >
+                          {showRightPanel ? (
+                            <PanelRightClose className="w-4 h-4" />
+                          ) : (
+                            <PanelRightOpen className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
                     </div>
 
                     {/* Editor Area */}
@@ -2017,17 +2155,16 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                           )}
                         </AnimatePresence>
 
-                        <textarea
-                          value={content}
-                          onChange={(e) => setContent(e.target.value)}
-                          placeholder="Start writing your essay..."
-                          className="w-full min-h-[500px] bg-transparent text-foreground text-lg leading-relaxed resize-none focus:outline-none placeholder:text-muted-foreground/50"
-                          style={{
-                            fontWeight: activeFormats.has('bold') ? 600 : 400,
-                            fontStyle: activeFormats.has('italic') ? 'italic' : 'normal',
-                            textDecoration: activeFormats.has('underline') ? 'underline' : 'none',
-                          }}
-                        />
+                        {currentEssayId && (
+                          <SyncEssayEditor
+                            key={`${currentEssayId}-${editorSyncKey}`}
+                            essayId={currentEssayId}
+                            initialStoredContent={currentEssay?.content ?? content}
+                            onStoredContentChange={handleEditorContentChange}
+                            onFormatsChange={setActiveFormats}
+                            onEditorChange={setEditorInstance}
+                          />
+                        )}
                       </div>
                     </div>
 
@@ -2430,8 +2567,11 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                                                           }
                                                           // Auto-populate editor with starter sentences if available
                                                           if (experience.guidance.starterSentences && experience.guidance.starterSentences.length > 0) {
-                                                            const starterContent = experience.guidance.starterSentences.join(' ');
+                                                            const starterContent = createStoredRichTextFromPlainText(
+                                                              experience.guidance.starterSentences.join(" "),
+                                                            );
                                                             setContent(starterContent);
+                                                            editorInstance?.commands.setContent(parseStoredRichTextToDoc(starterContent));
                                                             setShowStarterHelper(true);
                                                           }
                                                         }}
@@ -2741,7 +2881,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                       </button>
                     </div>
                     <div className="max-h-48 overflow-y-auto text-body-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                      {previewVersion.content ?? ""}
+                      {stripRichTextFormatting(previewVersion.content ?? "")}
                     </div>
                     <div className="mt-3 flex items-center gap-2">
                       <Button
@@ -2836,6 +2976,8 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                   setShareEmail('');
                   setShareError(null);
                   setGeneratedShareLink(null);
+                  setShareLinkCopyState('idle');
+                  setShareLinkCopyMessage('');
                 }
               }}
             />
@@ -2873,17 +3015,30 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                             {generatedShareLink}
                           </span>
                           <button
-                            onClick={async () => {
-                              await navigator.clipboard.writeText(generatedShareLink);
-                            }}
-                            className="p-1.5 rounded-md hover:bg-muted transition-colors flex-shrink-0"
+                            onClick={handleCopyShareLink}
+                            className={`p-1.5 rounded-md transition-all duration-150 flex-shrink-0 active:scale-95 ${
+                              shareLinkCopyState === 'copied'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : shareLinkCopyState === 'error'
+                                  ? 'bg-destructive/10 text-destructive'
+                                  : 'hover:bg-muted text-muted-foreground'
+                            }`}
                             title="Copy link"
                           >
-                            <Copy className="w-4 h-4 text-muted-foreground" />
+                            {shareLinkCopyState === 'copied' ? (
+                              <Check className="w-4 h-4" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
                           </button>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          Link copied to clipboard!
+                        <p
+                          className={`text-xs ${
+                            shareLinkCopyState === 'error' ? 'text-destructive' : 'text-muted-foreground'
+                          }`}
+                          aria-live="polite"
+                        >
+                          {shareLinkCopyMessage || 'Use the copy button to copy this link.'}
                         </p>
                       </div>
                     )}
@@ -2910,6 +3065,8 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                             setSharePermission('view');
                             setShareError(null);
                             setGeneratedShareLink(null);
+                            setShareLinkCopyState('idle');
+                            setShareLinkCopyMessage('');
                           }}
                           className="p-2 rounded-lg hover:bg-muted transition-colors"
                         >

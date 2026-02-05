@@ -185,6 +185,7 @@ const ExportScreen: React.FC<ExportScreenProps> = ({
     try {
       const result = await createShareMutation({
         essayId: essayId as Id<"essays">,
+        permission: "view",
       });
 
       const shareUrl = `${window.location.origin}/share/${result.token}`;
