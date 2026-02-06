@@ -69,8 +69,12 @@ export const list = query({
 export const add = mutation({
   args: {
     name: v.string(),
+    schoolSlug: v.optional(v.string()),
     applicationType: v.optional(v.string()),
     deadline: v.optional(v.string()),
+    sourceQualityStatus: v.optional(v.string()),
+    sourceQualityScore: v.optional(v.number()),
+    sourceVerifiedAt: v.optional(v.number()),
     prompts: v.array(
       v.object({
         text: v.string(),
@@ -87,8 +91,12 @@ export const add = mutation({
     const collegeId = await ctx.db.insert("colleges", {
       userId,
       name: args.name,
+      schoolSlug: args.schoolSlug,
       applicationType: args.applicationType,
       deadline: args.deadline,
+      sourceQualityStatus: args.sourceQualityStatus,
+      sourceQualityScore: args.sourceQualityScore,
+      sourceVerifiedAt: args.sourceVerifiedAt,
     });
 
     // Create prompts and empty essays
