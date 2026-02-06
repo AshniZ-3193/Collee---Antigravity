@@ -16,6 +16,17 @@ export const getCached = query({
   },
 });
 
+export const listAll = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.min(Math.max(args.limit ?? 1000, 1), 5000);
+    const docs = await ctx.db.query("cachedCollegeDeadlines").collect();
+    return docs.slice(0, limit);
+  },
+});
+
 export const saveCache = mutation({
   args: {
     collegeName: v.string(),

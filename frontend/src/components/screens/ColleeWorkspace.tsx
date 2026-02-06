@@ -1,15 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
@@ -24,7 +17,6 @@ import {
   History,
   ChevronDown,
   ChevronRight,
-  ChevronLeft,
   PanelRightClose,
   PanelRightOpen,
   PanelLeftClose,
@@ -32,33 +24,17 @@ import {
   Download,
   Share2,
   Lightbulb,
-  Target,
   FileText,
   X,
-  RotateCcw,
-  Mail,
-  Send,
-  CheckCircle,
-  Eye,
-  Users,
-  Shield,
-  GraduationCap,
   Pencil,
   MapPin,
   Plus,
-  BookOpen,
-  Rocket,
   User,
   LogOut,
-  Minimize2,
   Maximize2,
   Clock,
   Sparkles,
-  AlertTriangle,
-  RefreshCw,
   Quote,
-  Copy,
-  XCircle,
   Trash2,
   ArrowLeft,
   HelpCircle,
@@ -66,9 +42,6 @@ import {
   PenLine,
   Calendar,
   Wand2,
-  Link2,
-  MessageSquare,
-  Reply,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -79,74 +52,37 @@ import {
 } from '@/components/ui/dropdown-menu';
 import ColleeLogo from '@/components/ColleeLogo';
 import ThemeToggle from '@/components/ThemeToggle';
-
+import {
+  countRichTextWords,
+  parseStoredRichTextToDoc,
+  stripRichTextFormatting,
+} from '@/lib/richText';
+import type { Editor } from '@tiptap/react';
+import SyncEssayEditor, {
+  type ActiveRichTextFormats,
+} from '@/components/editor/SyncEssayEditor';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import OnboardingWalkthrough, { useOnboardingState } from '@/components/OnboardingWalkthrough';
-
-// ===== PERSONAL LENS TYPES =====
-interface PersonalLensNote {
-  id: string;
-  content: string;
-  category: 'moment' | 'observation' | 'responsibility' | 'realization' | 'value' | 'shift';
-  createdAt: Date;
-}
-
-const PERSONAL_LENS_CATEGORIES = [
-  { value: 'moment', label: 'A moment', placeholder: 'Describe a specific moment that stuck with you...' },
-  { value: 'observation', label: 'Something I noticed', placeholder: 'What have you observed that others might miss?' },
-  { value: 'responsibility', label: 'A responsibility', placeholder: 'A duty or commitment you carry...' },
-  { value: 'realization', label: 'A realization', placeholder: 'Something you came to understand...' },
-  { value: 'value', label: 'What matters to me', placeholder: 'A value or belief that guides you...' },
-  { value: 'shift', label: 'A shift in perspective', placeholder: 'How your thinking changed...' },
-] as const;
-
-const promptTypes = [
-  { value: 'contribution', label: 'Contribution' },
-  { value: 'why-major', label: 'Why Major' },
-  { value: 'why-college', label: 'Why This College' },
-  { value: 'extracurricular', label: 'Extracurricular' },
-  { value: 'identity', label: 'Identity' },
-  { value: 'challenge', label: 'Challenge/Setback' },
-  { value: 'other', label: 'Other' },
-];
-
-// ===== TYPES =====
-interface Essay {
-  id: string;
-  promptId: string;
-  title: string;
-  prompt: string;
-  status: 'not-started' | 'in-progress' | 'complete';
-  wordCount: number;
-  wordLimit: number;
-  content: string;
-  promptType?: string; // e.g., 'why-college', 'why-major', 'challenge', 'identity'
-}
-
-interface College {
-  id: string;
-  name: string;
-  applicationType?: string;
-  deadline?: string;
-  essays: Essay[];
-}
-
-interface Version {
-  id: string;
-  timestamp: string;
-  wordCount: number;
-  preview: string;
-  content?: string;
-  isCurrent?: boolean;
-}
-
-interface ExportData {
-  essayTitle: string;
-  collegeName: string;
-  wordCount: number;
-  essayContent: string;
-  essayId?: string;
-}
+import { PERSONAL_LENS_CATEGORIES } from './workspace/constants';
+import RightPanel from './workspace/RightPanel';
+import ShareDialog from './workspace/ShareDialog';
+import DeletePromptDialog from './workspace/DeletePromptDialog';
+import VersionHistoryDrawer from './workspace/VersionHistoryDrawer';
+import {
+  type College,
+  type Essay,
+  type ExcerptUsageRecord,
+  type ExportData,
+  type FeedbackType,
+  type GeneratedSuggestion,
+  type PersonalLensNote,
+  type PromptFitGuidance,
+  type ReusableExcerpt,
+  type StoryExperience,
+  type Version,
+} from './workspace/types';
+import { getEssaySnapshot, getStatusDot, isDeadlineApproaching } from './workspace/utils';
+import { useEssaySync } from './workspace/useEssaySync';
 
 interface ColleeWorkspaceProps {
   onAddCollege: () => void;
@@ -154,252 +90,9 @@ interface ColleeWorkspaceProps {
   onEditStoryIdentity?: () => void;
   onLogoClick?: () => void;
   onLogout?: () => void;
+  initialActiveEssay?: { collegeId: string; essayId: string } | null;
+  onInitialActiveEssayApplied?: () => void;
 }
-
-interface StoryExperience {
-  id: string;
-  name: string;
-  tags: string[];
-  usedIn: string[];
-}
-
-interface PromptFitGuidance {
-  matchStrength: 'strong' | 'moderate';
-  whyItFits: string;
-  framingTips: string[];
-  caution?: string;
-  startWith?: string;
-  focusOn?: string;
-  avoidFocus?: string;
-  starterSentences?: string[];
-}
-
-interface ReusableExcerpt {
-  id: string;
-  sourceEssayId: string;
-  sourceEssayTitle: string;
-  sourceCollegeId: string;
-  sourceCollegeName: string;
-  excerpt: string;
-  themes: string[];
-  promptType?: string;
-  overlapThemes?: string[];
-  matchesSamePromptType?: boolean;
-  whyItWorks: string;
-  sameSchoolWarning?: string;
-}
-
-interface ExcerptUsageRecord {
-  excerptId: string;
-  targetCollegeId: string;
-  targetCollegeName: string;
-  targetEssayId: string;
-  targetEssayTitle: string;
-}
-
-type FeedbackType = 'overall' | 'opening' | 'structure' | 'voice' | 'specificity';
-
-// ===== HELPER FUNCTIONS =====
-const getEssaySnapshot = (essays: Essay[]): string => {
-  const inProgress = essays.filter(e => e.status === 'in-progress').length;
-  const complete = essays.filter(e => e.status === 'complete').length;
-  const notStarted = essays.filter(e => e.status === 'not-started').length;
-  const total = essays.length;
-
-  if (complete === total) return 'All essays drafted';
-  if (notStarted === total) return `${total} essays • not started yet`;
-  if (inProgress > 0) return `${total} essays • ${inProgress} in progress`;
-  return `${total} essays • ${complete} complete`;
-};
-
-const getStatusDot = (status: Essay['status']) => {
-  switch (status) {
-    case 'complete': return 'bg-emerald-500';
-    case 'in-progress': return 'bg-primary';
-    default: return 'bg-muted-foreground/30';
-  }
-};
-
-// Check if deadline is approaching (within 14 days)
-const isDeadlineApproaching = (deadline?: string): boolean => {
-  if (!deadline) return false;
-  const months: Record<string, number> = {
-    'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
-    'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
-  };
-  const parts = deadline.split(' ');
-  if (parts.length !== 2) return false;
-  const month = months[parts[0]];
-  const day = parseInt(parts[1]);
-  if (month === undefined || isNaN(day)) return false;
-  const currentYear = new Date().getFullYear();
-  const deadlineDate = new Date(currentYear, month, day);
-  const now = new Date();
-  // If deadline is in the past this year, assume next year
-  if (deadlineDate < now) {
-    deadlineDate.setFullYear(currentYear + 1);
-  }
-  const daysUntil = Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  return daysUntil <= 14 && daysUntil >= 0;
-};
-
-// ===== OWNER COMMENT CARD COMPONENT =====
-interface OwnerCommentCardProps {
-  comment: {
-    _id: Id<"shareComments">;
-    authorName: string;
-    authorEmail?: string;
-    content: string;
-    selectedText: string;
-    resolved: boolean;
-    createdAt: number;
-  };
-  onResolve: () => void;
-  onAddReply: (content: string) => Promise<{ replyId: Id<"shareCommentReplies"> }>;
-}
-
-const OwnerCommentCard: React.FC<OwnerCommentCardProps> = ({
-  comment,
-  onResolve,
-  onAddReply,
-}) => {
-  const [isReplying, setIsReplying] = useState(false);
-  const [replyContent, setReplyContent] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Fetch replies for this comment
-  const replies = useQuery(api.shares.getReplies, { commentId: comment._id }) ?? [];
-
-  const handleSubmitReply = async () => {
-    if (!replyContent.trim() || isSubmitting) return;
-    setIsSubmitting(true);
-    try {
-      await onAddReply(replyContent.trim());
-      setReplyContent('');
-      setIsReplying(false);
-    } catch (error) {
-      console.error('Failed to add reply:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <div
-      className={`p-3 rounded-lg border ${
-        comment.resolved
-          ? 'bg-muted/30 border-border/50 opacity-60'
-          : 'bg-card border-border'
-      }`}
-    >
-      {/* Comment Header */}
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-            <span className="text-xs font-medium text-primary">
-              {comment.authorName.charAt(0).toUpperCase()}
-            </span>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-foreground">
-              {comment.authorName}
-            </p>
-            <p className="text-[10px] text-muted-foreground">
-              {new Date(comment.createdAt).toLocaleDateString()}
-            </p>
-          </div>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 w-6 p-0"
-          onClick={onResolve}
-          title={comment.resolved ? "Unresolve" : "Resolve"}
-        >
-          <Check className={`w-3.5 h-3.5 ${comment.resolved ? 'text-green-500' : 'text-muted-foreground'}`} />
-        </Button>
-      </div>
-
-      {/* Highlighted Text */}
-      {comment.selectedText && (
-        <div className="mb-2 p-2 rounded bg-yellow-500/10 border-l-2 border-yellow-500">
-          <p className="text-xs text-muted-foreground italic line-clamp-2">
-            "{comment.selectedText}"
-          </p>
-        </div>
-      )}
-
-      {/* Comment Content */}
-      <p className="text-xs text-foreground mb-3">{comment.content}</p>
-
-      {/* Existing Replies */}
-      {replies.length > 0 && (
-        <div className="space-y-2 mb-3 pl-3 border-l-2 border-border">
-          {replies.map((reply) => (
-            <div key={reply._id} className="text-xs">
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <span className={`font-medium ${reply.isOwner ? 'text-primary' : 'text-foreground'}`}>
-                  {reply.authorName}
-                  {reply.isOwner && <span className="text-[10px] ml-1">(You)</span>}
-                </span>
-                <span className="text-muted-foreground">·</span>
-                <span className="text-muted-foreground text-[10px]">
-                  {new Date(reply.createdAt).toLocaleDateString()}
-                </span>
-              </div>
-              <p className="text-muted-foreground">{reply.content}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Reply Section */}
-      <div className="space-y-2">
-        {isReplying ? (
-          <div className="space-y-2">
-            <Textarea
-              value={replyContent}
-              onChange={(e) => setReplyContent(e.target.value)}
-              placeholder="Write your reply..."
-              className="min-h-[60px] text-xs resize-none"
-            />
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                className="h-7 text-xs"
-                disabled={!replyContent.trim() || isSubmitting}
-                onClick={handleSubmitReply}
-              >
-                {isSubmitting ? 'Sending...' : 'Send Reply'}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs"
-                onClick={() => {
-                  setIsReplying(false);
-                  setReplyContent('');
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs gap-1"
-            onClick={() => setIsReplying(true)}
-          >
-            <Reply className="w-3 h-3" />
-            Reply
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-};
 
 // ===== MAIN COMPONENT =====
 const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
@@ -408,12 +101,13 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   onEditStoryIdentity,
   onLogoClick,
   onLogout,
+  initialActiveEssay,
+  onInitialActiveEssayApplied,
 }) => {
   // Convex queries
   const convexColleges = useQuery(api.colleges.list, {}) ?? [];
   const storyIdentityData = useQuery(api.storyIdentity.get, {});
   const convexLensNotes = useQuery(api.personalLens.list, {}) ?? [];
-  const saveEssayMutation = useMutation(api.essays.save);
   const addLensNoteMutation = useMutation(api.personalLens.add);
   const updateLensNoteMutation = useMutation(api.personalLens.update);
   const deleteLensNoteMutation = useMutation(api.personalLens.remove);
@@ -428,6 +122,9 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   // Comments from reviewers
   const addOwnerReplyMutation = useMutation(api.shares.addOwnerReply);
   const resolveCommentAsOwnerMutation = useMutation(api.shares.resolveCommentAsOwner);
+  // ProseMirror sync reset (for external changes from share links)
+  const resetSyncDocumentMutation = useMutation(api.prosemirror.resetDocument);
+  const updatePromptMutation = useMutation((api as any).colleges.updatePrompt);
 
   // Transform Convex data to match existing UI types
   const colleges: College[] = useMemo(() => {
@@ -439,13 +136,14 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
       essays: c.prompts.map((p: any) => ({
         id: p.essay?._id || p._id,
         promptId: p._id,
-        title: p.text.length > 50 ? p.text.substring(0, 50) + '...' : p.text,
+        title: p.text,
         prompt: p.text,
         status: (p.essay?.status || 'not-started') as Essay['status'],
         wordCount: p.essay?.wordCount || 0,
         wordLimit: p.wordCountMax,
         content: p.essay?.content || '',
         promptType: p.promptType,
+        lastUpdated: p.essay?.lastUpdated,
       })),
     }));
   }, [convexColleges]);
@@ -477,7 +175,16 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const [content, setContent] = useState('');
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [isSaving, setIsSaving] = useState(false);
-  const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
+  const [activeFormats, setActiveFormats] = useState<ActiveRichTextFormats>({
+    bold: false,
+    italic: false,
+    underline: false,
+    bullet: false,
+    numbered: false,
+  });
+  const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
+  const saveIndicatorTimerRef = useRef<number | null>(null);
+
   const [showRightPanel, setShowRightPanel] = useState(true);
   const [showLeftPanel, setShowLeftPanel] = useState(true);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
@@ -487,6 +194,8 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const [sharePermission, setSharePermission] = useState<'view' | 'comment' | 'edit'>('view');
   const [isShareSent, setIsShareSent] = useState(false);
   const [generatedShareLink, setGeneratedShareLink] = useState<string | null>(null);
+  const [shareLinkCopyState, setShareLinkCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [shareLinkCopyMessage, setShareLinkCopyMessage] = useState('');
   const [isCreatingShare, setIsCreatingShare] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const [isEditorMinimized, setIsEditorMinimized] = useState(false);
@@ -510,10 +219,12 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   // Starter text state - tracks when starter sentences were added
   const [showStarterHelper, setShowStarterHelper] = useState(false);
 
-  // Prompt editing state
+  // Prompt action state
   const [isEditingPrompt, setIsEditingPrompt] = useState(false);
   const [editedPromptText, setEditedPromptText] = useState('');
-  const [editedWordLimit, setEditedWordLimit] = useState(250);
+  const [editedWordLimit, setEditedWordLimit] = useState('');
+  const [isUpdatingPrompt, setIsUpdatingPrompt] = useState(false);
+  const [promptEditError, setPromptEditError] = useState<string | null>(null);
   const [showDeletePromptDialog, setShowDeletePromptDialog] = useState(false);
 
   // Workspace tab state: 'write' or 'personal-lens'
@@ -533,20 +244,11 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
 
-  // Generated story suggestions from Personal Lens notes
-  interface GeneratedSuggestion {
-    id: string;
-    noteId: string;
-    noteContent: string;
-    suggestion: string;
-    matchStrength: 'strong' | 'moderate';
-  }
   const [generatedSuggestions, setGeneratedSuggestions] = useState<GeneratedSuggestion[]>([]);
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
 
   // Calendar view state
   const [viewMode, setViewMode] = useState<'cards' | 'calendar'>('cards');
-
   // Onboarding state
   const {
     hasCompletedOnboarding,
@@ -583,8 +285,16 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
   ) ?? [];
   const wordLimit = currentEssay?.wordLimit || 650;
-  const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
+  const wordCount = countRichTextWords(content);
   const isOverLimit = wordCount > wordLimit;
+  const { editorSyncKey, markLocalEdit, markLoadedEssayVersion } = useEssaySync({
+    currentEssayId,
+    essayContent: currentEssay?.content,
+    essayLastUpdated: currentEssay?.lastUpdated,
+    localContent: content,
+    setLocalContent: setContent,
+    resetSyncDocument: resetSyncDocumentMutation,
+  });
 
   const experienceSuggestions: (StoryExperience & { guidance: PromptFitGuidance })[] = useMemo(() => {
     if (!promptStrategy?.experienceMatches) return [];
@@ -612,9 +322,10 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
 
   const versionsForDisplay: Version[] = useMemo(() => {
     return essayVersions.map((version: any) => {
-      const previewText = version.content.length > 120
-        ? `${version.content.substring(0, 120)}...`
-        : version.content;
+      const plainVersionContent = stripRichTextFormatting(version.content ?? "");
+      const previewText = plainVersionContent.length > 120
+        ? `${plainVersionContent.substring(0, 120)}...`
+        : plainVersionContent;
       const timestamp = new Date(version.timestamp).toLocaleString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -668,22 +379,61 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     setShowOnboarding(true);
   }, [hasCompletedOnboarding, showOnboarding, isDocumentAreaActive, setShowOnboarding]);
 
+  useEffect(() => {
+    if (!initialActiveEssay) return;
+
+    const matchesCurrent =
+      activeEssay?.collegeId === initialActiveEssay.collegeId &&
+      activeEssay?.essayId === initialActiveEssay.essayId;
+    if (!matchesCurrent) {
+      setActiveEssay(initialActiveEssay);
+      setIsEditorMinimized(false);
+      setWorkspaceTab('write');
+    }
+    onInitialActiveEssayApplied?.();
+  }, [
+    initialActiveEssay,
+    activeEssay?.collegeId,
+    activeEssay?.essayId,
+    onInitialActiveEssayApplied,
+  ]);
+
   // Load essay content when active essay changes
   useEffect(() => {
     if (currentEssay) {
       setContent(currentEssay.content);
+      markLoadedEssayVersion(currentEssay.lastUpdated);
+      setActiveFormats({
+        bold: false,
+        italic: false,
+        underline: false,
+        bullet: false,
+        numbered: false,
+      });
     }
-  }, [activeEssay?.essayId]);
+  }, [activeEssay?.essayId, currentEssay, markLoadedEssayVersion]);
+
+  useEffect(() => {
+    if (!showShareDialog) {
+      setShareLinkCopyState('idle');
+      setShareLinkCopyMessage('');
+    }
+  }, [showShareDialog]);
 
   useEffect(() => {
     setSelectedExperience(null);
     setLockedExperience(null);
     setShowStarterHelper(false);
+    setIsEditingPrompt(false);
+    setEditedPromptText('');
+    setEditedWordLimit('');
+    setPromptEditError(null);
     setFeedbackResult(null);
     setFeedbackError(null);
     setStrategyError(null);
     setPreviewVersion(null);
     setGeneratedSuggestions([]);
+    setEditorInstance(null);
   }, [currentEssayId]);
 
   useEffect(() => {
@@ -710,25 +460,13 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     setFeedbackError(null);
   }, [feedbackType]);
 
-  // Autosave to Convex
   useEffect(() => {
-    if (content !== undefined && currentEssayId) {
-      setIsSaving(true);
-      const timer = setTimeout(async () => {
-        try {
-          await saveEssayMutation({
-            essayId: currentEssayId as Id<"essays">,
-            content,
-          });
-          setLastSaved(new Date());
-        } catch (e) {
-          console.error("Autosave failed:", e);
-        }
-        setIsSaving(false);
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [content, currentEssayId, saveEssayMutation]);
+    return () => {
+      if (saveIndicatorTimerRef.current !== null) {
+        window.clearTimeout(saveIndicatorTimerRef.current);
+      }
+    };
+  }, []);
 
   // Handlers
   const toggleCollegeExpanded = (collegeId: string) => {
@@ -747,16 +485,40 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     setActiveEssay({ collegeId, essayId });
   };
 
-  const toggleFormat = (format: string) => {
-    setActiveFormats(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(format)) {
-        newSet.delete(format);
-      } else {
-        newSet.add(format);
-      }
-      return newSet;
-    });
+  const handleEditorContentChange = (nextContent: string) => {
+    setContent(nextContent);
+    setIsSaving(true);
+    markLocalEdit();
+    if (saveIndicatorTimerRef.current !== null) {
+      window.clearTimeout(saveIndicatorTimerRef.current);
+    }
+    saveIndicatorTimerRef.current = window.setTimeout(() => {
+      setIsSaving(false);
+      setLastSaved(new Date());
+    }, 1400);
+  };
+
+  const applyFormatting = (format: keyof ActiveRichTextFormats) => {
+    if (!editorInstance) return;
+
+    const chain = editorInstance.chain().focus();
+    if (format === "bold") {
+      chain.toggleBold().run();
+      return;
+    }
+    if (format === "italic") {
+      chain.toggleItalic().run();
+      return;
+    }
+    if (format === "underline") {
+      chain.toggleUnderline().run();
+      return;
+    }
+    if (format === "bullet") {
+      chain.toggleBulletList().run();
+      return;
+    }
+    chain.toggleOrderedList().run();
   };
 
   const formatTime = (date: Date) => {
@@ -772,6 +534,8 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     
     setIsCreatingShare(true);
     setShareError(null);
+    setShareLinkCopyState('idle');
+    setShareLinkCopyMessage('');
     
     try {
       // Create the share link using the mutation with permission level
@@ -787,17 +551,21 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
       setGeneratedShareLink(shareUrl);
       
       // Copy to clipboard automatically
-      await navigator.clipboard.writeText(shareUrl);
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareLinkCopyState('copied');
+        setShareLinkCopyMessage('Copied to clipboard automatically.');
+      } catch (clipboardError) {
+        console.error('Auto-copy failed:', clipboardError);
+        setShareLinkCopyState('error');
+        setShareLinkCopyMessage('Could not auto-copy. Use the copy button.');
+      }
       
       setIsShareSent(true);
       
       // Keep the dialog open longer so user can see/copy the link
       setTimeout(() => {
-        setShowShareDialog(false);
-        setIsShareSent(false);
-        setShareEmail('');
-        setSharePermission('view');
-        setGeneratedShareLink(null);
+        closeShareDialog();
       }, 5000);
     } catch (error) {
       console.error('Failed to create share link:', error);
@@ -807,9 +575,39 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     }
   };
 
-  // Handler for minimizing editor and returning to College Map view
-  const handleMinimizeEditor = () => {
-    setIsEditorMinimized(true);
+  const handleCopyShareLink = async () => {
+    if (!generatedShareLink) return;
+
+    try {
+      await navigator.clipboard.writeText(generatedShareLink);
+      setShareLinkCopyState('copied');
+      setShareLinkCopyMessage('Link copied to clipboard.');
+    } catch (error) {
+      console.error('Manual copy failed:', error);
+      setShareLinkCopyState('error');
+      setShareLinkCopyMessage('Copy failed. Select the link and copy manually.');
+    }
+  };
+
+  const resetShareDialogState = () => {
+    setShareEmail('');
+    setSharePermission('view');
+    setShareError(null);
+    setGeneratedShareLink(null);
+    setShareLinkCopyState('idle');
+    setShareLinkCopyMessage('');
+    setIsShareSent(false);
+  };
+
+  const closeShareDialog = () => {
+    setShowShareDialog(false);
+    resetShareDialogState();
+  };
+
+  const dismissShareDialogIfAllowed = () => {
+    if (!isShareSent && !isCreatingShare) {
+      closeShareDialog();
+    }
   };
 
   const handleMaximizeEditor = () => {
@@ -979,7 +777,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
       if (currentPromptId) {
         const result = await generateSuggestionsAction({
           promptId: currentPromptId as Id<"prompts">,
-          essayContent: `Context: This user has a personal lens note about: ${note.content} (Category: ${note.category}). Current essay content: ${content || "(not started)"}`,
+          essayContent: `Context: This user has a personal lens note about: ${note.content} (Category: ${note.category}). Current essay content: ${stripRichTextFormatting(content) || "(not started)"}`,
         });
 
         const suggestions = result?.suggestions || [];
@@ -1051,6 +849,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
         versionId: version.id as Id<"essayVersions">,
       });
       setContent(version.content);
+      editorInstance?.commands.setContent(parseStoredRichTextToDoc(version.content));
       setShowVersionHistory(false);
     } catch (error) {
       console.error("Failed to restore version:", error);
@@ -1060,29 +859,64 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   // Get Smart Reuse suggestions
   const smartReuseExcerpts = getSmartReuseExcerpts();
   // Show smart reuse when there are suggestions (for essays with same prompt type, we show early)
-  const hasWrittenContent = content.trim().length > 50;
+  const hasWrittenContent = stripRichTextFormatting(content).trim().length > 50;
   const hasSameTypeExcerpts = smartReuseExcerpts.some(e => e.matchesSamePromptType);
   const showSmartReuse = (hasWrittenContent || hasSameTypeExcerpts) && smartReuseExcerpts.length > 0;
 
   // Prompt editing handlers
   const handleStartEditingPrompt = () => {
-    if (currentEssay) {
-      setEditedPromptText(currentEssay.prompt);
-      setEditedWordLimit(currentEssay.wordLimit);
-      setIsEditingPrompt(true);
-    }
-  };
-
-  const handleSavePromptEdit = () => {
-    // In a real app, this would update the backend
-    // For now, we just close the editing mode
-    setIsEditingPrompt(false);
+    if (!currentEssay) return;
+    setEditedPromptText(currentEssay.prompt);
+    setEditedWordLimit(String(currentEssay.wordLimit));
+    setPromptEditError(null);
+    setIsEditingPrompt(true);
   };
 
   const handleCancelPromptEdit = () => {
     setIsEditingPrompt(false);
-    setEditedPromptText('');
-    setEditedWordLimit(250);
+    setPromptEditError(null);
+  };
+
+  const handleSavePromptEdit = async () => {
+    if (!currentPromptId || !currentEssay) return;
+    const nextPromptText = editedPromptText.trim();
+    const parsedWordLimit = Number.parseInt(editedWordLimit, 10);
+
+    if (!nextPromptText) {
+      setPromptEditError('Prompt text is required.');
+      return;
+    }
+    if (!Number.isFinite(parsedWordLimit) || parsedWordLimit < 50 || parsedWordLimit > 2000) {
+      setPromptEditError('Word limit must be between 50 and 2000.');
+      return;
+    }
+
+    const unchanged =
+      nextPromptText === currentEssay.prompt && parsedWordLimit === currentEssay.wordLimit;
+    if (unchanged) {
+      setIsEditingPrompt(false);
+      setPromptEditError(null);
+      return;
+    }
+
+    setIsUpdatingPrompt(true);
+    setPromptEditError(null);
+    try {
+      await updatePromptMutation({
+        promptId: currentPromptId as Id<"prompts">,
+        text: nextPromptText,
+        wordCountMax: parsedWordLimit,
+      });
+      setIsEditingPrompt(false);
+      setFeedbackResult(null);
+      setFeedbackError(null);
+      strategyAttempts.current.delete(currentPromptId);
+    } catch (error) {
+      console.error('Failed to update prompt:', error);
+      setPromptEditError('Unable to save prompt changes right now.');
+    } finally {
+      setIsUpdatingPrompt(false);
+    }
   };
 
   const handleDeletePrompt = () => {
@@ -1105,10 +939,12 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
       <header className="h-12 bg-card/80 backdrop-blur-md shadow-sm flex-shrink-0 z-30 relative">
         <div className="h-full px-4 flex items-center justify-between">
           {/* Left: LaunchPad logo/name - clicking returns to dashboard */}
-          <ColleeLogo
-            size="sm"
-            onClick={handleLogoClick}
-          />
+          <div data-tour="logo-button">
+            <ColleeLogo
+              size="sm"
+              onClick={handleLogoClick}
+            />
+          </div>
 
           {/* Center: Context label (only when writing) */}
           {activeEssay && currentCollege && !isEditorMinimized && (
@@ -1165,6 +1001,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
         <AnimatePresence initial={false}>
           {(showLeftPanel || isEditorMinimized || !activeEssay) && (
             <motion.aside
+              data-tour="colleges-panel"
               className={`border-r border-border bg-card/50 flex flex-col overflow-hidden ${isEditorMinimized || !activeEssay ? 'flex-1' : 'w-80 flex-shrink-0'
                 }`}
               initial={{ width: 0, opacity: 0 }}
@@ -1197,7 +1034,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                   </div>
                   <div className="flex items-center gap-1">
                     {/* View Mode Toggle */}
-                    <div className="flex items-center bg-muted rounded-lg p-0.5 mr-1">
+                    <div data-tour="calendar-toggle" className="flex items-center bg-muted rounded-lg p-0.5 mr-1">
                       <button
                         onClick={() => setViewMode('cards')}
                         className={`p-1.5 rounded-md transition-colors ${viewMode === 'cards'
@@ -1406,6 +1243,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                               <Button
                                 variant="collee"
                                 size="sm"
+                                data-tour="college-card"
                                 onClick={() => {
                                   toggleCollegeExpanded(college.id);
                                   // Select first essay and open editor
@@ -1423,6 +1261,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                             // Compact Sidebar View (when editor is open)
                             <>
                               <button
+                                data-tour="college-card"
                                 onClick={() => toggleCollegeExpanded(college.id)}
                                 className="w-full p-3 text-left hover:bg-muted/50 hover:shadow-soft transition-all"
                               >
@@ -1563,6 +1402,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                 <div className="flex items-center gap-3">
                   {/* Back to colleges button - prominent and clear */}
                   <button
+                    data-tour="back-to-colleges"
                     onClick={() => {
                       setActiveEssay(null);
                       setIsEditorMinimized(false);
@@ -1575,7 +1415,9 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                   </button>
                   <div className="h-5 w-px bg-border" />
                   <div>
-                    <p className="text-body font-medium text-foreground">{currentEssay?.title}</p>
+                    <p className="text-body font-medium text-foreground line-clamp-1 max-w-[32rem]">
+                      {currentEssay?.title}
+                    </p>
                   </div>
                 </div>
 
@@ -1607,8 +1449,9 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                         onExport({
                           essayTitle: currentEssay.title,
                           collegeName: currentCollege.name,
+                          collegeId: currentCollege.id,
                           wordCount: wordCount,
-                          essayContent: content,
+                          essayContent: stripRichTextFormatting(content),
                           essayId: currentEssay.id,
                         });
                       }
@@ -1641,6 +1484,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                     </TabsTrigger>
                     <TabsTrigger
                       value="personal-lens"
+                      data-tour="personal-lens-tab"
                       className="bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 pb-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary text-muted-foreground data-[state=active]:text-foreground"
                     >
                       <Heart className="w-4 h-4 mr-1.5" />
@@ -1865,96 +1709,160 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                   <main className="flex-1 flex flex-col overflow-hidden">
                     {/* Formatting Toolbar */}
                     <div className="border-b border-border bg-card/50 px-4 py-2 flex items-center justify-between flex-shrink-0">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => toggleFormat('bold')}
-                          className={`p-2 rounded-lg transition-colors ${activeFormats.has('bold')
+                          onClick={() => applyFormatting('bold')}
+                          className={`p-2 rounded-lg transition-colors ${activeFormats.bold
                               ? 'bg-primary/10 text-primary'
                               : 'hover:bg-muted text-muted-foreground'
                             }`}
+                          title="Bold (Cmd/Ctrl + B)"
                         >
                           <Bold className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => toggleFormat('italic')}
-                          className={`p-2 rounded-lg transition-colors ${activeFormats.has('italic')
+                          onClick={() => applyFormatting('italic')}
+                          className={`p-2 rounded-lg transition-colors ${activeFormats.italic
                               ? 'bg-primary/10 text-primary'
                               : 'hover:bg-muted text-muted-foreground'
                             }`}
+                          title="Italic (Cmd/Ctrl + I)"
                         >
                           <Italic className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => toggleFormat('underline')}
-                          className={`p-2 rounded-lg transition-colors ${activeFormats.has('underline')
+                          onClick={() => applyFormatting('underline')}
+                          className={`p-2 rounded-lg transition-colors ${activeFormats.underline
                               ? 'bg-primary/10 text-primary'
                               : 'hover:bg-muted text-muted-foreground'
                             }`}
+                          title="Underline (Cmd/Ctrl + U)"
                         >
                           <Underline className="w-4 h-4" />
                         </button>
                         <div className="w-px h-5 bg-border mx-1" />
                         <button
-                          onClick={() => toggleFormat('bullet')}
-                          className={`p-2 rounded-lg transition-colors ${activeFormats.has('bullet')
+                          onClick={() => applyFormatting('bullet')}
+                          className={`p-2 rounded-lg transition-colors ${activeFormats.bullet
                               ? 'bg-primary/10 text-primary'
                               : 'hover:bg-muted text-muted-foreground'
                             }`}
+                          title="Bulleted list"
                         >
                           <List className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => toggleFormat('numbered')}
-                          className={`p-2 rounded-lg transition-colors ${activeFormats.has('numbered')
+                          onClick={() => applyFormatting('numbered')}
+                          className={`p-2 rounded-lg transition-colors ${activeFormats.numbered
                               ? 'bg-primary/10 text-primary'
                               : 'hover:bg-muted text-muted-foreground'
                             }`}
+                          title="Numbered list"
                         >
                           <ListOrdered className="w-4 h-4" />
                         </button>
                       </div>
 
-                      <button
-                        onClick={() => setShowRightPanel(!showRightPanel)}
-                        className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
-                        title={showRightPanel ? 'Hide guidance' : 'Show guidance'}
-                      >
-                        {showRightPanel ? (
-                          <PanelRightClose className="w-4 h-4" />
-                        ) : (
-                          <PanelRightOpen className="w-4 h-4" />
-                        )}
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <p className="hidden md:block text-xs text-muted-foreground">
+                          Select text, then format.
+                        </p>
+                        <button
+                          data-tour="show-guidance-button"
+                          onClick={() => setShowRightPanel(!showRightPanel)}
+                          className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+                          title={showRightPanel ? 'Hide guidance' : 'Show guidance'}
+                        >
+                          {showRightPanel ? (
+                            <PanelRightClose className="w-4 h-4" />
+                          ) : (
+                            <PanelRightOpen className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
                     </div>
 
                     {/* Editor Area */}
                     <div className="flex-1 overflow-y-auto px-6 py-8">
                       <div className="max-w-2xl mx-auto">
                         {/* Prompt Display - Above Editor */}
-                        <div className="mb-6 p-4 rounded-xl bg-muted/30 border border-border">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <FileText className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Prompt</span>
+                        <div data-tour="prompt-above-editor" className="mb-6 p-4 rounded-xl bg-muted/30 border border-border">
+                          {!isEditingPrompt ? (
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <FileText className="w-4 h-4 text-muted-foreground" />
+                                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                    Prompt
+                                  </span>
+                                </div>
+                                <p className="text-body text-foreground leading-relaxed">
+                                  {currentEssay?.prompt}
+                                </p>
                               </div>
-                              <p className="text-body text-foreground leading-relaxed">
-                                {currentEssay?.prompt}
-                              </p>
+                              <div className="flex-shrink-0 flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+                                  {currentEssay?.wordLimit} words max
+                                </span>
+                                <button
+                                  onClick={handleStartEditingPrompt}
+                                  className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                  title="Edit prompt"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex-shrink-0 flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-                                {currentEssay?.wordLimit} words max
-                              </span>
-                              <button
-                                onClick={handleStartEditingPrompt}
-                                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                title="Edit prompt"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
+                          ) : (
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                  Edit Prompt
+                                </span>
+                              </div>
+                              <Textarea
+                                value={editedPromptText}
+                                onChange={(e) => setEditedPromptText(e.target.value)}
+                                className="min-h-[88px] resize-y"
+                                placeholder="Enter the essay prompt"
+                              />
+                              <div className="flex items-end gap-3">
+                                <div className="w-40">
+                                  <label className="text-xs text-muted-foreground">Word limit</label>
+                                  <Input
+                                    type="number"
+                                    min={50}
+                                    max={2000}
+                                    value={editedWordLimit}
+                                    onChange={(e) => setEditedWordLimit(e.target.value)}
+                                    className="h-9 mt-1"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2 ml-auto">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleCancelPromptEdit}
+                                    disabled={isUpdatingPrompt}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    variant="collee"
+                                    size="sm"
+                                    onClick={handleSavePromptEdit}
+                                    disabled={isUpdatingPrompt}
+                                  >
+                                    {isUpdatingPrompt ? 'Saving...' : 'Save'}
+                                  </Button>
+                                </div>
+                              </div>
+                              {promptEditError && (
+                                <p className="text-xs text-destructive">{promptEditError}</p>
+                              )}
                             </div>
-                          </div>
+                          )}
                         </div>
                         <AnimatePresence>
                           {insertedReferences.map((ref) => (
@@ -2017,17 +1925,18 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                           )}
                         </AnimatePresence>
 
-                        <textarea
-                          value={content}
-                          onChange={(e) => setContent(e.target.value)}
-                          placeholder="Start writing your essay..."
-                          className="w-full min-h-[500px] bg-transparent text-foreground text-lg leading-relaxed resize-none focus:outline-none placeholder:text-muted-foreground/50"
-                          style={{
-                            fontWeight: activeFormats.has('bold') ? 600 : 400,
-                            fontStyle: activeFormats.has('italic') ? 'italic' : 'normal',
-                            textDecoration: activeFormats.has('underline') ? 'underline' : 'none',
-                          }}
-                        />
+                        {currentEssayId && (
+                          <div data-tour="essay-editor">
+                            <SyncEssayEditor
+                              key={`${currentEssayId}-${editorSyncKey}`}
+                              essayId={currentEssayId}
+                              initialStoredContent={currentEssay?.content ?? content}
+                              onStoredContentChange={handleEditorContentChange}
+                              onFormatsChange={setActiveFormats}
+                              onEditorChange={setEditorInstance}
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -2050,639 +1959,48 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                     </div>
                   </main>
 
-                  {/* RIGHT PANEL - Context & Guidance (Collapsible) */}
-                  <AnimatePresence>
-                    {showRightPanel && (
-                      <motion.aside
-                        className="w-80 border-l border-border bg-card/50 flex-shrink-0 overflow-y-auto hidden lg:block"
-                        initial={{ opacity: 0, width: 0 }}
-                        animate={{ opacity: 1, width: 320 }}
-                        exit={{ opacity: 0, width: 0 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        <div className="p-4 space-y-4">
-                          {/* Personal Lens Generated Suggestions */}
-                          {generatedSuggestions.filter(s => !dismissedSuggestions.has(s.id)).length > 0 && (
-                            <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
-                              <h3 className="text-body-sm font-semibold text-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-                                <Heart className="w-4 h-4 text-primary" />
-                                Based on your Personal Lens
-                              </h3>
-                              <div className="space-y-3">
-                                {generatedSuggestions.filter(s => !dismissedSuggestions.has(s.id)).map((suggestion) => (
-                                  <div key={suggestion.id} className="p-3 rounded-lg bg-background border border-border group">
-                                    <div className="flex items-start justify-between gap-2">
-                                      <p className="text-xs text-foreground leading-relaxed flex-1">
-                                        {suggestion.suggestion}
-                                      </p>
-                                      <button
-                                        onClick={() => handleDismissSuggestion(suggestion.id)}
-                                        className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
-                                        title="Dismiss suggestion"
-                                      >
-                                        <X className="w-3 h-3" />
-                                      </button>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground mt-2 italic">
-                                      From: "{suggestion.noteContent.substring(0, 40)}..."
-                                    </p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {generatedSuggestions.filter(s => !dismissedSuggestions.has(s.id)).length > 0 && (
-                            <div className="my-4">
-                              <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-                            </div>
-                          )}
-
-                          {/* Prompt Strategy */}
-                          {currentEssay && (
-                            <div className="rounded-lg bg-muted/20 p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-body-sm font-semibold text-foreground uppercase tracking-wide flex items-center gap-2">
-                                  <Target className="w-4 h-4 text-primary" />
-                                  Prompt Strategy
-                                </h3>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={handleGeneratePromptStrategy}
-                                  disabled={!currentPromptId || isGeneratingStrategy}
-                                >
-                                  {promptStrategy ? 'Refresh' : 'Generate'}
-                                </Button>
-                              </div>
-
-                              {isGeneratingStrategy && (
-                                <div className="flex items-center gap-2 py-2">
-                                  <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                                  <p className="text-xs text-muted-foreground">
-                                    Analyzing prompt and finding your best story angles...
-                                  </p>
-                                </div>
-                              )}
-
-                              {!isGeneratingStrategy && promptStrategy?.approach && (
-                                <p className="text-xs text-muted-foreground leading-relaxed">
-                                  {promptStrategy.approach}
-                                </p>
-                              )}
-
-                              {!isGeneratingStrategy && !promptStrategy && (
-                                <p className="text-xs text-muted-foreground italic">
-                                  No strategy yet. Generate one to get tailored guidance.
-                                </p>
-                              )}
-
-                              {strategyError && (
-                                <p className="text-xs text-destructive mt-2">{strategyError}</p>
-                              )}
-                            </div>
-                          )}
-
-                          {currentEssay && (
-                            <div className="my-4">
-                              <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-                            </div>
-                          )}
-
-                          {/* Section 3: Story Suggestions for This Prompt */}
-                          {(() => {
-                            const lockedExp = lockedExperience ? experienceSuggestions.find(e => e.id === lockedExperience) : null;
-
-                            // If experience is locked in, show Section 4: Selected Angle
-                            if (lockedExp) {
-                              return (
-                                <div className="rounded-lg bg-muted/20 p-4">
-                                  <div className="flex items-center justify-between mb-3">
-                                    <h3 className="text-body-sm font-semibold text-foreground uppercase tracking-wide flex items-center gap-2">
-                                      <CheckCircle className="w-4 h-4 text-emerald-500" />
-                                      Selected Angle
-                                    </h3>
-                                    <button
-                                      onClick={() => {
-                                        setLockedExperience(null);
-                                        setSelectedExperience(null);
-                                      }}
-                                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                                    >
-                                      Change
-                                    </button>
-                                  </div>
-
-                                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <BookOpen className="w-4 h-4 text-emerald-600" />
-                                      <span className="text-body-sm font-medium text-foreground">{lockedExp.name}</span>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground pl-6">
-                                      Using {lockedExp.name} to show {lockedExp.guidance.whyItFits.toLowerCase().includes('shows')
-                                        ? lockedExp.guidance.whyItFits.toLowerCase().split('shows')[1]?.trim()
-                                        : 'your growth and values.'}
-                                    </p>
-                                  </div>
-
-                                  {/* Actionable Guidance - Start with, Focus on, Avoid */}
-                                  {(lockedExp.guidance.startWith || lockedExp.guidance.focusOn || lockedExp.guidance.avoidFocus) && (
-                                    <div className="mt-4 space-y-2.5">
-                                      {lockedExp.guidance.startWith && (
-                                        <div className="flex items-start gap-2">
-                                          <span className="text-xs font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded flex-shrink-0">Start with</span>
-                                          <p className="text-xs text-muted-foreground leading-relaxed">{lockedExp.guidance.startWith}</p>
-                                        </div>
-                                      )}
-                                      {lockedExp.guidance.focusOn && (
-                                        <div className="flex items-start gap-2">
-                                          <span className="text-xs font-medium text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded flex-shrink-0">Focus on</span>
-                                          <p className="text-xs text-muted-foreground leading-relaxed">{lockedExp.guidance.focusOn}</p>
-                                        </div>
-                                      )}
-                                      {lockedExp.guidance.avoidFocus && (
-                                        <div className="flex items-start gap-2">
-                                          <span className="text-xs font-medium text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded flex-shrink-0">Avoid</span>
-                                          <p className="text-xs text-muted-foreground leading-relaxed">{lockedExp.guidance.avoidFocus}</p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  <h4 className="text-xs font-medium text-foreground mb-2 mt-4 flex items-center gap-1.5">
-                                    <Target className="w-3 h-3 text-primary" />
-                                    Framing Tips
-                                  </h4>
-                                  <ul className="space-y-2">
-                                    {lockedExp.guidance.framingTips.map((tip, idx) => (
-                                      <li key={idx} className="flex items-start gap-2 text-xs text-muted-foreground">
-                                        <div className="w-1 h-1 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                                        <span>{tip}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-
-                                  {lockedExp.guidance.caution && (
-                                    <div className="mt-3 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                                      <div className="flex items-start gap-2">
-                                        <AlertTriangle className="w-3 h-3 text-amber-600 mt-0.5 flex-shrink-0" />
-                                        <p className="text-xs text-amber-700">{lockedExp.guidance.caution}</p>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            }
-
-                            // Show experience selection
-                            return (
-                              <div className="rounded-lg bg-muted/20 p-4">
-                                <h3 className="text-body-sm font-semibold text-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-                                  <Sparkles className="w-4 h-4 text-primary" />
-                                  Story Suggestions
-                                </h3>
-
-                                {experienceSuggestions.length === 0 ? (
-                                  <div className="space-y-3">
-                                    {isGeneratingStrategy ? (
-                                      <div className="flex items-center gap-2 py-2">
-                                        <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                                        <p className="text-xs text-muted-foreground">
-                                          Finding experiences that match this prompt...
-                                        </p>
-                                      </div>
-                                    ) : (
-                                      <p className="text-xs text-muted-foreground italic">
-                                        {promptStrategy
-                                          ? 'No specific suggestions for this prompt yet. Write from your heart!'
-                                          : 'Generate a prompt strategy to get tailored suggestions.'}
-                                      </p>
-                                    )}
-
-                                    {/* Contextual Personal Lens entry point */}
-                                    <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                                      <div className="flex items-start gap-2">
-                                        <Heart className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                                        <div>
-                                          <p className="text-xs text-foreground mb-2">
-                                            Want more tailored story suggestions? Adding a personal note can help.
-                                          </p>
-                                          <button
-                                            onClick={handleOpenPersonalLens}
-                                            className="text-xs font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
-                                          >
-                                            <Plus className="w-3 h-3" />
-                                            Add to Personal Lens
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="space-y-3">
-                                    {experienceSuggestions
-                                      .filter(exp => !dismissedSuggestions.has(`exp-${exp.id}-${currentEssay?.id}`))
-                                      .map((experience) => {
-                                        const isSelected = selectedExperience === experience.id;
-                                        const usedInOtherEssays = experience.usedIn.filter(id => id !== currentEssay?.id);
-                                        const isUsedElsewhere = usedInOtherEssays.length > 0;
-                                        const isUsedInSameSchool = usedInOtherEssays.some(essayId =>
-                                          currentCollege?.essays.some(e => e.id === essayId)
-                                        );
-
-                                        return (
-                                          <motion.div
-                                            key={experience.id}
-                                            layout
-                                            className={`rounded-xl border-2 transition-all cursor-pointer group relative ${isSelected
-                                                ? 'border-primary bg-primary/5'
-                                                : isUsedInSameSchool
-                                                  ? 'border-amber-500/30 bg-amber-500/5 hover:border-amber-500/50'
-                                                  : 'border-border bg-card hover:border-primary/30'
-                                              }`}
-                                            onClick={() => setSelectedExperience(isSelected ? null : experience.id)}
-                                          >
-                                            {/* Dismiss button */}
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDismissExperienceSuggestion(experience.id);
-                                              }}
-                                              className="absolute top-2 right-2 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100 z-10"
-                                              title="Dismiss suggestion"
-                                            >
-                                              <X className="w-3 h-3" />
-                                            </button>
-                                            <div className="p-3">
-                                              <div className="flex items-start justify-between gap-2 mb-1.5">
-                                                <div className="flex items-center gap-2">
-                                                  <BookOpen className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
-                                                  <span className="text-body-sm font-medium text-foreground">
-                                                    {experience.name}
-                                                  </span>
-                                                </div>
-                                                <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${experience.guidance.matchStrength === 'strong'
-                                                    ? 'bg-emerald-500/15 text-emerald-600'
-                                                    : 'bg-amber-500/15 text-amber-600'
-                                                  }`}>
-                                                  {experience.guidance.matchStrength === 'strong' ? 'Strong fit' : 'Good fit'}
-                                                </span>
-                                              </div>
-
-                                              <p className="text-xs text-muted-foreground leading-relaxed pl-6">
-                                                {experience.guidance.whyItFits}
-                                              </p>
-
-                                              {isUsedInSameSchool && !isSelected && (
-                                                <div className="flex items-start gap-1.5 mt-2 pl-6 p-2 rounded-lg bg-amber-500/10">
-                                                  <AlertTriangle className="w-3 h-3 text-amber-500 mt-0.5 flex-shrink-0" />
-                                                  <span className="text-xs text-amber-600">
-                                                    Already used in another {currentCollege?.name} essay. Consider a different experience or vary your angle.
-                                                  </span>
-                                                </div>
-                                              )}
-
-                                              {isUsedElsewhere && !isUsedInSameSchool && !isSelected && (
-                                                <div className="flex items-center gap-1.5 mt-2 pl-6">
-                                                  <span className="text-xs text-muted-foreground italic">Used in another school (okay to reuse)</span>
-                                                </div>
-                                              )}
-                                            </div>
-
-                                            <AnimatePresence>
-                                              {isSelected && (
-                                                <motion.div
-                                                  initial={{ height: 0, opacity: 0 }}
-                                                  animate={{ height: 'auto', opacity: 1 }}
-                                                  exit={{ height: 0, opacity: 0 }}
-                                                  transition={{ duration: 0.2 }}
-                                                  className="overflow-hidden"
-                                                >
-                                                  <div className="px-3 pb-3 pt-0 border-t border-border/50 mt-0">
-                                                    <div className="pt-3 space-y-3">
-                                                      {/* Actionable Guidance - Start with, Focus on, Avoid */}
-                                                      {(experience.guidance.startWith || experience.guidance.focusOn || experience.guidance.avoidFocus) && (
-                                                        <div className="space-y-2.5">
-                                                          {experience.guidance.startWith && (
-                                                            <div className="flex items-start gap-2">
-                                                              <span className="text-xs font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded flex-shrink-0">Start with</span>
-                                                              <p className="text-xs text-muted-foreground leading-relaxed">{experience.guidance.startWith}</p>
-                                                            </div>
-                                                          )}
-                                                          {experience.guidance.focusOn && (
-                                                            <div className="flex items-start gap-2">
-                                                              <span className="text-xs font-medium text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded flex-shrink-0">Focus on</span>
-                                                              <p className="text-xs text-muted-foreground leading-relaxed">{experience.guidance.focusOn}</p>
-                                                            </div>
-                                                          )}
-                                                          {experience.guidance.avoidFocus && (
-                                                            <div className="flex items-start gap-2">
-                                                              <span className="text-xs font-medium text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded flex-shrink-0">Avoid</span>
-                                                              <p className="text-xs text-muted-foreground leading-relaxed">{experience.guidance.avoidFocus}</p>
-                                                            </div>
-                                                          )}
-                                                        </div>
-                                                      )}
-
-                                                      {/* Framing Tips */}
-                                                      <div>
-                                                        <h4 className="text-xs font-medium text-foreground mb-2 flex items-center gap-1.5">
-                                                          <Target className="w-3 h-3 text-primary" />
-                                                          Framing Tips
-                                                        </h4>
-                                                        <ul className="space-y-1.5">
-                                                          {experience.guidance.framingTips.map((tip, idx) => (
-                                                            <li key={idx} className="flex items-start gap-2 text-xs text-muted-foreground">
-                                                              <div className="w-1 h-1 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                                                              <span>{tip}</span>
-                                                            </li>
-                                                          ))}
-                                                        </ul>
-                                                      </div>
-
-                                                      {experience.guidance.caution && (
-                                                        <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                                                          <div className="flex items-start gap-2">
-                                                            <AlertTriangle className="w-3 h-3 text-amber-600 mt-0.5 flex-shrink-0" />
-                                                            <p className="text-xs text-amber-700">{experience.guidance.caution}</p>
-                                                          </div>
-                                                        </div>
-                                                      )}
-
-                                                      <button
-                                                        className="w-full py-2 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-1.5"
-                                                        onClick={async (e) => {
-                                                          e.stopPropagation();
-                                                          setLockedExperience(experience.id);
-                                                          if (currentEssayId && currentCollege && experienceIndex.has(experience.id)) {
-                                                            const alreadyUsed = (experienceUsageMap.get(experience.id) ?? []).includes(currentEssayId);
-                                                            if (!alreadyUsed) {
-                                                              try {
-                                                                await addExperienceUsageMutation({
-                                                                  experienceId: experience.id as Id<"experiences">,
-                                                                  essayId: currentEssayId as Id<"essays">,
-                                                                  collegeId: currentCollege.id as Id<"colleges">,
-                                                                });
-                                                              } catch (error) {
-                                                                console.error("Failed to track experience usage:", error);
-                                                              }
-                                                            }
-                                                          }
-                                                          // Auto-populate editor with starter sentences if available
-                                                          if (experience.guidance.starterSentences && experience.guidance.starterSentences.length > 0) {
-                                                            const starterContent = experience.guidance.starterSentences.join(' ');
-                                                            setContent(starterContent);
-                                                            setShowStarterHelper(true);
-                                                          }
-                                                        }}
-                                                      >
-                                                        <Check className="w-3.5 h-3.5" />
-                                                        Use this experience
-                                                      </button>
-                                                    </div>
-                                                  </div>
-                                                </motion.div>
-                                              )}
-                                            </AnimatePresence>
-                                          </motion.div>
-                                        );
-                                      })}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
-
-                          {/* (Related Writing section removed for cleaner experience) */}
-
-                          {/* Essay Feedback */}
-                          {currentEssay && (
-                            <>
-                              <div className="my-6">
-                                <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-                              </div>
-                              <div className="rounded-lg bg-muted/20 p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                  <h3 className="text-body-sm font-semibold text-foreground uppercase tracking-wide flex items-center gap-2">
-                                    <Wand2 className="w-4 h-4 text-primary" />
-                                    Essay Feedback
-                                  </h3>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                  <Select
-                                    value={feedbackType}
-                                    onValueChange={(value) => setFeedbackType(value as FeedbackType)}
-                                  >
-                                    <SelectTrigger className="h-8 text-xs w-32">
-                                      <SelectValue placeholder="Type" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="overall">Overall</SelectItem>
-                                      <SelectItem value="opening">Opening</SelectItem>
-                                      <SelectItem value="structure">Structure</SelectItem>
-                                      <SelectItem value="voice">Voice</SelectItem>
-                                      <SelectItem value="specificity">Specificity</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={handleGenerateFeedback}
-                                    disabled={!currentEssayId || isGeneratingFeedback}
-                                  >
-                                    {isGeneratingFeedback ? (
-                                      <span className="flex items-center gap-1.5">
-                                        <div className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                                        Analyzing...
-                                      </span>
-                                    ) : 'Get Feedback'}
-                                  </Button>
-                                </div>
-
-                                {feedbackError && (
-                                  <p className="text-xs text-destructive mt-2">{feedbackError}</p>
-                                )}
-
-                                {!displayedFeedback && !isGeneratingFeedback && (
-                                  <p className="text-xs text-muted-foreground mt-3 italic">
-                                    No feedback yet. Generate to get coaching.
-                                  </p>
-                                )}
-
-                                {displayedFeedback && (
-                                  <div className="mt-3 space-y-3">
-                                    {displayedFeedback.summary && (
-                                      <p className="text-xs text-foreground leading-relaxed">
-                                        {displayedFeedback.summary}
-                                      </p>
-                                    )}
-
-                                    {displayedFeedback.strengths?.length > 0 && (
-                                      <div>
-                                        <p className="text-xs font-medium text-foreground mb-1">Strengths</p>
-                                        <div className="space-y-1">
-                                          {displayedFeedback.strengths.slice(0, 3).map((strength: string, idx: number) => (
-                                            <p key={idx} className="text-xs text-muted-foreground">
-                                              • {strength}
-                                            </p>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {displayedFeedback.improvements?.length > 0 && (
-                                      <div>
-                                        <p className="text-xs font-medium text-foreground mb-1">Improvements</p>
-                                        <div className="space-y-2">
-                                          {displayedFeedback.improvements.slice(0, 2).map((item: any, idx: number) => (
-                                            <div key={idx} className="p-2 rounded-lg bg-background border border-border">
-                                              <p className="text-xs text-foreground mb-1">{item.issue}</p>
-                                              {item.suggestion && (
-                                                <p className="text-xs text-muted-foreground">
-                                                  Suggestion: {item.suggestion}
-                                                </p>
-                                              )}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {displayedFeedback.nextStep && (
-                                      <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
-                                        <p className="text-xs text-primary">
-                                          Next step: {displayedFeedback.nextStep}
-                                        </p>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </>
-                          )}
-
-                          {/* Reviewer Comments Section */}
-                          {reviewerComments.length > 0 && (
-                            <>
-                              <div className="my-6">
-                                <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-                              </div>
-                              <div className="rounded-lg bg-muted/20 p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                  <h3 className="text-body-sm font-semibold text-foreground uppercase tracking-wide flex items-center gap-2">
-                                    <MessageSquare className="w-4 h-4 text-primary" />
-                                    Reviewer Comments ({reviewerComments.filter(c => !c.resolved).length})
-                                  </h3>
-                                </div>
-
-                                <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                                  {reviewerComments.map((comment) => (
-                                    <OwnerCommentCard
-                                      key={comment._id}
-                                      comment={comment}
-                                      onResolve={() => resolveCommentAsOwnerMutation({ commentId: comment._id })}
-                                      onAddReply={(content) => addOwnerReplyMutation({ commentId: comment._id, content })}
-                                    />
-                                  ))}
-                                </div>
-                              </div>
-                            </>
-                          )}
-
-                          {/* Section 8: Smart Reuse - Reusable Excerpts from Other Schools */}
-                          {showSmartReuse && (
-                            <>
-                              <div className="my-6">
-                                <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-                              </div>
-                              <div className="rounded-lg bg-muted/20 p-4">
-                                <h3 className="text-body-sm font-semibold text-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-                                  <RefreshCw className="w-4 h-4 text-secondary" />
-                                  You might reuse part of this
-                                </h3>
-
-                                <p className="text-xs text-muted-foreground mb-3">
-                                  Excerpts from your other essays that may help here:
-                                </p>
-
-                                <div className="space-y-3">
-                                  {smartReuseExcerpts.map((excerpt) => (
-                                    <motion.div
-                                      key={excerpt.id}
-                                      layout
-                                      className="rounded-xl border border-border bg-card overflow-hidden"
-                                    >
-                                      {/* Source */}
-                                      <div className="px-3 py-2 bg-muted/30 border-b border-border">
-                                        <p className="text-xs font-medium text-foreground">
-                                          {excerpt.sourceCollegeName}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                          {excerpt.sourceEssayTitle}
-                                        </p>
-                                      </div>
-
-                                      {/* Excerpt Preview */}
-                                      <div className="p-3">
-                                        <div className="flex items-start gap-2 mb-2">
-                                          <Quote className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                                          <p className="text-xs text-muted-foreground italic leading-relaxed line-clamp-4">
-                                            "{excerpt.excerpt}"
-                                          </p>
-                                        </div>
-
-                                        {/* Why it works */}
-                                        <div className="mt-2 p-2 rounded-lg bg-primary/15">
-                                          <p className="text-xs text-foreground leading-relaxed">
-                                            {excerpt.whyItWorks}
-                                          </p>
-                                        </div>
-
-                                        {/* Same-school warning (gentle, not blocking) */}
-                                        {excerpt.sameSchoolWarning && (
-                                          <div className="mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                                            <div className="flex items-start gap-1.5">
-                                              <Lightbulb className="w-3 h-3 text-amber-600 mt-0.5 flex-shrink-0" />
-                                              <p className="text-xs text-amber-700 leading-relaxed">
-                                                {excerpt.sameSchoolWarning}
-                                              </p>
-                                            </div>
-                                          </div>
-                                        )}
-
-                                        {/* Actions: Insert as reference OR Dismiss */}
-                                        <div className="flex items-center gap-2 mt-3">
-                                          <button
-                                            onClick={() => handleInsertAsReference(excerpt)}
-                                            className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
-                                          >
-                                            <Copy className="w-3.5 h-3.5" />
-                                            Insert as reference
-                                          </button>
-                                          <button
-                                            onClick={() => handleDismissExcerpt(excerpt.id)}
-                                            className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                                            title="Dismiss"
-                                          >
-                                            <XCircle className="w-4 h-4" />
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </motion.div>
-                                  ))}
-                                </div>
-
-                                <p className="text-xs text-center text-muted-foreground mt-3 italic">
-                                  Guided reuse — always revise to fit this prompt.
-                                </p>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </motion.aside>
-                    )}
-                  </AnimatePresence>
+                  <RightPanel
+                    show={showRightPanel}
+                    generatedSuggestions={generatedSuggestions}
+                    dismissedSuggestions={dismissedSuggestions}
+                    onDismissSuggestion={handleDismissSuggestion}
+                    currentEssay={currentEssay}
+                    currentEssayId={currentEssayId}
+                    currentCollege={currentCollege}
+                    currentPromptId={currentPromptId}
+                    promptStrategy={promptStrategy}
+                    isGeneratingStrategy={isGeneratingStrategy}
+                    strategyError={strategyError}
+                    onGeneratePromptStrategy={handleGeneratePromptStrategy}
+                    experienceSuggestions={experienceSuggestions}
+                    selectedExperience={selectedExperience}
+                    lockedExperience={lockedExperience}
+                    onSelectExperience={setSelectedExperience}
+                    onLockExperience={setLockedExperience}
+                    onDismissExperienceSuggestion={handleDismissExperienceSuggestion}
+                    onOpenPersonalLens={handleOpenPersonalLens}
+                    experienceIndex={experienceIndex}
+                    experienceUsageMap={experienceUsageMap}
+                    addExperienceUsage={addExperienceUsageMutation}
+                    editorInstance={editorInstance}
+                    onSetContent={setContent}
+                    onShowStarterHelper={setShowStarterHelper}
+                    feedbackType={feedbackType}
+                    onFeedbackTypeChange={setFeedbackType}
+                    onGenerateFeedback={handleGenerateFeedback}
+                    isGeneratingFeedback={isGeneratingFeedback}
+                    feedbackError={feedbackError}
+                    displayedFeedback={displayedFeedback}
+                    reviewerComments={reviewerComments}
+                    onResolveComment={(commentId) => void resolveCommentAsOwnerMutation({ commentId })}
+                    onAddOwnerReply={(commentId, contentValue) =>
+                      addOwnerReplyMutation({ commentId, content: contentValue })
+                    }
+                    showSmartReuse={showSmartReuse}
+                    smartReuseExcerpts={smartReuseExcerpts}
+                    onInsertAsReference={handleInsertAsReference}
+                    onDismissExcerpt={handleDismissExcerpt}
+                  />
                 </>
               )}
             </div>
@@ -2690,447 +2008,45 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
         )}
       </div>
 
-      {/* VERSION HISTORY SLIDE-OVER */}
-      <AnimatePresence>
-        {showVersionHistory && (
-          <>
-            <motion.div
-              className="fixed inset-0 bg-foreground/20 z-40"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowVersionHistory(false)}
-            />
-            <motion.div
-              className="fixed right-0 top-0 h-full w-full max-w-md bg-card border-l border-border shadow-lg z-50 overflow-y-auto"
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            >
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <History className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <h2 className="text-heading-sm text-foreground">Version History</h2>
-                      <p className="text-body-sm text-muted-foreground">Nothing is ever lost</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowVersionHistory(false)}
-                    className="p-2 rounded-lg hover:bg-muted transition-colors"
-                  >
-                    <X className="w-5 h-5 text-muted-foreground" />
-                  </button>
-                </div>
+      <VersionHistoryDrawer
+        isOpen={showVersionHistory}
+        previewVersion={previewVersion}
+        versions={versionsForDisplay}
+        onClose={() => setShowVersionHistory(false)}
+        onPreview={setPreviewVersion}
+        onRestore={handleRestoreVersion}
+      />
 
-                {previewVersion && (
-                  <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-body-sm font-medium text-foreground">
-                        Preview · {previewVersion.timestamp}
-                      </span>
-                      <button
-                        onClick={() => setPreviewVersion(null)}
-                        className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto text-body-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                      {previewVersion.content ?? ""}
-                    </div>
-                    <div className="mt-3 flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-primary hover:text-primary/80"
-                        onClick={() => handleRestoreVersion(previewVersion)}
-                      >
-                        <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                        Restore this version
-                      </Button>
-                    </div>
-                  </div>
-                )}
+      <ShareDialog
+        isOpen={showShareDialog}
+        isShareSent={isShareSent}
+        isCreatingShare={isCreatingShare}
+        shareEmail={shareEmail}
+        shareRecipientType={shareRecipientType}
+        sharePermission={sharePermission}
+        generatedShareLink={generatedShareLink}
+        shareLinkCopyState={shareLinkCopyState}
+        shareLinkCopyMessage={shareLinkCopyMessage}
+        shareError={shareError}
+        currentEssayId={currentEssayId}
+        onShareEmailChange={setShareEmail}
+        onShareRecipientTypeChange={setShareRecipientType}
+        onSharePermissionChange={setSharePermission}
+        onCopyShareLink={handleCopyShareLink}
+        onSubmit={handleShareSubmit}
+        onDismissIfAllowed={dismissShareDialogIfAllowed}
+        onCloseAndReset={closeShareDialog}
+      />
 
-                <div className="space-y-3">
-                  {versionsForDisplay.length === 0 && (
-                    <p className="text-body-sm text-muted-foreground text-center">
-                      No versions yet.
-                    </p>
-                  )}
-                  {versionsForDisplay.map((version) => (
-                    <div
-                      key={version.id}
-                      className={`p-4 rounded-xl border transition-all ${version.isCurrent
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border bg-card hover:border-primary/30'
-                        }`}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-body-sm font-medium text-foreground">
-                            {version.timestamp}
-                          </span>
-                          {version.isCurrent && (
-                            <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-xs font-medium">
-                              Current
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-body-sm text-muted-foreground">
-                          {version.wordCount} words
-                        </span>
-                      </div>
-                      <p className="text-body-sm text-muted-foreground line-clamp-2 mb-3">
-                        {version.preview}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-muted-foreground hover:text-foreground"
-                          onClick={() => setPreviewVersion(version)}
-                        >
-                          <Eye className="w-3.5 h-3.5 mr-1.5" />
-                          Preview
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-primary hover:text-primary/80"
-                          onClick={() => handleRestoreVersion(version)}
-                        >
-                          <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                          Restore
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-body-sm text-center text-muted-foreground mt-6">
-                  Versions are automatically saved as you write
-                </p>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* SHARE DIALOG */}
-      <AnimatePresence>
-        {showShareDialog && (
-          <>
-            <motion.div
-              className="fixed inset-0 bg-foreground/20 z-40"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => {
-                if (!isShareSent && !isCreatingShare) {
-                  setShowShareDialog(false);
-                  setShareEmail('');
-                  setShareError(null);
-                  setGeneratedShareLink(null);
-                }
-              }}
-            />
-            <motion.div
-              className="fixed inset-0 flex items-center justify-center z-50 p-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <motion.div
-                className="w-full max-w-md bg-card rounded-2xl border border-border shadow-xl overflow-hidden"
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              >
-                {isShareSent ? (
-                  <motion.div
-                    className="p-8 text-center"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
-                      <CheckCircle className="w-8 h-8 text-emerald-600" />
-                    </div>
-                    <h3 className="text-heading-sm text-foreground mb-2">Share Link Created!</h3>
-                    <p className="text-body-sm text-muted-foreground mb-4">
-                      Share this link with {shareEmail} for {sharePermission === 'view' ? 'view-only' : sharePermission === 'comment' ? 'commenting' : 'editing'} access
-                    </p>
-                    {generatedShareLink && (
-                      <div className="mt-4 space-y-3">
-                        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border">
-                          <Link2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                          <span className="text-body-sm text-foreground truncate flex-1 text-left">
-                            {generatedShareLink}
-                          </span>
-                          <button
-                            onClick={async () => {
-                              await navigator.clipboard.writeText(generatedShareLink);
-                            }}
-                            className="p-1.5 rounded-md hover:bg-muted transition-colors flex-shrink-0"
-                            title="Copy link"
-                          >
-                            <Copy className="w-4 h-4 text-muted-foreground" />
-                          </button>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Link copied to clipboard!
-                        </p>
-                      </div>
-                    )}
-                  </motion.div>
-                ) : (
-                  <>
-                    <div className="p-6 border-b border-border">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                            <Share2 className="w-5 h-5 text-primary" />
-                          </div>
-                          <div>
-                            <h3 className="text-heading-sm text-foreground">Share Essay</h3>
-                            <p className="text-body-sm text-muted-foreground">
-                              Invite someone to view or collaborate
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            setShowShareDialog(false);
-                            setShareEmail('');
-                            setSharePermission('view');
-                            setShareError(null);
-                            setGeneratedShareLink(null);
-                          }}
-                          className="p-2 rounded-lg hover:bg-muted transition-colors"
-                        >
-                          <X className="w-5 h-5 text-muted-foreground" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="p-6 space-y-4">
-                      <div>
-                        <label className="block text-body-sm font-medium text-foreground mb-2">
-                          Recipient's email
-                        </label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                          <input
-                            type="email"
-                            value={shareEmail}
-                            onChange={(e) => setShareEmail(e.target.value)}
-                            placeholder="parent@email.com"
-                            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-body-sm font-medium text-foreground mb-2">
-                          Who is this for?
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => setShareRecipientType('parent')}
-                            className={`p-3 rounded-lg border text-left transition-all ${shareRecipientType === 'parent'
-                                ? 'border-primary bg-primary/5'
-                                : 'border-border hover:border-primary/30'
-                              }`}
-                          >
-                            <Users className={`w-4 h-4 mb-1 ${shareRecipientType === 'parent' ? 'text-primary' : 'text-muted-foreground'}`} />
-                            <p className={`text-body-sm font-medium ${shareRecipientType === 'parent' ? 'text-primary' : 'text-foreground'}`}>
-                              Parent
-                            </p>
-                          </button>
-                          <button
-                            onClick={() => setShareRecipientType('counselor')}
-                            className={`p-3 rounded-lg border text-left transition-all ${shareRecipientType === 'counselor'
-                                ? 'border-primary bg-primary/5'
-                                : 'border-border hover:border-primary/30'
-                              }`}
-                          >
-                            <Shield className={`w-4 h-4 mb-1 ${shareRecipientType === 'counselor' ? 'text-primary' : 'text-muted-foreground'}`} />
-                            <p className={`text-body-sm font-medium ${shareRecipientType === 'counselor' ? 'text-primary' : 'text-foreground'}`}>
-                              Counselor
-                            </p>
-                          </button>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-body-sm font-medium text-foreground mb-2">
-                          Permission level
-                        </label>
-                        <div className="space-y-2">
-                          <button
-                            onClick={() => setSharePermission('view')}
-                            className={`w-full p-3 rounded-lg border text-left transition-all flex items-center justify-between ${sharePermission === 'view'
-                                ? 'border-primary bg-primary/5'
-                                : 'border-border hover:border-primary/30'
-                              }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <Eye className={`w-4 h-4 ${sharePermission === 'view' ? 'text-primary' : 'text-muted-foreground'}`} />
-                              <div>
-                                <p className={`text-body-sm font-medium ${sharePermission === 'view' ? 'text-primary' : 'text-foreground'}`}>
-                                  View only
-                                </p>
-                                <p className="text-xs text-muted-foreground">Can read but not change anything</p>
-                              </div>
-                            </div>
-                            {sharePermission === 'view' && <Check className="w-4 h-4 text-primary" />}
-                          </button>
-                          <button
-                            onClick={() => setSharePermission('comment')}
-                            className={`w-full p-3 rounded-lg border text-left transition-all flex items-center justify-between ${sharePermission === 'comment'
-                                ? 'border-primary bg-primary/5'
-                                : 'border-border hover:border-primary/30'
-                              }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <FileText className={`w-4 h-4 ${sharePermission === 'comment' ? 'text-primary' : 'text-muted-foreground'}`} />
-                              <div>
-                                <p className={`text-body-sm font-medium ${sharePermission === 'comment' ? 'text-primary' : 'text-foreground'}`}>
-                                  Comment
-                                </p>
-                                <p className="text-xs text-muted-foreground">Can add inline feedback and suggestions</p>
-                              </div>
-                            </div>
-                            {sharePermission === 'comment' && <Check className="w-4 h-4 text-primary" />}
-                          </button>
-                          <button
-                            onClick={() => setSharePermission('edit')}
-                            className={`w-full p-3 rounded-lg border text-left transition-all flex items-center justify-between ${sharePermission === 'edit'
-                                ? 'border-primary bg-primary/5'
-                                : 'border-border hover:border-primary/30'
-                              }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <Pencil className={`w-4 h-4 ${sharePermission === 'edit' ? 'text-primary' : 'text-muted-foreground'}`} />
-                              <div>
-                                <p className={`text-body-sm font-medium ${sharePermission === 'edit' ? 'text-primary' : 'text-foreground'}`}>
-                                  Edit
-                                </p>
-                                <p className="text-xs text-muted-foreground">Can make changes to the essay text</p>
-                              </div>
-                            </div>
-                            {sharePermission === 'edit' && <Check className="w-4 h-4 text-primary" />}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="p-3 rounded-lg bg-muted/50">
-                        <p className="text-xs text-muted-foreground text-center">
-                          You remain the owner of this essay. You can revoke access anytime.
-                        </p>
-                      </div>
-                      {shareError && (
-                        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                          <p className="text-xs text-destructive text-center">{shareError}</p>
-                        </div>
-                      )}
-                      {!currentEssayId && (
-                        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                          <p className="text-xs text-amber-600 text-center">Please select an essay first to create a share link.</p>
-                        </div>
-                      )}
-                      <Button
-                        variant="collee-accent"
-                        size="collee"
-                        onClick={handleShareSubmit}
-                        disabled={!shareEmail.trim() || isCreatingShare || !currentEssayId}
-                        className="w-full"
-                      >
-                        {isCreatingShare ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                            Creating link...
-                          </>
-                        ) : (
-                          <>
-                            <Link2 className="w-4 h-4 mr-2" />
-                            Create share link
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </motion.div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* DELETE PROMPT CONFIRMATION DIALOG */}
-      <AnimatePresence>
-        {showDeletePromptDialog && (
-          <>
-            <motion.div
-              className="fixed inset-0 bg-foreground/20 z-40"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowDeletePromptDialog(false)}
-            />
-            <motion.div
-              className="fixed inset-0 flex items-center justify-center z-50 p-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <motion.div
-                className="w-full max-w-sm bg-card rounded-2xl border border-border shadow-xl overflow-hidden"
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              >
-                <div className="p-6">
-                  <div className="flex items-center justify-center w-12 h-12 rounded-full bg-destructive/10 mx-auto mb-4">
-                    <AlertTriangle className="w-6 h-6 text-destructive" />
-                  </div>
-                  <h3 className="text-heading-sm text-foreground text-center mb-2">
-                    Delete this prompt?
-                  </h3>
-                  <p className="text-body-sm text-muted-foreground text-center mb-6">
-                    This will remove the prompt and its draft. This action cannot be undone.
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="outline"
-                      size="collee"
-                      onClick={() => setShowDeletePromptDialog(false)}
-                      className="flex-1"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="collee"
-                      onClick={handleDeletePrompt}
-                      className="flex-1"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete prompt
-                    </Button>
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <DeletePromptDialog
+        isOpen={showDeletePromptDialog}
+        onClose={() => setShowDeletePromptDialog(false)}
+        onDelete={handleDeletePrompt}
+      />
 
       {/* Onboarding Walkthrough */}
       <OnboardingWalkthrough
-        isOpen={showOnboarding && isDocumentAreaActive}
+        isOpen={showOnboarding}
         onClose={() => setShowOnboarding(false)}
         onComplete={completeOnboarding}
       />

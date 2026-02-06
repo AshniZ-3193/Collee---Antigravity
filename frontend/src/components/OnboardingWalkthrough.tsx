@@ -1,13 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { X, ChevronRight, ChevronLeft, MapPin, FileText, Lightbulb, ArrowLeft, HelpCircle, Heart, Calendar, Sparkles } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, MapPin, FileText, ArrowLeft, HelpCircle, Heart, Calendar, Sparkles } from 'lucide-react';
+
+type HighlightArea =
+  | 'colleges'
+  | 'college-card'
+  | 'essay-editor'
+  | 'context-panel'
+  | 'back-button'
+  | 'personal-lens'
+  | 'prompt-above-editor'
+  | 'calendar-toggle'
+  | 'dismiss-suggestion';
 
 interface OnboardingStep {
   id: string;
   title: string;
   description: string;
-  highlightArea: 'colleges' | 'college-card' | 'essay-editor' | 'context-panel' | 'back-button' | 'personal-lens' | 'prompt-above-editor' | 'calendar-toggle' | 'dismiss-suggestion';
+  highlightArea: HighlightArea;
   icon: React.ReactNode;
 }
 
@@ -77,6 +88,39 @@ interface OnboardingWalkthroughProps {
 }
 
 const ONBOARDING_STORAGE_KEY = 'collee-onboarding-completed';
+const HIGHLIGHT_PADDING = 8;
+
+const TOUR_TARGET_SELECTORS: Record<HighlightArea, string[]> = {
+  colleges: ['[data-tour="colleges-panel"]'],
+  'calendar-toggle': ['[data-tour="calendar-toggle"]'],
+  'college-card': ['[data-tour="college-card"]'],
+  'prompt-above-editor': ['[data-tour="prompt-above-editor"]'],
+  'essay-editor': ['[data-tour="essay-editor"]'],
+  'personal-lens': ['[data-tour="personal-lens-tab"]'],
+  'context-panel': ['[data-tour="context-panel"]', '[data-tour="show-guidance-button"]'],
+  'dismiss-suggestion': ['[data-tour="dismiss-suggestion"]'],
+  'back-button': ['[data-tour="back-to-colleges"]', '[data-tour="logo-button"]'],
+};
+
+const FALLBACK_HIGHLIGHT_STYLES: Record<HighlightArea, React.CSSProperties> = {
+  colleges: { left: 0, top: 48, width: 320, height: 'calc(100% - 48px)' },
+  'calendar-toggle': { left: 200, top: 56, width: 80, height: 36 },
+  'college-card': { left: 16, top: 140, width: 288, height: 180 },
+  'prompt-above-editor': { left: 340, top: 140, width: 'calc(100% - 680px)', height: 96 },
+  'essay-editor': { left: 320, top: 240, width: 'calc(100% - 640px)', height: 'calc(100% - 288px)' },
+  'personal-lens': { left: 380, top: 100, width: 120, height: 32 },
+  'context-panel': { left: 'calc(100% - 320px)', top: 48, width: 320, height: 'calc(100% - 48px)' },
+  'dismiss-suggestion': { left: 'calc(100% - 320px)', top: 190, width: 280, height: 120 },
+  'back-button': { left: 336, top: 56, width: 160, height: 44 },
+};
+
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+interface RectCandidate {
+  rect: DOMRect;
+  visibleArea: number;
+  visibleRatio: number;
+}
 
 export const useOnboardingState = () => {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
@@ -116,6 +160,9 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
   onComplete,
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
+  const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const [tooltipSize, setTooltipSize] = useState({ width: 384, height: 260 });
 
   const handleNext = () => {
     if (currentStep < onboardingSteps.length - 1) {
@@ -146,57 +193,171 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
   const isLastStep = currentStep === onboardingSteps.length - 1;
   const isFirstStep = currentStep === 0;
 
-  // Calculate highlight position based on step
-  const getHighlightStyle = (): React.CSSProperties => {
-    switch (step.highlightArea) {
-      case 'colleges':
-        return { left: '0', top: '48px', width: '320px', height: 'calc(100% - 48px)' };
-      case 'calendar-toggle':
-        return { left: '200px', top: '56px', width: '80px', height: '36px' };
-      case 'college-card':
-        return { left: '16px', top: '140px', width: '288px', height: '180px' };
-      case 'prompt-above-editor':
-        return { left: '340px', top: '140px', width: 'calc(100% - 680px)', height: '80px' };
-      case 'essay-editor':
-        return { left: '320px', top: '240px', width: 'calc(100% - 640px)', height: 'calc(100% - 288px)' };
-      case 'personal-lens':
-        return { left: '380px', top: '100px', width: '120px', height: '32px' };
-      case 'context-panel':
-        return { right: '0', top: '48px', width: '320px', height: 'calc(100% - 48px)' };
-      case 'dismiss-suggestion':
-        return { right: '24px', top: '200px', width: '280px', height: '100px' };
-      case 'back-button':
-        return { left: '336px', top: '56px', width: '140px', height: '44px' };
-      default:
-        return {};
-    }
-  };
+  const findTargetRect = useCallback((area: HighlightArea): DOMRect | null => {
+    if (typeof document === 'undefined') return null;
 
-  // Position the tooltip near the highlight
-  const getTooltipPosition = (): string => {
-    switch (step.highlightArea) {
-      case 'colleges':
-        return 'left-[340px] top-1/3';
-      case 'calendar-toggle':
-        return 'left-[300px] top-[100px]';
-      case 'college-card':
-        return 'left-[340px] top-[200px]';
-      case 'prompt-above-editor':
-        return 'left-1/2 -translate-x-1/2 top-[240px]';
-      case 'essay-editor':
-        return 'left-1/2 -translate-x-1/2 top-1/3';
-      case 'personal-lens':
-        return 'left-[520px] top-[140px]';
-      case 'context-panel':
-        return 'right-[340px] top-1/3';
-      case 'dismiss-suggestion':
-        return 'right-[340px] top-[220px]';
-      case 'back-button':
-        return 'left-[340px] top-[120px]';
-      default:
-        return 'left-1/2 -translate-x-1/2 top-1/3';
+    const selectors = TOUR_TARGET_SELECTORS[area] ?? [];
+    for (const selector of selectors) {
+      const candidates: RectCandidate[] = [];
+      const elements = Array.from(document.querySelectorAll(selector));
+      for (const element of elements) {
+        const htmlElement = element as HTMLElement;
+        if (htmlElement.getClientRects().length === 0) continue;
+        const rect = htmlElement.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) continue;
+
+        const visibleWidth = Math.max(
+          0,
+          Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0),
+        );
+        const visibleHeight = Math.max(
+          0,
+          Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0),
+        );
+        const visibleArea = visibleWidth * visibleHeight;
+        const totalArea = rect.width * rect.height;
+        const visibleRatio = totalArea > 0 ? visibleArea / totalArea : 0;
+
+        if (visibleArea > 0) {
+          candidates.push({ rect, visibleArea, visibleRatio });
+        }
+      }
+
+      if (candidates.length === 0) {
+        continue;
+      }
+
+      if (area === 'college-card') {
+        const mostlyVisible = candidates
+          .filter((candidate) => candidate.visibleRatio >= 0.6)
+          .sort((a, b) => a.rect.top - b.rect.top);
+
+        if (mostlyVisible.length > 0) {
+          return mostlyVisible[0].rect;
+        }
+      }
+
+      const bestCandidate = candidates.sort((a, b) => {
+        if (b.visibleArea !== a.visibleArea) return b.visibleArea - a.visibleArea;
+        return a.rect.top - b.rect.top;
+      })[0];
+
+      if (bestCandidate) {
+        return bestCandidate.rect;
+      }
     }
-  };
+
+    return null;
+  }, []);
+
+  const refreshTargetRect = useCallback(() => {
+    if (!isOpen) return;
+    setTargetRect(findTargetRect(step.highlightArea));
+  }, [findTargetRect, isOpen, step.highlightArea]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    refreshTargetRect();
+
+    let frameCount = 0;
+    let rafId = 0;
+    const syncDuringLayoutAnimations = () => {
+      refreshTargetRect();
+      frameCount += 1;
+      if (frameCount < 20) {
+        rafId = window.requestAnimationFrame(syncDuringLayoutAnimations);
+      }
+    };
+    rafId = window.requestAnimationFrame(syncDuringLayoutAnimations);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+    };
+  }, [isOpen, currentStep, refreshTargetRect]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleViewportChange = () => {
+      window.requestAnimationFrame(refreshTargetRect);
+    };
+
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('scroll', handleViewportChange, true);
+    return () => {
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('scroll', handleViewportChange, true);
+    };
+  }, [isOpen, refreshTargetRect]);
+
+  useEffect(() => {
+    if (!isOpen || !tooltipRef.current) return;
+    const rect = tooltipRef.current.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      setTooltipSize({ width: rect.width, height: rect.height });
+    }
+  }, [isOpen, currentStep, targetRect]);
+
+  const highlightStyle = useMemo<React.CSSProperties>(() => {
+    if (!targetRect || typeof window === 'undefined') {
+      return FALLBACK_HIGHLIGHT_STYLES[step.highlightArea];
+    }
+
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const left = clamp(targetRect.left - HIGHLIGHT_PADDING, 8, viewportWidth - 8);
+    const top = clamp(targetRect.top - HIGHLIGHT_PADDING, 8, viewportHeight - 8);
+    const width = clamp(
+      targetRect.width + HIGHLIGHT_PADDING * 2,
+      24,
+      viewportWidth - left - 8,
+    );
+    const height = clamp(
+      targetRect.height + HIGHLIGHT_PADDING * 2,
+      24,
+      viewportHeight - top - 8,
+    );
+
+    return { left, top, width, height };
+  }, [step.highlightArea, targetRect]);
+
+  const tooltipStyle = useMemo<React.CSSProperties>(() => {
+    if (typeof window === 'undefined') {
+      return {};
+    }
+
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const margin = 16;
+    const gap = 18;
+    const width = tooltipSize.width;
+    const height = tooltipSize.height;
+    const maxLeft = Math.max(margin, viewportWidth - width - margin);
+    const maxTop = Math.max(margin, viewportHeight - height - margin);
+
+    if (!targetRect) {
+      return {
+        left: clamp((viewportWidth - width) / 2, margin, maxLeft),
+        top: clamp((viewportHeight - height) / 3, margin, maxTop),
+      };
+    }
+
+    let left = targetRect.right + gap;
+    if (left + width > viewportWidth - margin) {
+      left = targetRect.left - width - gap;
+    }
+    if (left < margin) {
+      left = targetRect.left + (targetRect.width - width) / 2;
+    }
+
+    const centeredTop = targetRect.top + targetRect.height / 2 - height / 2;
+    const top = clamp(centeredTop, margin, maxTop);
+
+    return {
+      left: clamp(left, margin, maxLeft),
+      top,
+    };
+  }, [targetRect, tooltipSize.height, tooltipSize.width]);
 
   return (
     <AnimatePresence>
@@ -209,12 +370,12 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
           transition={{ duration: 0.2 }}
         >
           {/* Overlay */}
-          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-[2px]" />
+          <div className="absolute inset-0 bg-foreground/20" />
 
           {/* Highlight cutout effect */}
           <motion.div
             className="absolute border-2 border-primary rounded-xl bg-background/10 shadow-lg"
-            style={getHighlightStyle()}
+            style={highlightStyle}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3, delay: 0.1 }}
@@ -225,7 +386,9 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
 
           {/* Tooltip Card */}
           <motion.div
-            className={`absolute ${getTooltipPosition()} max-w-sm`}
+            ref={tooltipRef}
+            className="absolute max-w-sm"
+            style={tooltipStyle}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.15 }}

@@ -46,9 +46,10 @@ type Screen =
 interface ExportData {
   essayTitle: string;
   collegeName: string;
+  collegeId: string;
   wordCount: number;
   essayContent: string;
-  essayId?: string;
+  essayId: string;
 }
 
 const Index = () => {
@@ -70,6 +71,7 @@ const Index = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('auth-loading');
   const hasNavigatedAfterAuth = useRef(false);
   const [exportData, setExportData] = useState<ExportData | null>(null);
+  const [resumeEssaySelection, setResumeEssaySelection] = useState<{ collegeId: string; essayId: string } | null>(null);
 
   const isProfileLoading =
     isSignedIn && isUserStored && (profile === undefined || storyIdentity === undefined);
@@ -271,11 +273,14 @@ const Index = () => {
             onAddCollege={() => navigateTo('add-college')}
             onExport={(data: ExportData) => {
               setExportData(data);
+              setResumeEssaySelection({ collegeId: data.collegeId, essayId: data.essayId });
               navigateTo('export');
             }}
             onEditStoryIdentity={() => navigateTo('edit-story-identity')}
             onLogoClick={handleGoDashboard}
             onLogout={handleLogout}
+            initialActiveEssay={resumeEssaySelection}
+            onInitialActiveEssayApplied={() => setResumeEssaySelection(null)}
           />
         )}
 

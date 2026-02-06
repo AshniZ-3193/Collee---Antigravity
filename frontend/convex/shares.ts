@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { countRichTextWords, normalizeRichTextForStorage } from "./richTextHelpers";
 
 // Create a new share link for an essay
 export const create = mutation({
@@ -105,7 +106,7 @@ export const getByToken = query({
       essayId: share.essayId,
       permission: share.permission ?? "view",
       essayContent: essay.content,
-      wordCount: essay.wordCount,
+      wordCount: countRichTextWords(essay.content),
       wordLimit: prompt.wordCountMax,
       promptText: prompt.text,
       collegeName: college.name,
@@ -192,15 +193,25 @@ export const updateEssayViaShare = mutation({
       throw new Error("Essay not found");
     }
 
-    // Calculate word count
-    const wordCount = args.content.trim() ? args.content.trim().split(/\s+/).length : 0;
+    const normalizedContent = normalizeRichTextForStorage(args.content);
+    const wordCount = countRichTextWords(normalizedContent);
+    const prompt = await ctx.db.get(essay.promptId);
+    const wordLimit = prompt?.wordCountMax ?? 650;
+    let status: string;
+    if (wordCount === 0) {
+      status = "not-started";
+    } else if (wordCount >= wordLimit * 0.9) {
+      status = "complete";
+    } else {
+      status = "in-progress";
+    }
 
     // Update the essay
     await ctx.db.patch(share.essayId, {
-      content: args.content,
+      content: normalizedContent,
       wordCount,
       lastUpdated: Date.now(),
-      status: wordCount > 0 ? "in-progress" : essay.status,
+      status,
     });
 
     return { success: true, wordCount };

@@ -69,8 +69,12 @@ export const list = query({
 export const add = mutation({
   args: {
     name: v.string(),
+    schoolSlug: v.optional(v.string()),
     applicationType: v.optional(v.string()),
     deadline: v.optional(v.string()),
+    sourceQualityStatus: v.optional(v.string()),
+    sourceQualityScore: v.optional(v.number()),
+    sourceVerifiedAt: v.optional(v.number()),
     prompts: v.array(
       v.object({
         text: v.string(),
@@ -87,8 +91,12 @@ export const add = mutation({
     const collegeId = await ctx.db.insert("colleges", {
       userId,
       name: args.name,
+      schoolSlug: args.schoolSlug,
       applicationType: args.applicationType,
       deadline: args.deadline,
+      sourceQualityStatus: args.sourceQualityStatus,
+      sourceQualityScore: args.sourceQualityScore,
+      sourceVerifiedAt: args.sourceVerifiedAt,
     });
 
     // Create prompts and empty essays
@@ -190,5 +198,63 @@ export const remove = mutation({
 
     // Delete college
     await ctx.db.delete(args.id);
+  },
+});
+
+export const updatePrompt = mutation({
+  args: {
+    promptId: v.id("prompts"),
+    text: v.string(),
+    wordCountMax: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+
+    const prompt = await ctx.db.get(args.promptId);
+    if (!prompt || prompt.userId !== userId) {
+      throw new Error("Prompt not found");
+    }
+
+    const nextText = args.text.trim();
+    const nextWordLimit = Math.max(50, Math.floor(args.wordCountMax));
+    if (!nextText) {
+      throw new Error("Prompt text is required");
+    }
+
+    await ctx.db.patch(args.promptId, {
+      text: nextText,
+      wordCountMax: nextWordLimit,
+    });
+
+    const essay = await ctx.db
+      .query("essays")
+      .withIndex("by_prompt", (q) => q.eq("promptId", args.promptId))
+      .unique();
+
+    if (essay) {
+      let status: "not-started" | "in-progress" | "complete" = "in-progress";
+      if (essay.wordCount === 0) {
+        status = "not-started";
+      } else if (essay.wordCount >= nextWordLimit * 0.9) {
+        status = "complete";
+      }
+
+      if (status !== essay.status) {
+        await ctx.db.patch(essay._id, {
+          status,
+          lastUpdated: Date.now(),
+        });
+      }
+    }
+
+    const existingStrategy = await ctx.db
+      .query("promptStrategies")
+      .withIndex("by_prompt", (q) => q.eq("promptId", args.promptId))
+      .unique();
+    if (existingStrategy) {
+      await ctx.db.delete(existingStrategy._id);
+    }
+
+    return { success: true };
   },
 });

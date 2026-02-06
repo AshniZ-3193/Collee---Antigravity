@@ -59,9 +59,81 @@ export default defineSchema({
   colleges: defineTable({
     userId: v.id("users"),
     name: v.string(),
+    schoolSlug: v.optional(v.string()),
     applicationType: v.optional(v.string()),
     deadline: v.optional(v.string()),
+    sourceQualityStatus: v.optional(v.string()),
+    sourceQualityScore: v.optional(v.number()),
+    sourceVerifiedAt: v.optional(v.number()),
   }).index("by_user", ["userId"]),
+
+  // Global canonical school directory shared across users
+  globalSchools: defineTable({
+    canonicalName: v.string(),
+    slug: v.string(),
+    status: v.string(), // 'enriching' | 'active'
+    qualityStatus: v.string(), // 'unverified' | 'verified' | 'needs_review'
+    qualityScore: v.optional(v.number()),
+    verifiedAt: v.optional(v.number()),
+    verifiedBy: v.optional(v.string()), // 'system' | 'human'
+    createdByUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_slug", ["slug"])
+    .index("by_canonical_name", ["canonicalName"])
+    .index("by_status_quality", ["status", "qualityStatus"]),
+
+  // Alias mapping (e.g., UCF -> university-of-central-florida)
+  schoolAliases: defineTable({
+    aliasNormalized: v.string(),
+    schoolSlug: v.string(),
+    source: v.string(), // 'user' | 'system'
+    createdAt: v.number(),
+  }).index("by_alias", ["aliasNormalized"])
+    .index("by_school_slug", ["schoolSlug"]),
+
+  // Global prompts/deadlines cache with verification metadata
+  globalSchoolContent: defineTable({
+    schoolSlug: v.string(),
+    canonicalName: v.string(),
+    applicationYear: v.string(),
+    promptVersion: v.string(),
+    prompts: v.array(v.object({
+      text: v.string(),
+      wordCountMax: v.number(),
+      isOptional: v.boolean(),
+      promptType: v.optional(v.string()),
+      targetProgram: v.optional(v.string()),
+      relevantMajors: v.optional(v.array(v.string())),
+    })),
+    applicationTypes: v.array(v.object({
+      label: v.string(),
+      deadline: v.string(),
+      value: v.optional(v.string()),
+    })),
+    sourceUrls: v.array(v.string()),
+    sourceDomains: v.array(v.string()),
+    cachedAt: v.number(),
+    expiresAt: v.number(),
+    qualityStatus: v.string(), // 'unverified' | 'verified' | 'needs_review'
+    qualityScore: v.number(),
+    verificationNotes: v.optional(v.string()),
+    verifiedAt: v.optional(v.number()),
+    verifiedBy: v.optional(v.string()), // 'system' | 'human'
+    lastError: v.optional(v.string()),
+  }).index("by_school_year_version", ["schoolSlug", "applicationYear", "promptVersion"])
+    .index("by_quality_status", ["qualityStatus"]),
+
+  // In-flight dedupe for expensive generation jobs
+  contentGenerationLocks: defineTable({
+    lockKey: v.string(),
+    schoolSlug: v.string(),
+    applicationYear: v.string(),
+    promptVersion: v.string(),
+    acquiredAt: v.number(),
+    expiresAt: v.number(),
+  }).index("by_lock_key", ["lockKey"])
+    .index("by_school_year_version", ["schoolSlug", "applicationYear", "promptVersion"]),
 
   // Essay prompts per college
   prompts: defineTable({

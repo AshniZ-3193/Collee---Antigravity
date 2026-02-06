@@ -2,6 +2,11 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserId } from "./authHelpers";
 import { buildExcerptRecords } from "./experienceBankHelpers";
+import {
+  countRichTextWords,
+  normalizeRichTextForStorage,
+  stripRichTextFormatting,
+} from "./richTextHelpers";
 
 export const get = query({
   args: { essayId: v.id("essays") },
@@ -20,9 +25,8 @@ export const save = mutation({
     const essay = await ctx.db.get(args.essayId);
     if (!essay) throw new Error("Essay not found");
 
-    const wordCount = args.content.trim()
-      ? args.content.trim().split(/\s+/).length
-      : 0;
+    const normalizedContent = normalizeRichTextForStorage(args.content);
+    const wordCount = countRichTextWords(normalizedContent);
 
     // Determine status
     const prompt = await ctx.db.get(essay.promptId);
@@ -40,13 +44,13 @@ export const save = mutation({
 
     // Update essay
     await ctx.db.patch(args.essayId, {
-      content: args.content,
+      content: normalizedContent,
       wordCount,
       status,
       lastUpdated: now,
     });
 
-    const contentChanged = essay.content !== args.content;
+    const contentChanged = essay.content !== normalizedContent;
 
     // Create version snapshot (only if content changed meaningfully)
     if (contentChanged && wordCount > 0) {
@@ -62,7 +66,7 @@ export const save = mutation({
         await ctx.db.insert("essayVersions", {
           userId: essay.userId,
           essayId: args.essayId,
-          content: args.content,
+          content: normalizedContent,
           wordCount,
           timestamp: now,
         });
@@ -80,7 +84,10 @@ export const save = mutation({
       }
 
       if (wordCount >= 80) {
-        const excerptRecords = buildExcerptRecords(args.content, prompt?.promptType);
+        const excerptRecords = buildExcerptRecords(
+          stripRichTextFormatting(normalizedContent),
+          prompt?.promptType,
+        );
         for (const record of excerptRecords) {
           await ctx.db.insert("essayExcerpts", {
             userId: essay.userId,

@@ -185,6 +185,7 @@ const ExportScreen: React.FC<ExportScreenProps> = ({
     try {
       const result = await createShareMutation({
         essayId: essayId as Id<"essays">,
+        permission: "view",
       });
 
       const shareUrl = `${window.location.origin}/share/${result.token}`;
@@ -254,7 +255,7 @@ const ExportScreen: React.FC<ExportScreenProps> = ({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <ColleeLogo size="sm" />
+          <ColleeLogo size="sm" onClick={onBack} />
         </motion.div>
 
         {/* Header */}

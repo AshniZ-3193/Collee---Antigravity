@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import {
 import { ArrowLeft, Search, Check, GraduationCap, Plus, Trash2, FileText, X, Eye, EyeOff } from 'lucide-react';
 import ColleeLayout from '@/components/ColleeLayout';
 import ColleeLogo from '@/components/ColleeLogo';
+import { PROMPT_TYPES } from '@/lib/promptTypes';
 import { useMutation, useAction, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 
@@ -43,6 +44,9 @@ interface CollegeData {
   name: string;
   location: string;
   applicationTypes: ApplicationType[];
+  schoolSlug?: string;
+  qualityStatus?: "unverified" | "verified" | "needs_review";
+  qualityScore?: number;
 }
 
 interface SelectedCollegeConfig {
@@ -50,6 +54,35 @@ interface SelectedCollegeConfig {
   collegeName: string;
   applicationType: string;
   deadline: string;
+  schoolSlug?: string;
+  sourceQualityStatus?: "unverified" | "verified" | "needs_review";
+  sourceQualityScore?: number;
+  sourceVerifiedAt?: number;
+}
+
+interface EnsureSchoolContentResponse {
+  status: "ready" | "enriching";
+  schoolSlug: string;
+  canonicalName: string;
+  qualityStatus: "unverified" | "verified" | "needs_review";
+  qualityScore: number;
+  verificationNotes?: string;
+  prompts: Array<{
+    text: string;
+    wordCountMax: number;
+    isOptional: boolean;
+    promptType?: string;
+    targetProgram?: string;
+    relevantMajors?: string[];
+  }>;
+  applicationTypes: Array<{
+    label: string;
+    deadline: string;
+    value?: string;
+  }>;
+  sourceUrls: string[];
+  cachedAt: number;
+  expiresAt: number;
 }
 
 const toApplicationTypeValue = (label: string) => {
@@ -70,6 +103,8 @@ const toCustomCollegeId = (name: string) => {
   return `custom:${normalized || "college"}`;
 };
 
+const toGlobalCollegeId = (slug: string) => `global:${slug}`;
+
 const normalizeApplicationTypes = (items: Array<{ label?: string; deadline?: string; value?: string }>) => {
   const seen = new Set<string>();
   return items
@@ -85,16 +120,6 @@ const normalizeApplicationTypes = (items: Array<{ label?: string; deadline?: str
       return true;
     });
 };
-
-const promptTypes = [
-  { value: 'contribution', label: 'Contribution' },
-  { value: 'why-major', label: 'Why Major' },
-  { value: 'why-college', label: 'Why This College' },
-  { value: 'extracurricular', label: 'Extracurricular' },
-  { value: 'identity', label: 'Identity' },
-  { value: 'challenge', label: 'Challenge/Setback' },
-  { value: 'other', label: 'Other' },
-];
 
 const majorKeywordGroups = [
   {
@@ -460,19 +485,21 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
   onAddCollege,
   onComplete,
 }) => {
-  const addCollegeMutation = useMutation(api.colleges.add);
-  const searchPromptsAction = useAction(api.ai.searchCollegePrompts.search);
-  const searchDeadlinesAction = useAction(api.ai.searchCollegeDeadlines.search);
+  const typedApi = api as any;
+  const addCollegeMutation = useMutation(typedApi.colleges.add);
+  const ensureSchoolContentAction = useAction(typedApi.ai.ensureSchoolContent.ensure);
   const userProfile = useQuery(api.userProfile.get, {});
   const [isSearchingPrompts, setIsSearchingPrompts] = useState(false);
   const [isSearchingDeadlines, setIsSearchingDeadlines] = useState(false);
   const [deadlineSearchError, setDeadlineSearchError] = useState<string | null>(null);
   const [promptSearchError, setPromptSearchError] = useState<string | null>(null);
+  const [qualityStatusMessage, setQualityStatusMessage] = useState<string | null>(null);
   const [isAutoAdding, setIsAutoAdding] = useState(false);
   const [step, setStep] = useState<'select' | 'application-type' | 'prompts'>('select');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedColleges, setSelectedColleges] = useState<Set<string>>(new Set());
   const [customColleges, setCustomColleges] = useState<Record<string, CollegeData>>({});
+  const [globalColleges, setGlobalColleges] = useState<Record<string, CollegeData>>({});
   const [appTypeOptionsByCollegeId, setAppTypeOptionsByCollegeId] = useState<Record<string, ApplicationType[] | null>>({});
   const [promptsByCollegeId, setPromptsByCollegeId] = useState<Record<string, EssayPrompt[] | null>>({});
   const [showAllPrompts, setShowAllPrompts] = useState(false);
@@ -486,17 +513,68 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
     { id: '1', promptText: '', promptType: '', limitValue: 250, isOptional: false }
   ]);
 
-  const filteredColleges = popularColleges.filter(college =>
-    college.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   const trimmedSearchQuery = searchQuery.trim();
-  const showAddCustom = trimmedSearchQuery.length > 0 && filteredColleges.length === 0;
+  const globalSchoolMatches = useQuery(typedApi.globalSchools.searchByName, {
+    query: trimmedSearchQuery,
+    limit: 20,
+  }) as Array<{
+    canonicalName: string;
+    slug: string;
+    status: string;
+    qualityStatus: "unverified" | "verified" | "needs_review";
+    qualityScore: number;
+  }> | undefined;
+
+  useEffect(() => {
+    if (!globalSchoolMatches) return;
+    setGlobalColleges((prev) => {
+      const next = { ...prev };
+      for (const school of globalSchoolMatches) {
+        const id = toGlobalCollegeId(school.slug);
+        next[id] = {
+          id,
+          name: school.canonicalName,
+          location: 'Global school',
+          applicationTypes: [],
+          schoolSlug: school.slug,
+          qualityStatus: school.qualityStatus,
+          qualityScore: school.qualityScore,
+        };
+      }
+      return next;
+    });
+  }, [globalSchoolMatches]);
+
+  const filteredColleges = useMemo(() => {
+    const query = trimmedSearchQuery.toLowerCase();
+    const popularMatches = popularColleges.filter((college) =>
+      !query || college.name.toLowerCase().includes(query)
+    );
+    const globalMatches = Object.values(globalColleges).filter((college) =>
+      !query || college.name.toLowerCase().includes(query)
+    );
+    const merged = [...popularMatches];
+    for (const college of globalMatches) {
+      if (!merged.some((item) => item.name.toLowerCase() === college.name.toLowerCase())) {
+        merged.push(college);
+      }
+    }
+    return merged;
+  }, [globalColleges, trimmedSearchQuery]);
+
+  const showAddCustom = trimmedSearchQuery.length > 0 && !filteredColleges.some(
+    (college) => college.name.toLowerCase() === trimmedSearchQuery.toLowerCase()
+  );
   const customCollegeId = showAddCustom ? toCustomCollegeId(trimmedSearchQuery) : null;
   const customIsSelected = customCollegeId ? selectedColleges.has(customCollegeId) : false;
 
   const getCollegeById = (collegeId: string) => {
-    return customColleges[collegeId] || popularColleges.find(c => c.id === collegeId) || null;
+    return (
+      customColleges[collegeId]
+      || globalColleges[collegeId]
+      || popularColleges.find(c => c.id === collegeId)
+      || null
+    );
   };
 
   // Toggle college selection
@@ -572,11 +650,36 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
   const hiddenPromptCount = prompts.length - filteredPrompts.length;
   const displayPrompts = showAllPrompts ? prompts : filteredPrompts;
 
+  const mapFetchedPrompts = useCallback((searchedPrompts: Array<any>) => {
+    const mappedPrompts = (searchedPrompts || []).map((p: any, i: number) => ({
+      id: `searched-${i}`,
+      promptText: p.text,
+      promptType: p.promptType || '',
+      limitValue: p.wordCountMax || 250,
+      isOptional: p.isOptional || false,
+      targetProgram: p.targetProgram || undefined,
+      relevantMajors: p.relevantMajors || undefined,
+    }));
+    return mappedPrompts.map((prompt) => {
+      if (prompt.relevantMajors && prompt.relevantMajors.length > 0) return prompt;
+      const inferred = inferRelevantMajors(prompt);
+      return inferred.length > 0 ? { ...prompt, relevantMajors: inferred } : prompt;
+    });
+  }, []);
+
   const canAddCollege = !isSearchingPrompts && (
     validPromptCount > 0 || noPromptsFound || !!promptSearchError
   );
 
-  const addCollegeWithPrompts = useCallback(async (config: SelectedCollegeConfig, promptList: EssayPrompt[]) => {
+  useEffect(() => {
+    setQualityStatusMessage(null);
+  }, [step, currentCollegeId]);
+
+  const addCollegeWithPrompts = useCallback(async (
+    config: SelectedCollegeConfig,
+    promptList: EssayPrompt[],
+    preEnsured?: EnsureSchoolContentResponse | null,
+  ) => {
     const validPrompts = promptList
       .filter(p => p.promptText.trim() && p.limitValue > 0)
       .map(p => ({
@@ -584,14 +687,47 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
         wordCountMax: p.limitValue,
         isOptional: p.isOptional,
         promptType: p.promptType || undefined,
+        targetProgram: p.targetProgram || undefined,
+        relevantMajors: p.relevantMajors || undefined,
       }));
 
     try {
+      let ensured: EnsureSchoolContentResponse | null = preEnsured || null;
+      if (!ensured && validPrompts.length > 0) {
+        try {
+          ensured = await ensureSchoolContentAction({
+            query: config.collegeName || 'Unknown',
+            schoolSlug: config.schoolSlug,
+            seedPrompts: validPrompts,
+            seedApplicationTypes: config.deadline
+              ? [
+                  {
+                    value: config.applicationType || "application",
+                    label: config.applicationType || "Application",
+                    deadline: config.deadline,
+                  },
+                ]
+              : [],
+          });
+        } catch (error) {
+          console.error("Global content verification seed failed:", error);
+        }
+      }
+
       await addCollegeMutation({
         name: config.collegeName || 'Unknown',
+        schoolSlug: ensured?.schoolSlug || config.schoolSlug,
         applicationType: config.applicationType,
         deadline: config.deadline,
-        prompts: validPrompts,
+        sourceQualityStatus: ensured?.qualityStatus || config.sourceQualityStatus,
+        sourceQualityScore: ensured?.qualityScore || config.sourceQualityScore,
+        sourceVerifiedAt: ensured?.qualityStatus === "verified" ? Date.now() : config.sourceVerifiedAt,
+        prompts: validPrompts.map((prompt) => ({
+          text: prompt.text,
+          wordCountMax: prompt.wordCountMax,
+          isOptional: prompt.isOptional,
+          promptType: prompt.promptType,
+        })),
       });
       onAddCollege(config.collegeId || 'custom');
       return true;
@@ -599,7 +735,7 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
       console.error("Failed to add college:", e);
       return false;
     }
-  }, [addCollegeMutation, onAddCollege]);
+  }, [addCollegeMutation, ensureSchoolContentAction, onAddCollege]);
 
   useEffect(() => {
     if (step !== 'application-type' || !currentCollegeId || !currentCollegeName) return;
@@ -610,21 +746,63 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
       setIsSearchingDeadlines(true);
       setDeadlineSearchError(null);
       try {
-        const results = await searchDeadlinesAction({
-          collegeName: currentCollegeName,
+        const ensured = await ensureSchoolContentAction({
+          query: currentCollegeName,
+          schoolSlug: currentConfig?.schoolSlug,
         });
         if (cancelled) return;
-        const normalized = normalizeApplicationTypes(results || []);
+
+        const normalized = normalizeApplicationTypes(ensured?.applicationTypes || []);
+
         setAppTypeOptionsByCollegeId((prev) => ({
           ...prev,
           [currentCollegeId]: normalized,
         }));
+        setCollegeConfigs((prev) => {
+          const next = [...prev];
+          const target = next[currentConfigIndex];
+          if (!target) return prev;
+          next[currentConfigIndex] = {
+            ...target,
+            collegeName: ensured?.canonicalName || target.collegeName,
+            schoolSlug: ensured?.schoolSlug || target.schoolSlug,
+            sourceQualityStatus: ensured?.qualityStatus || target.sourceQualityStatus,
+            sourceQualityScore: ensured?.qualityScore || target.sourceQualityScore,
+            sourceVerifiedAt: ensured?.qualityStatus === "verified" ? Date.now() : target.sourceVerifiedAt,
+          };
+          return next;
+        });
+        setQualityStatusMessage(
+          ensured?.qualityStatus === "verified"
+            ? "Data verified from trusted admissions sources."
+            : ensured?.qualityStatus === "needs_review"
+              ? "Data has source conflicts and needs review."
+              : "Showing provisional data while verification continues."
+        );
+
+        const resolvedGlobalId = toGlobalCollegeId(ensured?.schoolSlug || currentConfig?.schoolSlug || currentCollegeName.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
+        setGlobalColleges((prev) => ({
+          ...prev,
+          [resolvedGlobalId]: {
+            id: resolvedGlobalId,
+            name: ensured?.canonicalName || currentCollegeName,
+            location: "Global school",
+            applicationTypes: normalized,
+            schoolSlug: ensured?.schoolSlug || currentConfig?.schoolSlug,
+            qualityStatus: ensured?.qualityStatus,
+            qualityScore: ensured?.qualityScore,
+          },
+        }));
+
+        if (ensured?.status === "enriching" && normalized.length === 0) {
+          setDeadlineSearchError("Still enriching this college. Showing default options for now.");
+        }
       } catch (e) {
         if (!cancelled) {
-          console.error("Failed to auto-fetch deadlines:", e);
+          console.error("Failed to ensure school content for deadlines:", e);
           const message = e instanceof Error && e.message
             ? e.message
-            : "Couldn't auto-fetch deadlines. Showing default options.";
+            : "Couldn't load global school data. Showing default options.";
           setDeadlineSearchError(message);
           setAppTypeOptionsByCollegeId((prev) => ({
             ...prev,
@@ -644,8 +822,10 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
     step,
     currentCollegeId,
     currentCollegeName,
+    currentConfig?.schoolSlug,
+    currentConfigIndex,
     currentAppTypeOptions,
-    searchDeadlinesAction,
+    ensureSchoolContentAction,
   ]);
 
   useEffect(() => {
@@ -664,24 +844,42 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
       setIsSearchingPrompts(true);
       setPromptSearchError(null);
       try {
-        const searchedPrompts = await searchPromptsAction({
-          collegeName: currentCollegeName,
+        const ensured = await ensureSchoolContentAction({
+          query: currentCollegeName,
+          schoolSlug: currentConfig?.schoolSlug,
         });
         if (cancelled) return;
-        const mappedPrompts = (searchedPrompts || []).map((p: any, i: number) => ({
-          id: `searched-${i}`,
-          promptText: p.text,
-          promptType: p.promptType || '',
-          limitValue: p.wordCountMax || 250,
-          isOptional: p.isOptional || false,
-          targetProgram: p.targetProgram || undefined,
-          relevantMajors: p.relevantMajors || undefined,
-        }));
-        const promptsWithMajors = mappedPrompts.map((prompt) => {
-          if (prompt.relevantMajors && prompt.relevantMajors.length > 0) return prompt;
-          const inferred = inferRelevantMajors(prompt);
-          return inferred.length > 0 ? { ...prompt, relevantMajors: inferred } : prompt;
+        const promptsWithMajors = mapFetchedPrompts(ensured?.prompts || []);
+        const normalizedAppTypes = normalizeApplicationTypes(ensured?.applicationTypes || []);
+
+        setCollegeConfigs((prev) => {
+          const next = [...prev];
+          const target = next[currentConfigIndex];
+          if (!target) return prev;
+          next[currentConfigIndex] = {
+            ...target,
+            collegeName: ensured?.canonicalName || target.collegeName,
+            schoolSlug: ensured?.schoolSlug || target.schoolSlug,
+            sourceQualityStatus: ensured?.qualityStatus || target.sourceQualityStatus,
+            sourceQualityScore: ensured?.qualityScore || target.sourceQualityScore,
+            sourceVerifiedAt: ensured?.qualityStatus === "verified" ? Date.now() : target.sourceVerifiedAt,
+          };
+          return next;
         });
+        setQualityStatusMessage(
+          ensured?.qualityStatus === "verified"
+            ? "Data verified from trusted admissions sources."
+            : ensured?.qualityStatus === "needs_review"
+              ? "Data has source conflicts and needs review."
+              : "Showing provisional data while verification continues."
+        );
+        if (normalizedAppTypes.length > 0) {
+          setAppTypeOptionsByCollegeId((prev) => ({
+            ...prev,
+            [currentCollegeId]: normalizedAppTypes,
+          }));
+        }
+
         setPrompts(promptsWithMajors.length > 0
           ? promptsWithMajors
           : [{ id: '1', promptText: '', promptType: '', limitValue: 250, isOptional: false }]
@@ -700,10 +898,14 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
           setIsAutoAdding(true);
           const success = await addCollegeWithPrompts({
             collegeId: currentCollegeId,
-            collegeName: currentCollegeName,
+            collegeName: ensured?.canonicalName || currentCollegeName,
             applicationType: currentConfig?.applicationType || '',
             deadline: currentConfig?.deadline || '',
-          }, autoAddPrompts);
+            schoolSlug: ensured?.schoolSlug || currentConfig?.schoolSlug,
+            sourceQualityStatus: ensured?.qualityStatus,
+            sourceQualityScore: ensured?.qualityScore,
+            sourceVerifiedAt: ensured?.qualityStatus === "verified" ? Date.now() : undefined,
+          }, autoAddPrompts, ensured);
           setIsAutoAdding(false);
 
           if (success) {
@@ -720,10 +922,10 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
         }
       } catch (e) {
         if (!cancelled) {
-          console.error("Failed to auto-fetch prompts:", e);
+          console.error("Failed to ensure school content for prompts:", e);
           const message = e instanceof Error && e.message
             ? e.message
-            : "Couldn't auto-fetch prompts. You can add them manually.";
+            : "Couldn't load global school prompts. You can add them manually.";
           setPromptSearchError(message);
           setPrompts([{ id: '1', promptText: '', promptType: '', limitValue: 250, isOptional: false }]);
           setPromptsByCollegeId((prev) => ({
@@ -745,12 +947,14 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
     currentCollegeId,
     currentCollegeName,
     currentConfig,
+    currentConfig?.schoolSlug,
     currentConfigIndex,
     collegeConfigs.length,
     currentPromptsFromSearch,
     addCollegeWithPrompts,
+    mapFetchedPrompts,
     onComplete,
-    searchPromptsAction,
+    ensureSchoolContentAction,
     userProfile?.primaryInterests,
   ]);
 
@@ -767,6 +971,9 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
             collegeName: college.name,
             applicationType: '',
             deadline: '',
+            schoolSlug: college.schoolSlug,
+            sourceQualityStatus: college.qualityStatus,
+            sourceQualityScore: college.qualityScore,
           });
         }
       });
@@ -837,6 +1044,10 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
           collegeName: currentConfig?.collegeName || 'Unknown',
           applicationType: currentConfig?.applicationType || '',
           deadline: currentConfig?.deadline || '',
+          schoolSlug: currentConfig?.schoolSlug,
+          sourceQualityStatus: currentConfig?.sourceQualityStatus,
+          sourceQualityScore: currentConfig?.sourceQualityScore,
+          sourceVerifiedAt: currentConfig?.sourceVerifiedAt,
         },
         prompts
       );
@@ -1033,6 +1244,15 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
                         <div>
                           <h3 className="text-body font-medium text-foreground">{college.name}</h3>
                           <p className="text-body-sm text-muted-foreground">{college.location}</p>
+                          {college.qualityStatus && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {college.qualityStatus === "verified"
+                                ? "Verified global data"
+                                : college.qualityStatus === "needs_review"
+                                  ? "Needs source review"
+                                  : "Provisional global data"}
+                            </p>
+                          )}
                         </div>
                         <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
                           isSelected 
@@ -1120,6 +1340,11 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
                   No deadlines found. Showing default options.
                 </p>
               )}
+              {qualityStatusMessage && (
+                <p className="text-body-sm text-muted-foreground">
+                  {qualityStatusMessage}
+                </p>
+              )}
 
               {/* Application Type Selection */}
               <div className="space-y-3">
@@ -1200,6 +1425,11 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
               {noPromptsFound && !promptSearchError && !isSearchingPrompts && (
                 <p className="text-body-sm text-muted-foreground">
                   No prompts found. You can add them manually.
+                </p>
+              )}
+              {qualityStatusMessage && (
+                <p className="text-body-sm text-muted-foreground">
+                  {qualityStatusMessage}
                 </p>
               )}
 
@@ -1284,7 +1514,7 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
                         <SelectValue placeholder="Select type..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {promptTypes.map((type) => (
+                        {PROMPT_TYPES.map((type) => (
                           <SelectItem key={type.value} value={type.value}>
                             {type.label}
                           </SelectItem>
