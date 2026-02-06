@@ -1,15 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
@@ -24,7 +16,6 @@ import {
   History,
   ChevronDown,
   ChevronRight,
-  ChevronLeft,
   PanelRightClose,
   PanelRightOpen,
   PanelLeftClose,
@@ -32,33 +23,17 @@ import {
   Download,
   Share2,
   Lightbulb,
-  Target,
   FileText,
   X,
-  RotateCcw,
-  Mail,
-  Send,
-  CheckCircle,
-  Eye,
-  Users,
-  Shield,
-  GraduationCap,
   Pencil,
   MapPin,
   Plus,
-  BookOpen,
-  Rocket,
   User,
   LogOut,
-  Minimize2,
   Maximize2,
   Clock,
   Sparkles,
-  AlertTriangle,
-  RefreshCw,
   Quote,
-  Copy,
-  XCircle,
   Trash2,
   ArrowLeft,
   HelpCircle,
@@ -66,9 +41,6 @@ import {
   PenLine,
   Calendar,
   Wand2,
-  Link2,
-  MessageSquare,
-  Reply,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -89,75 +61,28 @@ import type { Editor } from '@tiptap/react';
 import SyncEssayEditor, {
   type ActiveRichTextFormats,
 } from '@/components/editor/SyncEssayEditor';
-
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import OnboardingWalkthrough, { useOnboardingState } from '@/components/OnboardingWalkthrough';
-
-// ===== PERSONAL LENS TYPES =====
-interface PersonalLensNote {
-  id: string;
-  content: string;
-  category: 'moment' | 'observation' | 'responsibility' | 'realization' | 'value' | 'shift';
-  createdAt: Date;
-}
-
-const PERSONAL_LENS_CATEGORIES = [
-  { value: 'moment', label: 'A moment', placeholder: 'Describe a specific moment that stuck with you...' },
-  { value: 'observation', label: 'Something I noticed', placeholder: 'What have you observed that others might miss?' },
-  { value: 'responsibility', label: 'A responsibility', placeholder: 'A duty or commitment you carry...' },
-  { value: 'realization', label: 'A realization', placeholder: 'Something you came to understand...' },
-  { value: 'value', label: 'What matters to me', placeholder: 'A value or belief that guides you...' },
-  { value: 'shift', label: 'A shift in perspective', placeholder: 'How your thinking changed...' },
-] as const;
-
-const promptTypes = [
-  { value: 'contribution', label: 'Contribution' },
-  { value: 'why-major', label: 'Why Major' },
-  { value: 'why-college', label: 'Why This College' },
-  { value: 'extracurricular', label: 'Extracurricular' },
-  { value: 'identity', label: 'Identity' },
-  { value: 'challenge', label: 'Challenge/Setback' },
-  { value: 'other', label: 'Other' },
-];
-
-// ===== TYPES =====
-interface Essay {
-  id: string;
-  promptId: string;
-  title: string;
-  prompt: string;
-  status: 'not-started' | 'in-progress' | 'complete';
-  wordCount: number;
-  wordLimit: number;
-  content: string;
-  promptType?: string; // e.g., 'why-college', 'why-major', 'challenge', 'identity'
-  lastUpdated?: number; // Timestamp for detecting external changes
-}
-
-interface College {
-  id: string;
-  name: string;
-  applicationType?: string;
-  deadline?: string;
-  essays: Essay[];
-}
-
-interface Version {
-  id: string;
-  timestamp: string;
-  wordCount: number;
-  preview: string;
-  content?: string;
-  isCurrent?: boolean;
-}
-
-interface ExportData {
-  essayTitle: string;
-  collegeName: string;
-  wordCount: number;
-  essayContent: string;
-  essayId?: string;
-}
+import { PERSONAL_LENS_CATEGORIES } from './workspace/constants';
+import RightPanel from './workspace/RightPanel';
+import ShareDialog from './workspace/ShareDialog';
+import DeletePromptDialog from './workspace/DeletePromptDialog';
+import VersionHistoryDrawer from './workspace/VersionHistoryDrawer';
+import {
+  type College,
+  type Essay,
+  type ExcerptUsageRecord,
+  type ExportData,
+  type FeedbackType,
+  type GeneratedSuggestion,
+  type PersonalLensNote,
+  type PromptFitGuidance,
+  type ReusableExcerpt,
+  type StoryExperience,
+  type Version,
+} from './workspace/types';
+import { getEssaySnapshot, getStatusDot, isDeadlineApproaching } from './workspace/utils';
+import { useEssaySync } from './workspace/useEssaySync';
 
 interface ColleeWorkspaceProps {
   onAddCollege: () => void;
@@ -166,251 +91,6 @@ interface ColleeWorkspaceProps {
   onLogoClick?: () => void;
   onLogout?: () => void;
 }
-
-interface StoryExperience {
-  id: string;
-  name: string;
-  tags: string[];
-  usedIn: string[];
-}
-
-interface PromptFitGuidance {
-  matchStrength: 'strong' | 'moderate';
-  whyItFits: string;
-  framingTips: string[];
-  caution?: string;
-  startWith?: string;
-  focusOn?: string;
-  avoidFocus?: string;
-  starterSentences?: string[];
-}
-
-interface ReusableExcerpt {
-  id: string;
-  sourceEssayId: string;
-  sourceEssayTitle: string;
-  sourceCollegeId: string;
-  sourceCollegeName: string;
-  excerpt: string;
-  themes: string[];
-  promptType?: string;
-  overlapThemes?: string[];
-  matchesSamePromptType?: boolean;
-  whyItWorks: string;
-  sameSchoolWarning?: string;
-}
-
-interface ExcerptUsageRecord {
-  excerptId: string;
-  targetCollegeId: string;
-  targetCollegeName: string;
-  targetEssayId: string;
-  targetEssayTitle: string;
-}
-
-type FeedbackType = 'overall' | 'opening' | 'structure' | 'voice' | 'specificity';
-
-// ===== HELPER FUNCTIONS =====
-const getEssaySnapshot = (essays: Essay[]): string => {
-  const inProgress = essays.filter(e => e.status === 'in-progress').length;
-  const complete = essays.filter(e => e.status === 'complete').length;
-  const notStarted = essays.filter(e => e.status === 'not-started').length;
-  const total = essays.length;
-
-  if (complete === total) return 'All essays drafted';
-  if (notStarted === total) return `${total} essays • not started yet`;
-  if (inProgress > 0) return `${total} essays • ${inProgress} in progress`;
-  return `${total} essays • ${complete} complete`;
-};
-
-const getStatusDot = (status: Essay['status']) => {
-  switch (status) {
-    case 'complete': return 'bg-emerald-500';
-    case 'in-progress': return 'bg-primary';
-    default: return 'bg-muted-foreground/30';
-  }
-};
-
-// Check if deadline is approaching (within 14 days)
-const isDeadlineApproaching = (deadline?: string): boolean => {
-  if (!deadline) return false;
-  const months: Record<string, number> = {
-    'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
-    'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
-  };
-  const parts = deadline.split(' ');
-  if (parts.length !== 2) return false;
-  const month = months[parts[0]];
-  const day = parseInt(parts[1]);
-  if (month === undefined || isNaN(day)) return false;
-  const currentYear = new Date().getFullYear();
-  const deadlineDate = new Date(currentYear, month, day);
-  const now = new Date();
-  // If deadline is in the past this year, assume next year
-  if (deadlineDate < now) {
-    deadlineDate.setFullYear(currentYear + 1);
-  }
-  const daysUntil = Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  return daysUntil <= 14 && daysUntil >= 0;
-};
-
-// ===== OWNER COMMENT CARD COMPONENT =====
-interface OwnerCommentCardProps {
-  comment: {
-    _id: Id<"shareComments">;
-    authorName: string;
-    authorEmail?: string;
-    content: string;
-    selectedText: string;
-    resolved: boolean;
-    createdAt: number;
-  };
-  onResolve: () => void;
-  onAddReply: (content: string) => Promise<{ replyId: Id<"shareCommentReplies"> }>;
-}
-
-const OwnerCommentCard: React.FC<OwnerCommentCardProps> = ({
-  comment,
-  onResolve,
-  onAddReply,
-}) => {
-  const [isReplying, setIsReplying] = useState(false);
-  const [replyContent, setReplyContent] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Fetch replies for this comment
-  const replies = useQuery(api.shares.getReplies, { commentId: comment._id }) ?? [];
-
-  const handleSubmitReply = async () => {
-    if (!replyContent.trim() || isSubmitting) return;
-    setIsSubmitting(true);
-    try {
-      await onAddReply(replyContent.trim());
-      setReplyContent('');
-      setIsReplying(false);
-    } catch (error) {
-      console.error('Failed to add reply:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <div
-      className={`p-3 rounded-lg border ${
-        comment.resolved
-          ? 'bg-muted/30 border-border/50 opacity-60'
-          : 'bg-card border-border'
-      }`}
-    >
-      {/* Comment Header */}
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-            <span className="text-xs font-medium text-primary">
-              {comment.authorName.charAt(0).toUpperCase()}
-            </span>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-foreground">
-              {comment.authorName}
-            </p>
-            <p className="text-[10px] text-muted-foreground">
-              {new Date(comment.createdAt).toLocaleDateString()}
-            </p>
-          </div>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 w-6 p-0"
-          onClick={onResolve}
-          title={comment.resolved ? "Unresolve" : "Resolve"}
-        >
-          <Check className={`w-3.5 h-3.5 ${comment.resolved ? 'text-green-500' : 'text-muted-foreground'}`} />
-        </Button>
-      </div>
-
-      {/* Highlighted Text */}
-      {comment.selectedText && (
-        <div className="mb-2 p-2 rounded bg-yellow-500/10 border-l-2 border-yellow-500">
-          <p className="text-xs text-muted-foreground italic line-clamp-2">
-            "{comment.selectedText}"
-          </p>
-        </div>
-      )}
-
-      {/* Comment Content */}
-      <p className="text-xs text-foreground mb-3">{comment.content}</p>
-
-      {/* Existing Replies */}
-      {replies.length > 0 && (
-        <div className="space-y-2 mb-3 pl-3 border-l-2 border-border">
-          {replies.map((reply) => (
-            <div key={reply._id} className="text-xs">
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <span className={`font-medium ${reply.isOwner ? 'text-primary' : 'text-foreground'}`}>
-                  {reply.authorName}
-                  {reply.isOwner && <span className="text-[10px] ml-1">(You)</span>}
-                </span>
-                <span className="text-muted-foreground">·</span>
-                <span className="text-muted-foreground text-[10px]">
-                  {new Date(reply.createdAt).toLocaleDateString()}
-                </span>
-              </div>
-              <p className="text-muted-foreground">{reply.content}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Reply Section */}
-      <div className="space-y-2">
-        {isReplying ? (
-          <div className="space-y-2">
-            <Textarea
-              value={replyContent}
-              onChange={(e) => setReplyContent(e.target.value)}
-              placeholder="Write your reply..."
-              className="min-h-[60px] text-xs resize-none"
-            />
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                className="h-7 text-xs"
-                disabled={!replyContent.trim() || isSubmitting}
-                onClick={handleSubmitReply}
-              >
-                {isSubmitting ? 'Sending...' : 'Send Reply'}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs"
-                onClick={() => {
-                  setIsReplying(false);
-                  setReplyContent('');
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs gap-1"
-            onClick={() => setIsReplying(true)}
-          >
-            <Reply className="w-3 h-3" />
-            Reply
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-};
 
 // ===== MAIN COMPONENT =====
 const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
@@ -499,12 +179,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   });
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
   const saveIndicatorTimerRef = useRef<number | null>(null);
-  
-  // Track external changes from guest edits via share links
-  const [editorSyncKey, setEditorSyncKey] = useState(0);
-  const lastLocalEditTimeRef = useRef<number>(0);
-  const lastProcessedUpdateRef = useRef<number>(0);
-  const syncResetInFlightRef = useRef(false);
+
   const [showRightPanel, setShowRightPanel] = useState(true);
   const [showLeftPanel, setShowLeftPanel] = useState(true);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
@@ -562,14 +237,6 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
 
-  // Generated story suggestions from Personal Lens notes
-  interface GeneratedSuggestion {
-    id: string;
-    noteId: string;
-    noteContent: string;
-    suggestion: string;
-    matchStrength: 'strong' | 'moderate';
-  }
   const [generatedSuggestions, setGeneratedSuggestions] = useState<GeneratedSuggestion[]>([]);
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
 
@@ -613,6 +280,14 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const wordLimit = currentEssay?.wordLimit || 650;
   const wordCount = countRichTextWords(content);
   const isOverLimit = wordCount > wordLimit;
+  const { editorSyncKey, markLocalEdit, markLoadedEssayVersion } = useEssaySync({
+    currentEssayId,
+    essayContent: currentEssay?.content,
+    essayLastUpdated: currentEssay?.lastUpdated,
+    localContent: content,
+    setLocalContent: setContent,
+    resetSyncDocument: resetSyncDocumentMutation,
+  });
 
   const experienceSuggestions: (StoryExperience & { guidance: PromptFitGuidance })[] = useMemo(() => {
     if (!promptStrategy?.experienceMatches) return [];
@@ -701,7 +376,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   useEffect(() => {
     if (currentEssay) {
       setContent(currentEssay.content);
-      lastProcessedUpdateRef.current = currentEssay.lastUpdated ?? 0;
+      markLoadedEssayVersion(currentEssay.lastUpdated);
       setActiveFormats({
         bold: false,
         italic: false,
@@ -710,50 +385,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
         numbered: false,
       });
     }
-  }, [activeEssay?.essayId]);
-
-  // Detect external changes (e.g., from guest edits via share links)
-  // When the essay is updated externally, reset the ProseMirror sync document
-  // and force the sync editor to reload with the fresh content from the DB.
-  useEffect(() => {
-    if (!currentEssay) return;
-    
-    const essayLastUpdated = currentEssay.lastUpdated ?? 0;
-    const timeSinceLocalEdit = Date.now() - lastLocalEditTimeRef.current;
-    
-    // If we haven't processed this update yet
-    if (essayLastUpdated > lastProcessedUpdateRef.current) {
-      // Mark as processed
-      lastProcessedUpdateRef.current = essayLastUpdated;
-
-      // If local and database content are already aligned, don't reset.
-      if (currentEssay.content === content) return;
-      
-      // If the user hasn't edited in the last 3 seconds, this is likely an external change
-      if (timeSinceLocalEdit > 3000 && currentEssayId && !syncResetInFlightRef.current) {
-        syncResetInFlightRef.current = true;
-
-        // First, delete the stale ProseMirror sync document so the editor
-        // doesn't reload the old collaborative state. Once the reset completes,
-        // remount the editor which will recreate the sync doc from essay.content.
-        const newContent = currentEssay.content;
-        resetSyncDocumentMutation({ id: currentEssayId })
-          .then(() => {
-            setEditorSyncKey(prev => prev + 1);
-            setContent(newContent);
-          })
-          .catch((err) => {
-            console.error("Failed to reset sync document:", err);
-            // Fallback: still try to remount even if reset fails
-            setEditorSyncKey(prev => prev + 1);
-            setContent(newContent);
-          })
-          .finally(() => {
-            syncResetInFlightRef.current = false;
-          });
-      }
-    }
-  }, [currentEssay?.lastUpdated, currentEssay?.content, currentEssayId, content, resetSyncDocumentMutation]);
+  }, [activeEssay?.essayId, currentEssay, markLoadedEssayVersion]);
 
   useEffect(() => {
     if (!showShareDialog) {
@@ -826,8 +458,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const handleEditorContentChange = (nextContent: string) => {
     setContent(nextContent);
     setIsSaving(true);
-    // Track when user made a local edit
-    lastLocalEditTimeRef.current = Date.now();
+    markLocalEdit();
     if (saveIndicatorTimerRef.current !== null) {
       window.clearTimeout(saveIndicatorTimerRef.current);
     }

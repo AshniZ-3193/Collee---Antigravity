@@ -64,17 +64,47 @@ Collee helps students manage college essays end-to-end: onboarding, prompt strat
 
 ## Backend Architecture
 
-```
-React (Vite) <-> Clerk (Auth)
-      |              |
-      v              v
-   Convex (queries/mutations/actions + ProseMirror sync component)
-      |
-      v
- Convex DB (users/profiles/colleges/prompts/essays/versions/shares/comments/...)
-      |
-      v
- OpenAI API (story identity, strategy, suggestions, feedback)
+```text
+                               +------------------------------+
+                               |            Clerk             |
+                               |      Auth + Session JWT      |
+                               +---------------+--------------+
+                                               |
+                                               | tokenIdentifier
+                                               v
++------------------------------+      +--------+------------------------------------+
+|      Frontend (React)        |<---->|               Convex Backend                |
+| - App routes                 | RPC  |---------------------------------------------|
+| - Workspace + editor         |      | Queries/Mutations:                          |
+| - Share page (/share/:token) |      | users, userProfile, colleges, essays, shares|
++---------------+--------------+      | storyIdentity, experienceBank, personalLens |
+                |                     |                                             |
+                | public share token  | ProseMirror Sync Component:                 |
+                v                     | prosemirror.get/submitSnapshot/steps/reset  |
+ +--------------+------------------+  |                                             |
+ | Token-scoped share handlers     |  | Node Actions (AI + enrichment):             |
+ | getByToken, addComment, replies |  | generateStoryIdentity / PromptStrategy /    |
+ | updateEssayViaShare             |  | Suggestions / EssayFeedback / SchoolContent |
+ +--------------+------------------+  +------------------+--------------------------+
+                |                                         |
+                | read/write                              | API calls
+                v                                         v
+ +--------------+---------------------------------------------------+   +--------------------+
+ |                        Convex DB Tables                           |   |     OpenAI API     |
+ |-------------------------------------------------------------------|   |--------------------|
+ | Identity: users, userProfiles, storyIdentities                    |   | - story identity   |
+ | Writing: colleges, prompts, essays, essayVersions, essayExcerpts  |   | - strategies       |
+ | Sharing: shares, shareComments, shareCommentReplies               |   | - suggestions      |
+ | AI cache: globalSchools, globalSchoolContent, generationLocks     |   | - essay feedback   |
+ +--------------+---------------------------------------------------+   +----------+---------+
+                |                                                               ^
+                | school prompt/deadline enrichment                             |
+                v                                                               |
+         +------+------------------+                                            |
+         |       Exa Search API    |--------------------------------------------+
+         | sources for prompts and |
+         | application deadlines   |
+         +-------------------------+
 ```
 
 ## Rich-Text + Sync Notes
