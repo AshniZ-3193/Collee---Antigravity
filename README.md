@@ -145,3 +145,5 @@ Core tables include:
 3. In terminal 1: `npx convex dev`
 4. In terminal 2: `npm run dev`
 5. Open `http://localhost:8080`
+
+testing
