@@ -40,9 +40,10 @@ export interface Version {
 export interface ExportData {
   essayTitle: string;
   collegeName: string;
+  collegeId: string;
   wordCount: number;
   essayContent: string;
-  essayId?: string;
+  essayId: string;
 }
 
 export interface StoryExperience {

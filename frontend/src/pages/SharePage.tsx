@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import ShareViewScreen from '@/components/screens/ShareViewScreen';
@@ -11,6 +11,7 @@ import ColleeLogo from '@/components/ColleeLogo';
 
 const SharePage: React.FC = () => {
   const { token } = useParams<{ token: string }>();
+  const navigate = useNavigate();
   const shareData = useQuery(api.shares.getByToken, token ? { token } : "skip");
 
   // Loading state
@@ -22,7 +23,7 @@ const SharePage: React.FC = () => {
           animate={{ opacity: 1 }}
           className="text-center"
         >
-          <ColleeLogo size="md" />
+          <ColleeLogo size="md" onClick={() => navigate('/')} />
           <p className="text-muted-foreground mt-4">Loading essay...</p>
         </motion.div>
       </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
@@ -89,6 +90,8 @@ interface ColleeWorkspaceProps {
   onEditStoryIdentity?: () => void;
   onLogoClick?: () => void;
   onLogout?: () => void;
+  initialActiveEssay?: { collegeId: string; essayId: string } | null;
+  onInitialActiveEssayApplied?: () => void;
 }
 
 // ===== MAIN COMPONENT =====
@@ -98,6 +101,8 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   onEditStoryIdentity,
   onLogoClick,
   onLogout,
+  initialActiveEssay,
+  onInitialActiveEssayApplied,
 }) => {
   // Convex queries
   const convexColleges = useQuery(api.colleges.list, {}) ?? [];
@@ -119,6 +124,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const resolveCommentAsOwnerMutation = useMutation(api.shares.resolveCommentAsOwner);
   // ProseMirror sync reset (for external changes from share links)
   const resetSyncDocumentMutation = useMutation(api.prosemirror.resetDocument);
+  const updatePromptMutation = useMutation((api as any).colleges.updatePrompt);
 
   // Transform Convex data to match existing UI types
   const colleges: College[] = useMemo(() => {
@@ -130,7 +136,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
       essays: c.prompts.map((p: any) => ({
         id: p.essay?._id || p._id,
         promptId: p._id,
-        title: p.text.length > 50 ? p.text.substring(0, 50) + '...' : p.text,
+        title: p.text,
         prompt: p.text,
         status: (p.essay?.status || 'not-started') as Essay['status'],
         wordCount: p.essay?.wordCount || 0,
@@ -214,6 +220,11 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const [showStarterHelper, setShowStarterHelper] = useState(false);
 
   // Prompt action state
+  const [isEditingPrompt, setIsEditingPrompt] = useState(false);
+  const [editedPromptText, setEditedPromptText] = useState('');
+  const [editedWordLimit, setEditedWordLimit] = useState('');
+  const [isUpdatingPrompt, setIsUpdatingPrompt] = useState(false);
+  const [promptEditError, setPromptEditError] = useState<string | null>(null);
   const [showDeletePromptDialog, setShowDeletePromptDialog] = useState(false);
 
   // Workspace tab state: 'write' or 'personal-lens'
@@ -368,6 +379,25 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     setShowOnboarding(true);
   }, [hasCompletedOnboarding, showOnboarding, isDocumentAreaActive, setShowOnboarding]);
 
+  useEffect(() => {
+    if (!initialActiveEssay) return;
+
+    const matchesCurrent =
+      activeEssay?.collegeId === initialActiveEssay.collegeId &&
+      activeEssay?.essayId === initialActiveEssay.essayId;
+    if (!matchesCurrent) {
+      setActiveEssay(initialActiveEssay);
+      setIsEditorMinimized(false);
+      setWorkspaceTab('write');
+    }
+    onInitialActiveEssayApplied?.();
+  }, [
+    initialActiveEssay,
+    activeEssay?.collegeId,
+    activeEssay?.essayId,
+    onInitialActiveEssayApplied,
+  ]);
+
   // Load essay content when active essay changes
   useEffect(() => {
     if (currentEssay) {
@@ -394,6 +424,10 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     setSelectedExperience(null);
     setLockedExperience(null);
     setShowStarterHelper(false);
+    setIsEditingPrompt(false);
+    setEditedPromptText('');
+    setEditedWordLimit('');
+    setPromptEditError(null);
     setFeedbackResult(null);
     setFeedbackError(null);
     setStrategyError(null);
@@ -832,7 +866,57 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   // Prompt editing handlers
   const handleStartEditingPrompt = () => {
     if (!currentEssay) return;
-    // Prompt editing UI is not yet implemented; this is intentionally a no-op for now.
+    setEditedPromptText(currentEssay.prompt);
+    setEditedWordLimit(String(currentEssay.wordLimit));
+    setPromptEditError(null);
+    setIsEditingPrompt(true);
+  };
+
+  const handleCancelPromptEdit = () => {
+    setIsEditingPrompt(false);
+    setPromptEditError(null);
+  };
+
+  const handleSavePromptEdit = async () => {
+    if (!currentPromptId || !currentEssay) return;
+    const nextPromptText = editedPromptText.trim();
+    const parsedWordLimit = Number.parseInt(editedWordLimit, 10);
+
+    if (!nextPromptText) {
+      setPromptEditError('Prompt text is required.');
+      return;
+    }
+    if (!Number.isFinite(parsedWordLimit) || parsedWordLimit < 50 || parsedWordLimit > 2000) {
+      setPromptEditError('Word limit must be between 50 and 2000.');
+      return;
+    }
+
+    const unchanged =
+      nextPromptText === currentEssay.prompt && parsedWordLimit === currentEssay.wordLimit;
+    if (unchanged) {
+      setIsEditingPrompt(false);
+      setPromptEditError(null);
+      return;
+    }
+
+    setIsUpdatingPrompt(true);
+    setPromptEditError(null);
+    try {
+      await updatePromptMutation({
+        promptId: currentPromptId as Id<"prompts">,
+        text: nextPromptText,
+        wordCountMax: parsedWordLimit,
+      });
+      setIsEditingPrompt(false);
+      setFeedbackResult(null);
+      setFeedbackError(null);
+      strategyAttempts.current.delete(currentPromptId);
+    } catch (error) {
+      console.error('Failed to update prompt:', error);
+      setPromptEditError('Unable to save prompt changes right now.');
+    } finally {
+      setIsUpdatingPrompt(false);
+    }
   };
 
   const handleDeletePrompt = () => {
@@ -1325,7 +1409,9 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                   </button>
                   <div className="h-5 w-px bg-border" />
                   <div>
-                    <p className="text-body font-medium text-foreground">{currentEssay?.title}</p>
+                    <p className="text-body font-medium text-foreground line-clamp-1 max-w-[32rem]">
+                      {currentEssay?.title}
+                    </p>
                   </div>
                 </div>
 
@@ -1357,6 +1443,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                         onExport({
                           essayTitle: currentEssay.title,
                           collegeName: currentCollege.name,
+                          collegeId: currentCollege.id,
                           wordCount: wordCount,
                           essayContent: stripRichTextFormatting(content),
                           essayId: currentEssay.id,
@@ -1692,29 +1779,82 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                       <div className="max-w-2xl mx-auto">
                         {/* Prompt Display - Above Editor */}
                         <div className="mb-6 p-4 rounded-xl bg-muted/30 border border-border">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <FileText className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Prompt</span>
+                          {!isEditingPrompt ? (
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <FileText className="w-4 h-4 text-muted-foreground" />
+                                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                    Prompt
+                                  </span>
+                                </div>
+                                <p className="text-body text-foreground leading-relaxed">
+                                  {currentEssay?.prompt}
+                                </p>
                               </div>
-                              <p className="text-body text-foreground leading-relaxed">
-                                {currentEssay?.prompt}
-                              </p>
+                              <div className="flex-shrink-0 flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+                                  {currentEssay?.wordLimit} words max
+                                </span>
+                                <button
+                                  onClick={handleStartEditingPrompt}
+                                  className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                  title="Edit prompt"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex-shrink-0 flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-                                {currentEssay?.wordLimit} words max
-                              </span>
-                              <button
-                                onClick={handleStartEditingPrompt}
-                                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                title="Edit prompt"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
+                          ) : (
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                  Edit Prompt
+                                </span>
+                              </div>
+                              <Textarea
+                                value={editedPromptText}
+                                onChange={(e) => setEditedPromptText(e.target.value)}
+                                className="min-h-[88px] resize-y"
+                                placeholder="Enter the essay prompt"
+                              />
+                              <div className="flex items-end gap-3">
+                                <div className="w-40">
+                                  <label className="text-xs text-muted-foreground">Word limit</label>
+                                  <Input
+                                    type="number"
+                                    min={50}
+                                    max={2000}
+                                    value={editedWordLimit}
+                                    onChange={(e) => setEditedWordLimit(e.target.value)}
+                                    className="h-9 mt-1"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2 ml-auto">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleCancelPromptEdit}
+                                    disabled={isUpdatingPrompt}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    variant="collee"
+                                    size="sm"
+                                    onClick={handleSavePromptEdit}
+                                    disabled={isUpdatingPrompt}
+                                  >
+                                    {isUpdatingPrompt ? 'Saving...' : 'Save'}
+                                  </Button>
+                                </div>
+                              </div>
+                              {promptEditError && (
+                                <p className="text-xs text-destructive">{promptEditError}</p>
+                              )}
                             </div>
-                          </div>
+                          )}
                         </div>
                         <AnimatePresence>
                           {insertedReferences.map((ref) => (
@@ -1896,7 +2036,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
 
       {/* Onboarding Walkthrough */}
       <OnboardingWalkthrough
-        isOpen={showOnboarding && isDocumentAreaActive}
+        isOpen={showOnboarding}
         onClose={() => setShowOnboarding(false)}
         onComplete={completeOnboarding}
       />

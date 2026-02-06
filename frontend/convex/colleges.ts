@@ -200,3 +200,61 @@ export const remove = mutation({
     await ctx.db.delete(args.id);
   },
 });
+
+export const updatePrompt = mutation({
+  args: {
+    promptId: v.id("prompts"),
+    text: v.string(),
+    wordCountMax: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+
+    const prompt = await ctx.db.get(args.promptId);
+    if (!prompt || prompt.userId !== userId) {
+      throw new Error("Prompt not found");
+    }
+
+    const nextText = args.text.trim();
+    const nextWordLimit = Math.max(50, Math.floor(args.wordCountMax));
+    if (!nextText) {
+      throw new Error("Prompt text is required");
+    }
+
+    await ctx.db.patch(args.promptId, {
+      text: nextText,
+      wordCountMax: nextWordLimit,
+    });
+
+    const essay = await ctx.db
+      .query("essays")
+      .withIndex("by_prompt", (q) => q.eq("promptId", args.promptId))
+      .unique();
+
+    if (essay) {
+      let status: "not-started" | "in-progress" | "complete" = "in-progress";
+      if (essay.wordCount === 0) {
+        status = "not-started";
+      } else if (essay.wordCount >= nextWordLimit * 0.9) {
+        status = "complete";
+      }
+
+      if (status !== essay.status) {
+        await ctx.db.patch(essay._id, {
+          status,
+          lastUpdated: Date.now(),
+        });
+      }
+    }
+
+    const existingStrategy = await ctx.db
+      .query("promptStrategies")
+      .withIndex("by_prompt", (q) => q.eq("promptId", args.promptId))
+      .unique();
+    if (existingStrategy) {
+      await ctx.db.delete(existingStrategy._id);
+    }
+
+    return { success: true };
+  },
+});

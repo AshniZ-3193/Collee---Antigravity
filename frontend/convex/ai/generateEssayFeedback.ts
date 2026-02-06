@@ -18,6 +18,15 @@ export const generate = action({
     // Get essay and prompt
     const essay = await ctx.runQuery(api.essays.get, { essayId: args.essayId });
     if (!essay) throw new Error("Essay not found");
+    const colleges = await ctx.runQuery(api.colleges.list, { userId: user._id });
+    const promptMatch = colleges
+      ?.flatMap((college: any) =>
+        (college.prompts || []).map((prompt: any) => ({
+          ...prompt,
+          collegeName: college.name,
+        }))
+      )
+      .find((prompt: any) => prompt._id === essay.promptId);
 
     const storyIdentity = await ctx.runQuery(api.storyIdentity.get, {
       userId: user._id,
@@ -27,6 +36,15 @@ export const generate = action({
     const context = `
 ESSAY CONTENT:
 ${plainEssayContent}
+
+PROMPT (anchor all feedback to this exact prompt):
+${promptMatch?.text || "N/A"}
+
+WORD LIMIT:
+${promptMatch?.wordCountMax ?? "N/A"}
+
+COLLEGE:
+${promptMatch?.collegeName || "N/A"}
 
 FEEDBACK TYPE REQUESTED: ${args.feedbackType}
 
@@ -47,7 +65,7 @@ STUDENT'S STORY ANGLE: ${storyIdentity?.angle || "N/A"}
         { role: "user", content: context },
       ],
       response_format: { type: "json_object" },
-      temperature: 0.7,
+      temperature: 0.3,
     });
 
     const responseText = completion.choices[0]?.message?.content;

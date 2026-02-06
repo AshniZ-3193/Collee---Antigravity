@@ -209,7 +209,7 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
           transition={{ duration: 0.2 }}
         >
           {/* Overlay */}
-          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-[2px]" />
+          <div className="absolute inset-0 bg-foreground/25 backdrop-blur-[1px]" />
 
           {/* Highlight cutout effect */}
           <motion.div
