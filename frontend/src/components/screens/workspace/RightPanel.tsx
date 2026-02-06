@@ -154,6 +154,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
     <AnimatePresence>
       {show && (
         <motion.aside
+          data-tour="context-panel"
           className="w-80 border-l border-border bg-card/50 flex-shrink-0 overflow-y-auto hidden lg:block"
           initial={{ opacity: 0, width: 0 }}
           animate={{ opacity: 1, width: 320 }}
@@ -176,6 +177,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                         </p>
                         <button
                           onClick={() => onDismissSuggestion(suggestion.id)}
+                          data-tour="dismiss-suggestion"
                           className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
                           title="Dismiss suggestion"
                         >
@@ -405,6 +407,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                                 e.stopPropagation();
                                 onDismissExperienceSuggestion(experience.id);
                               }}
+                              data-tour="dismiss-suggestion"
                               className="absolute top-2 right-2 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100 z-10"
                               title="Dismiss suggestion"
                             >

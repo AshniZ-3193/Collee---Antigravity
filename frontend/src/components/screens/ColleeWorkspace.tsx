@@ -939,10 +939,12 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
       <header className="h-12 bg-card/80 backdrop-blur-md shadow-sm flex-shrink-0 z-30 relative">
         <div className="h-full px-4 flex items-center justify-between">
           {/* Left: LaunchPad logo/name - clicking returns to dashboard */}
-          <ColleeLogo
-            size="sm"
-            onClick={handleLogoClick}
-          />
+          <div data-tour="logo-button">
+            <ColleeLogo
+              size="sm"
+              onClick={handleLogoClick}
+            />
+          </div>
 
           {/* Center: Context label (only when writing) */}
           {activeEssay && currentCollege && !isEditorMinimized && (
@@ -999,6 +1001,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
         <AnimatePresence initial={false}>
           {(showLeftPanel || isEditorMinimized || !activeEssay) && (
             <motion.aside
+              data-tour="colleges-panel"
               className={`border-r border-border bg-card/50 flex flex-col overflow-hidden ${isEditorMinimized || !activeEssay ? 'flex-1' : 'w-80 flex-shrink-0'
                 }`}
               initial={{ width: 0, opacity: 0 }}
@@ -1031,7 +1034,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                   </div>
                   <div className="flex items-center gap-1">
                     {/* View Mode Toggle */}
-                    <div className="flex items-center bg-muted rounded-lg p-0.5 mr-1">
+                    <div data-tour="calendar-toggle" className="flex items-center bg-muted rounded-lg p-0.5 mr-1">
                       <button
                         onClick={() => setViewMode('cards')}
                         className={`p-1.5 rounded-md transition-colors ${viewMode === 'cards'
@@ -1240,6 +1243,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                               <Button
                                 variant="collee"
                                 size="sm"
+                                data-tour="college-card"
                                 onClick={() => {
                                   toggleCollegeExpanded(college.id);
                                   // Select first essay and open editor
@@ -1257,6 +1261,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                             // Compact Sidebar View (when editor is open)
                             <>
                               <button
+                                data-tour="college-card"
                                 onClick={() => toggleCollegeExpanded(college.id)}
                                 className="w-full p-3 text-left hover:bg-muted/50 hover:shadow-soft transition-all"
                               >
@@ -1397,6 +1402,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                 <div className="flex items-center gap-3">
                   {/* Back to colleges button - prominent and clear */}
                   <button
+                    data-tour="back-to-colleges"
                     onClick={() => {
                       setActiveEssay(null);
                       setIsEditorMinimized(false);
@@ -1478,6 +1484,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                     </TabsTrigger>
                     <TabsTrigger
                       value="personal-lens"
+                      data-tour="personal-lens-tab"
                       className="bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 pb-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary text-muted-foreground data-[state=active]:text-foreground"
                     >
                       <Heart className="w-4 h-4 mr-1.5" />
@@ -1761,6 +1768,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                           Select text, then format.
                         </p>
                         <button
+                          data-tour="show-guidance-button"
                           onClick={() => setShowRightPanel(!showRightPanel)}
                           className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
                           title={showRightPanel ? 'Hide guidance' : 'Show guidance'}
@@ -1778,7 +1786,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                     <div className="flex-1 overflow-y-auto px-6 py-8">
                       <div className="max-w-2xl mx-auto">
                         {/* Prompt Display - Above Editor */}
-                        <div className="mb-6 p-4 rounded-xl bg-muted/30 border border-border">
+                        <div data-tour="prompt-above-editor" className="mb-6 p-4 rounded-xl bg-muted/30 border border-border">
                           {!isEditingPrompt ? (
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex-1">
@@ -1918,14 +1926,16 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                         </AnimatePresence>
 
                         {currentEssayId && (
-                          <SyncEssayEditor
-                            key={`${currentEssayId}-${editorSyncKey}`}
-                            essayId={currentEssayId}
-                            initialStoredContent={currentEssay?.content ?? content}
-                            onStoredContentChange={handleEditorContentChange}
-                            onFormatsChange={setActiveFormats}
-                            onEditorChange={setEditorInstance}
-                          />
+                          <div data-tour="essay-editor">
+                            <SyncEssayEditor
+                              key={`${currentEssayId}-${editorSyncKey}`}
+                              essayId={currentEssayId}
+                              initialStoredContent={currentEssay?.content ?? content}
+                              onStoredContentChange={handleEditorContentChange}
+                              onFormatsChange={setActiveFormats}
+                              onEditorChange={setEditorInstance}
+                            />
+                          </div>
                         )}
                       </div>
                     </div>
