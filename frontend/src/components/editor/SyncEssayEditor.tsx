@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useCallback } from "react";
 import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
+import { useConvexAuth } from "convex/react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -43,7 +44,7 @@ const isSnapshotConflictError = (error: unknown) => {
   return message.includes("already exists with different content");
 };
 
-const SyncEssayEditor: React.FC<SyncEssayEditorProps> = ({
+const SyncEssayEditorInner: React.FC<SyncEssayEditorProps> = ({
   essayId,
   initialStoredContent,
   onStoredContentChange,
@@ -178,6 +179,27 @@ const SyncEssayEditor: React.FC<SyncEssayEditorProps> = ({
       ) : null}
     </div>
   );
+};
+
+const SyncEssayEditor: React.FC<SyncEssayEditorProps> = (props) => {
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const { onEditorChange, onFormatsChange } = props;
+
+  useEffect(() => {
+    if (isLoading || isAuthenticated) return;
+    onEditorChange(null);
+    onFormatsChange(EMPTY_FORMATS);
+  }, [isAuthenticated, isLoading, onEditorChange, onFormatsChange]);
+
+  if (isLoading || !isAuthenticated) {
+    return (
+      <div className="w-full min-h-[380px] rounded-2xl border border-border bg-background">
+        <div className="p-6 text-sm text-muted-foreground">Preparing editor...</div>
+      </div>
+    );
+  }
+
+  return <SyncEssayEditorInner {...props} />;
 };
 
 export default SyncEssayEditor;

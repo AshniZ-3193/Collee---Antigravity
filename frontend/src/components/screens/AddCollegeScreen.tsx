@@ -13,6 +13,7 @@ import {
 import { ArrowLeft, Search, Check, GraduationCap, Plus, Trash2, FileText, X, Eye, EyeOff } from 'lucide-react';
 import ColleeLayout from '@/components/ColleeLayout';
 import ColleeLogo from '@/components/ColleeLogo';
+import { PROMPT_TYPES } from '@/lib/promptTypes';
 import { useMutation, useAction, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 
@@ -119,16 +120,6 @@ const normalizeApplicationTypes = (items: Array<{ label?: string; deadline?: str
       return true;
     });
 };
-
-const promptTypes = [
-  { value: 'contribution', label: 'Contribution' },
-  { value: 'why-major', label: 'Why Major' },
-  { value: 'why-college', label: 'Why This College' },
-  { value: 'extracurricular', label: 'Extracurricular' },
-  { value: 'identity', label: 'Identity' },
-  { value: 'challenge', label: 'Challenge/Setback' },
-  { value: 'other', label: 'Other' },
-];
 
 const majorKeywordGroups = [
   {
@@ -1523,7 +1514,7 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
                         <SelectValue placeholder="Select type..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {promptTypes.map((type) => (
+                        {PROMPT_TYPES.map((type) => (
                           <SelectItem key={type.value} value={type.value}>
                             {type.label}
                           </SelectItem>
