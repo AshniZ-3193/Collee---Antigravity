@@ -57,6 +57,7 @@ import {
   parseStoredRichTextToDoc,
   stripRichTextFormatting,
 } from '@/lib/richText';
+import { getEssaySyncDocumentId } from '@/lib/prosemirrorSync';
 import type { Editor } from '@tiptap/react';
 import SyncEssayEditor, {
   type ActiveRichTextFormats,
@@ -68,6 +69,17 @@ import RightPanel from './workspace/RightPanel';
 import ShareDialog from './workspace/ShareDialog';
 import DeletePromptDialog from './workspace/DeletePromptDialog';
 import VersionHistoryDrawer from './workspace/VersionHistoryDrawer';
+import {
+  buildExperienceIndex,
+  buildExperienceUsageMap,
+  filterStoredFeedbackByType,
+  mapCollegesFromConvex,
+  mapExperienceSuggestions,
+  mapPersonalLensNotesFromConvex,
+  mapSmartReuseExcerpts,
+  mapVersionsForDisplay,
+  type StoredFeedbackEntry,
+} from './workspace/dataTransforms';
 import {
   type College,
   type Essay,
@@ -83,6 +95,10 @@ import {
 } from './workspace/types';
 import { getEssaySnapshot, getStatusDot, isDeadlineApproaching } from './workspace/utils';
 import { useEssaySync } from './workspace/useEssaySync';
+import { usePersonalLensTabState } from './workspace/usePersonalLensTabState';
+import { useWriteTabState } from './workspace/useWriteTabState';
+import PersonalLensWorkspace from './workspace/PersonalLensWorkspace';
+import WriteWorkspace from './workspace/WriteWorkspace';
 
 interface ColleeWorkspaceProps {
   onAddCollege: () => void;
@@ -105,9 +121,9 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   onInitialActiveEssayApplied,
 }) => {
   // Convex queries
-  const convexColleges = useQuery(api.colleges.list, {}) ?? [];
+  const convexCollegesResult = useQuery(api.colleges.list, {});
   const storyIdentityData = useQuery(api.storyIdentity.get, {});
-  const convexLensNotes = useQuery(api.personalLens.list, {}) ?? [];
+  const convexLensNotesResult = useQuery(api.personalLens.list, {});
   const addLensNoteMutation = useMutation(api.personalLens.add);
   const updateLensNoteMutation = useMutation(api.personalLens.update);
   const deleteLensNoteMutation = useMutation(api.personalLens.remove);
@@ -117,57 +133,27 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const generateEssayFeedbackAction = useAction(api.ai.generateEssayFeedback.generate);
   const restoreVersionMutation = useMutation(api.essays.restoreVersion);
   const addExperienceUsageMutation = useMutation(api.experienceBank.addUsage);
-  const experienceUsages = useQuery(api.experienceBank.getUsages) ?? [];
+  const experienceUsagesResult = useQuery(api.experienceBank.getUsages);
   
   // Comments from reviewers
   const addOwnerReplyMutation = useMutation(api.shares.addOwnerReply);
   const resolveCommentAsOwnerMutation = useMutation(api.shares.resolveCommentAsOwner);
   // ProseMirror sync reset (for external changes from share links)
   const resetSyncDocumentMutation = useMutation(api.prosemirror.resetDocument);
-  const updatePromptMutation = useMutation((api as any).colleges.updatePrompt);
+  const updatePromptMutation = useMutation(api.colleges.updatePrompt);
 
   // Transform Convex data to match existing UI types
   const colleges: College[] = useMemo(() => {
-    return convexColleges.map((c: any) => ({
-      id: c._id,
-      name: c.name,
-      applicationType: c.applicationType,
-      deadline: c.deadline,
-      essays: c.prompts.map((p: any) => ({
-        id: p.essay?._id || p._id,
-        promptId: p._id,
-        title: p.text,
-        prompt: p.text,
-        status: (p.essay?.status || 'not-started') as Essay['status'],
-        wordCount: p.essay?.wordCount || 0,
-        wordLimit: p.wordCountMax,
-        content: p.essay?.content || '',
-        promptType: p.promptType,
-        lastUpdated: p.essay?.lastUpdated,
-      })),
-    }));
-  }, [convexColleges]);
+    return mapCollegesFromConvex(convexCollegesResult);
+  }, [convexCollegesResult]);
 
   const experienceIndex = useMemo(() => {
-    const map = new Map<string, { name: string; tags: string[] }>();
-    (storyIdentityData?.experiences || []).forEach((experience: any) => {
-      map.set(experience._id, {
-        name: experience.name,
-        tags: experience.tags,
-      });
-    });
-    return map;
+    return buildExperienceIndex(storyIdentityData);
   }, [storyIdentityData]);
 
   const experienceUsageMap = useMemo(() => {
-    const map = new Map<string, string[]>();
-    experienceUsages.forEach((usage: any) => {
-      const current = map.get(usage.experienceId) ?? [];
-      current.push(usage.essayId);
-      map.set(usage.experienceId, current);
-    });
-    return map;
-  }, [experienceUsages]);
+    return buildExperienceUsageMap(experienceUsagesResult);
+  }, [experienceUsagesResult]);
 
   // State
   const [expandedColleges, setExpandedColleges] = useState<Set<string>>(new Set());
@@ -199,53 +185,72 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const [isCreatingShare, setIsCreatingShare] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const [isEditorMinimized, setIsEditorMinimized] = useState(false);
-  const [selectedExperience, setSelectedExperience] = useState<string | null>(null);
-  const [lockedExperience, setLockedExperience] = useState<string | null>(null);
   const strategyAttempts = useRef<Set<string>>(new Set());
   const deferredOnboardingRef = useRef(false);
-  const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
-  const [strategyError, setStrategyError] = useState<string | null>(null);
-  const [feedbackType, setFeedbackType] = useState<FeedbackType>('overall');
-  const [feedbackResult, setFeedbackResult] = useState<any | null>(null);
-  const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
-  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [previewVersion, setPreviewVersion] = useState<Version | null>(null);
-
-  // Smart Reuse state
-  const [excerptUsages, setExcerptUsages] = useState<ExcerptUsageRecord[]>([]);
-  const [dismissedExcerpts, setDismissedExcerpts] = useState<Set<string>>(new Set());
-  const [insertedReferences, setInsertedReferences] = useState<{ id: string; excerptId: string; text: string; sourceName: string }[]>([]);
-
-  // Starter text state - tracks when starter sentences were added
-  const [showStarterHelper, setShowStarterHelper] = useState(false);
-
-  // Prompt action state
-  const [isEditingPrompt, setIsEditingPrompt] = useState(false);
-  const [editedPromptText, setEditedPromptText] = useState('');
-  const [editedWordLimit, setEditedWordLimit] = useState('');
-  const [isUpdatingPrompt, setIsUpdatingPrompt] = useState(false);
-  const [promptEditError, setPromptEditError] = useState<string | null>(null);
   const [showDeletePromptDialog, setShowDeletePromptDialog] = useState(false);
 
   // Workspace tab state: 'write' or 'personal-lens'
   const [workspaceTab, setWorkspaceTab] = useState<'write' | 'personal-lens'>('write');
 
+  const {
+    newNoteContent,
+    setNewNoteContent,
+    newNoteCategory,
+    setNewNoteCategory,
+    editingNoteId,
+    setEditingNoteId,
+    editingNoteContent,
+    setEditingNoteContent,
+    generatedSuggestions,
+    setGeneratedSuggestions,
+    dismissedSuggestions,
+    setDismissedSuggestions,
+    resetForEssayChange: resetPersonalLensForEssayChange,
+  } = usePersonalLensTabState();
+
+  const {
+    selectedExperience,
+    setSelectedExperience,
+    lockedExperience,
+    setLockedExperience,
+    showStarterHelper,
+    setShowStarterHelper,
+    excerptUsages,
+    setExcerptUsages,
+    dismissedExcerpts,
+    setDismissedExcerpts,
+    insertedReferences,
+    setInsertedReferences,
+    isEditingPrompt,
+    setIsEditingPrompt,
+    editedPromptText,
+    setEditedPromptText,
+    editedWordLimit,
+    setEditedWordLimit,
+    isUpdatingPrompt,
+    setIsUpdatingPrompt,
+    promptEditError,
+    setPromptEditError,
+    isGeneratingStrategy,
+    setIsGeneratingStrategy,
+    strategyError,
+    setStrategyError,
+    feedbackType,
+    setFeedbackType,
+    feedbackResult,
+    setFeedbackResult,
+    isGeneratingFeedback,
+    setIsGeneratingFeedback,
+    feedbackError,
+    setFeedbackError,
+    resetForEssayChange: resetWriteTabForEssayChange,
+  } = useWriteTabState();
+
   // Personal Lens notes - from Convex
   const personalLensNotes: PersonalLensNote[] = useMemo(() => {
-    return convexLensNotes.map((n: any) => ({
-      id: n._id,
-      content: n.content,
-      category: n.category as PersonalLensNote['category'],
-      createdAt: new Date(n._creationTime),
-    }));
-  }, [convexLensNotes]);
-  const [newNoteContent, setNewNoteContent] = useState('');
-  const [newNoteCategory, setNewNoteCategory] = useState<PersonalLensNote['category']>('moment');
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editingNoteContent, setEditingNoteContent] = useState('');
-
-  const [generatedSuggestions, setGeneratedSuggestions] = useState<GeneratedSuggestion[]>([]);
-  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
+    return mapPersonalLensNotesFromConvex(convexLensNotesResult);
+  }, [convexLensNotesResult]);
 
   // Calendar view state
   const [viewMode, setViewMode] = useState<'cards' | 'calendar'>('cards');
@@ -262,24 +267,29 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const currentCollege = activeEssay ? colleges.find(c => c.id === activeEssay.collegeId) : null;
   const currentEssay = currentCollege?.essays.find(e => e.id === activeEssay?.essayId);
   const currentEssayId = currentEssay?.id;
+  const currentEssaySyncGeneration = currentEssay?.syncGeneration ?? 0;
+  const currentSyncDocumentId = currentEssayId
+    ? getEssaySyncDocumentId(currentEssayId, currentEssaySyncGeneration)
+    : undefined;
   const currentPromptId = currentEssay?.promptId;
   const isDocumentAreaActive = Boolean(activeEssay && currentEssay && !isEditorMinimized);
   const promptStrategy = useQuery(
     api.ai.promptStrategy.getForPrompt,
     currentPromptId ? { promptId: currentPromptId as Id<"prompts"> } : "skip"
   );
-  const reuseSuggestions = useQuery(
+  const reuseSuggestionsResult = useQuery(
     api.experienceBank.getReuseSuggestions,
     currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
-  ) ?? [];
-  const essayVersions = useQuery(
+  );
+  const reuseSuggestions = useMemo(() => reuseSuggestionsResult ?? [], [reuseSuggestionsResult]);
+  const essayVersionsResult = useQuery(
     api.essays.getVersions,
     currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
-  ) ?? [];
-  const essayFeedback = useQuery(
+  );
+  const essayFeedbackResult = useQuery(
     api.ai.essayFeedback.getForEssay,
     currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
-  ) ?? [];
+  );
   const reviewerComments = useQuery(
     api.shares.getCommentsForEssay,
     currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
@@ -287,8 +297,9 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const wordLimit = currentEssay?.wordLimit || 650;
   const wordCount = countRichTextWords(content);
   const isOverLimit = wordCount > wordLimit;
-  const { editorSyncKey, markLocalEdit, markLoadedEssayVersion } = useEssaySync({
-    currentEssayId,
+  const { editorSyncKey, hasPendingExternalReset, markLocalEdit, markLoadedEssayVersion } = useEssaySync({
+    currentSyncDocumentId,
+    currentSyncGeneration: currentEssaySyncGeneration,
     essayContent: currentEssay?.content,
     essayLastUpdated: currentEssay?.lastUpdated,
     localContent: content,
@@ -297,56 +308,17 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   });
 
   const experienceSuggestions: (StoryExperience & { guidance: PromptFitGuidance })[] = useMemo(() => {
-    if (!promptStrategy?.experienceMatches) return [];
-    return promptStrategy.experienceMatches.map((match: any) => {
-      const experience = experienceIndex.get(match.experienceId);
-      const usedIn = experienceUsageMap.get(match.experienceId) ?? [];
-      return {
-        id: match.experienceId,
-        name: experience?.name || match.experienceName || "Experience",
-        tags: experience?.tags || [],
-        usedIn,
-        guidance: {
-          matchStrength: match.matchStrength || 'moderate',
-          whyItFits: match.whyItFits || '',
-          framingTips: match.framingTips || [],
-          caution: match.caution,
-          startWith: match.startWith,
-          focusOn: match.focusOn,
-          avoidFocus: match.avoidFocus,
-          starterSentences: match.starterSentences,
-        },
-      };
-    });
+    return mapExperienceSuggestions(promptStrategy, experienceIndex, experienceUsageMap);
   }, [promptStrategy, experienceIndex, experienceUsageMap]);
 
   const versionsForDisplay: Version[] = useMemo(() => {
-    return essayVersions.map((version: any) => {
-      const plainVersionContent = stripRichTextFormatting(version.content ?? "");
-      const previewText = plainVersionContent.length > 120
-        ? `${plainVersionContent.substring(0, 120)}...`
-        : plainVersionContent;
-      const timestamp = new Date(version.timestamp).toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      });
-      return {
-        id: version._id,
-        timestamp,
-        wordCount: version.wordCount,
-        preview: previewText,
-        content: version.content,
-        isCurrent: version.content === currentEssay?.content,
-      };
-    });
-  }, [essayVersions, currentEssay?.content]);
+    return mapVersionsForDisplay(essayVersionsResult, currentEssay?.content);
+  }, [essayVersionsResult, currentEssay?.content]);
 
-  const feedbackForType = useMemo(() => {
-    if (!essayFeedback) return [];
-    return essayFeedback.filter((entry: any) => entry.feedbackType === feedbackType);
-  }, [essayFeedback, feedbackType]);
+  const feedbackForType: StoredFeedbackEntry[] = useMemo(
+    () => filterStoredFeedbackByType(essayFeedbackResult, feedbackType),
+    [essayFeedbackResult, feedbackType],
+  );
 
   const parsedStoredFeedback = useMemo(() => {
     if (!feedbackForType || feedbackForType.length === 0) return null;
@@ -421,20 +393,11 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   }, [showShareDialog]);
 
   useEffect(() => {
-    setSelectedExperience(null);
-    setLockedExperience(null);
-    setShowStarterHelper(false);
-    setIsEditingPrompt(false);
-    setEditedPromptText('');
-    setEditedWordLimit('');
-    setPromptEditError(null);
-    setFeedbackResult(null);
-    setFeedbackError(null);
-    setStrategyError(null);
+    resetWriteTabForEssayChange();
+    resetPersonalLensForEssayChange();
     setPreviewVersion(null);
-    setGeneratedSuggestions([]);
     setEditorInstance(null);
-  }, [currentEssayId]);
+  }, [currentEssayId, resetWriteTabForEssayChange, resetPersonalLensForEssayChange]);
 
   useEffect(() => {
     if (!currentPromptId) return;
@@ -453,12 +416,18 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
       .finally(() => {
         setIsGeneratingStrategy(false);
       });
-  }, [currentPromptId, promptStrategy, generatePromptStrategyAction]);
+  }, [
+    currentPromptId,
+    promptStrategy,
+    generatePromptStrategyAction,
+    setIsGeneratingStrategy,
+    setStrategyError,
+  ]);
 
   useEffect(() => {
     setFeedbackResult(null);
     setFeedbackError(null);
-  }, [feedbackType]);
+  }, [feedbackType, setFeedbackError, setFeedbackResult]);
 
   useEffect(() => {
     return () => {
@@ -614,82 +583,16 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     setIsEditorMinimized(false);
   };
 
-  // Smart Reuse: Get matching excerpts for current prompt (cross-school only)
-  const getSmartReuseExcerpts = () => {
+  const smartReuseExcerpts: ReusableExcerpt[] = useMemo(() => {
     if (!currentEssay || !currentCollege) return [];
-    const themeLabels: Record<string, string> = {
-      responsibility: 'responsibility',
-      impact: 'meaningful impact',
-      decision: 'decision-making',
-      growth: 'personal growth',
-      failure: 'learning from setbacks',
-      resilience: 'resilience',
-      leadership: 'leadership',
-      challenge: 'facing challenges',
-      setback: 'overcoming setbacks',
-      community: 'community focus',
-      contribution: 'contribution',
-      purpose: 'sense of purpose',
-      intellectual: 'intellectual curiosity',
-      curiosity: 'curiosity',
-      interdisciplinary: 'interdisciplinary thinking',
-      identity: 'identity',
-      culture: 'culture',
-      service: 'service',
-      family: 'family',
-      values: 'values',
-    };
-
-    return reuseSuggestions
-      .filter((suggestion: any) => {
-        if (dismissedExcerpts.has(`${suggestion.excerptId}-${currentEssay.id}`)) return false;
-        return true;
-      })
-      .map((suggestion: any) => {
-        const sameSchoolReuse = excerptUsages.find(u =>
-          u.excerptId === suggestion.excerptId &&
-          u.targetCollegeId === currentCollege.id &&
-          u.targetEssayId !== currentEssay.id
-        );
-
-        const overlapThemes = suggestion.overlapThemes || [];
-        const hasSamePromptType = !!suggestion.matchesSamePromptType;
-        let whyItWorks = "This excerpt aligns with the prompt themes you're working with.";
-
-        if (hasSamePromptType) {
-          whyItWorks = `This is from another "${suggestion.promptType === 'why-college' ? 'Why This School' : suggestion.promptType}" essay. The framing and insights may transfer well.`;
-        } else if (overlapThemes.length > 0) {
-          const descriptions = overlapThemes.slice(0, 2).map((t: string) => themeLabels[t] || t);
-          whyItWorks = descriptions.length === 1
-            ? `This excerpt reflects ${descriptions[0]}, which aligns with what this prompt is asking.`
-            : `This excerpt reflects ${descriptions.join(' and ')}, which aligns with what this prompt is asking.`;
-        }
-
-        return {
-          id: suggestion.excerptId,
-          sourceEssayId: suggestion.sourceEssayId,
-          sourceEssayTitle: suggestion.sourceEssayTitle,
-          sourceCollegeId: suggestion.sourceCollegeId,
-          sourceCollegeName: suggestion.sourceCollegeName,
-          excerpt: suggestion.excerpt,
-          themes: suggestion.themes || [],
-          promptType: suggestion.promptType,
-          overlapThemes,
-          matchesSamePromptType: hasSamePromptType,
-          whyItWorks,
-          sameSchoolWarning: sameSchoolReuse
-            ? `You've already reused a similar passage for "${sameSchoolReuse.targetEssayTitle}". Consider focusing on a different moment or insight here.`
-            : undefined,
-        } as ReusableExcerpt;
-      })
-      .sort((a, b) => {
-        if (a.matchesSamePromptType && !b.matchesSamePromptType) return -1;
-        if (!a.matchesSamePromptType && b.matchesSamePromptType) return 1;
-        if (a.sameSchoolWarning && !b.sameSchoolWarning) return 1;
-        if (!a.sameSchoolWarning && b.sameSchoolWarning) return -1;
-        return 0;
-      });
-  };
+    return mapSmartReuseExcerpts({
+      reuseSuggestions,
+      dismissedExcerpts,
+      currentEssayId: currentEssay.id,
+      currentCollegeId: currentCollege.id,
+      excerptUsages,
+    });
+  }, [currentEssay, currentCollege, reuseSuggestions, dismissedExcerpts, excerptUsages]);
 
   // Handle inserting excerpt as reference
   const handleInsertAsReference = (excerpt: ReusableExcerpt) => {
@@ -856,8 +759,6 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     }
   };
 
-  // Get Smart Reuse suggestions
-  const smartReuseExcerpts = getSmartReuseExcerpts();
   // Show smart reuse when there are suggestions (for essays with same prompt type, we show early)
   const hasWrittenContent = stripRichTextFormatting(content).trim().length > 50;
   const hasSameTypeExcerpts = smartReuseExcerpts.some(e => e.matchesSamePromptType);
@@ -1498,512 +1399,108 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
               </div>
             </motion.header>
 
-            {/* Main Content Area - Switch between Write and Personal Lens */}
-            <div className="flex-1 flex overflow-hidden">
-              {/* PERSONAL LENS TAB CONTENT */}
-              {workspaceTab === 'personal-lens' && (
-                <main className="flex-1 flex flex-col overflow-hidden">
-                  <div className="flex-1 overflow-y-auto px-6 py-8">
-                    <div className="max-w-2xl mx-auto">
-                      {/* Personal Lens Header */}
-                      <div className="mb-8">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                            <Heart className="w-5 h-5 text-primary" />
-                          </div>
-                          <div>
-                            <h2 className="text-heading-sm text-foreground">Personal Lens</h2>
-                            <p className="text-body-sm text-muted-foreground">What makes your story yours</p>
-                          </div>
-                        </div>
+	            {/* Main Content Area - Switch between Write and Personal Lens */}
+	            <div className="flex-1 flex overflow-hidden">
+	              {workspaceTab === 'personal-lens' && (
+	                <PersonalLensWorkspace
+	                  personalLensNotes={personalLensNotes}
+	                  newNoteContent={newNoteContent}
+	                  newNoteCategory={newNoteCategory}
+	                  editingNoteId={editingNoteId}
+	                  editingNoteContent={editingNoteContent}
+	                  generatedSuggestions={generatedSuggestions}
+	                  getCategoryLabel={getCategoryLabel}
+	                  onNewNoteCategoryChange={setNewNoteCategory}
+	                  onNewNoteContentChange={setNewNoteContent}
+	                  onAddNote={handleAddPersonalLensNote}
+	                  onEditNote={handleEditPersonalLensNote}
+	                  onDeleteNote={handleDeletePersonalLensNote}
+	                  onEditingNoteContentChange={setEditingNoteContent}
+	                  onCancelEdit={() => {
+	                    setEditingNoteId(null);
+	                    setEditingNoteContent('');
+	                  }}
+	                  onSaveEditedNote={handleSaveEditedNote}
+	                  onGenerateSuggestions={(note) => void handleGenerateSuggestionsFromNote(note)}
+	                />
+	              )}
 
-                        {/* Value proposition - calm framing */}
-                        <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
-                          <p className="text-body-sm text-foreground leading-relaxed">
-                            The more you share here, the more personal and specific your story suggestions will be.
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            These notes are optional. Add what feels right — there's no wrong answer.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Add New Note */}
-                      <div className="mb-8 p-4 rounded-xl border border-border bg-card">
-                        <div className="flex items-center gap-2 mb-3">
-                          <Plus className="w-4 h-4 text-primary" />
-                          <span className="text-body-sm font-medium text-foreground">Add a note</span>
-                        </div>
-
-                        {/* Category Selection */}
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {PERSONAL_LENS_CATEGORIES.map(cat => (
-                            <button
-                              key={cat.value}
-                              onClick={() => setNewNoteCategory(cat.value as PersonalLensNote['category'])}
-                              className={`px-3 py-1.5 rounded-full text-xs transition-colors ${newNoteCategory === cat.value
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                }`}
-                            >
-                              {cat.label}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Note Input */}
-                        <Textarea
-                          value={newNoteContent}
-                          onChange={(e) => setNewNoteContent(e.target.value)}
-                          placeholder={PERSONAL_LENS_CATEGORIES.find(c => c.value === newNoteCategory)?.placeholder || 'Write a short note...'}
-                          className="min-h-[80px] resize-none mb-3"
-                        />
-
-                        <div className="flex justify-end">
-                          <Button
-                            variant="collee"
-                            size="sm"
-                            onClick={handleAddPersonalLensNote}
-                            disabled={!newNoteContent.trim()}
-                          >
-                            <Plus className="w-4 h-4 mr-1.5" />
-                            Add Note
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Existing Notes */}
-                      <div className="space-y-3">
-                        <h3 className="text-body-sm font-medium text-muted-foreground uppercase tracking-wide">
-                          Your Notes ({personalLensNotes.length})
-                        </h3>
-
-                        {personalLensNotes.length === 0 ? (
-                          <div className="text-center py-12">
-                            <Heart className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-                            <p className="text-body-sm text-muted-foreground">No notes yet.</p>
-                            <p className="text-xs text-muted-foreground/70 mt-1">
-                              Start by capturing a moment, observation, or value that matters to you.
-                            </p>
-                            <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
-                              <p className="text-xs text-primary">
-                                <Sparkles className="w-3 h-3 inline mr-1" />
-                                Add a note above, then click "Generate story suggestions" to get personalized writing ideas for your current essay.
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
-                          <AnimatePresence>
-                            {personalLensNotes.map((note) => (
-                              <motion.div
-                                key={note.id}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, height: 0 }}
-                                className="p-4 rounded-xl border border-border bg-card group"
-                              >
-                                {editingNoteId === note.id ? (
-                                  <div className="space-y-3">
-                                    <Textarea
-                                      value={editingNoteContent}
-                                      onChange={(e) => setEditingNoteContent(e.target.value)}
-                                      className="min-h-[60px] resize-none"
-                                    />
-                                    <div className="flex justify-end gap-2">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => {
-                                          setEditingNoteId(null);
-                                          setEditingNoteContent('');
-                                        }}
-                                      >
-                                        Cancel
-                                      </Button>
-                                      <Button
-                                        variant="collee"
-                                        size="sm"
-                                        onClick={handleSaveEditedNote}
-                                      >
-                                        Save
-                                      </Button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="flex-1">
-                                        <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-muted text-muted-foreground mb-2">
-                                          {getCategoryLabel(note.category)}
-                                        </span>
-                                        <p className="text-body-sm text-foreground leading-relaxed">
-                                          {note.content}
-                                        </p>
-                                      </div>
-                                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                          onClick={() => handleEditPersonalLensNote(note.id)}
-                                          className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                          title="Edit"
-                                        >
-                                          <Pencil className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button
-                                          onClick={() => handleDeletePersonalLensNote(note.id)}
-                                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                                          title="Delete"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                    </div>
-
-                                    {/* Generate Story Suggestions Button */}
-                                    <div className="mt-3 pt-3 border-t border-border">
-                                      <button
-                                        onClick={() => handleGenerateSuggestionsFromNote(note)}
-                                        className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
-                                      >
-                                        <Wand2 className="w-3.5 h-3.5" />
-                                        Generate story suggestions from this note
-                                      </button>
-                                      {generatedSuggestions.some(s => s.noteId === note.id) && (
-                                        <p className="text-xs text-muted-foreground text-center mt-2 italic">
-                                          ✓ Suggestions generated — view them in the Write tab
-                                        </p>
-                                      )}
-                                    </div>
-                                  </>
-                                )}
-                              </motion.div>
-                            ))}
-                          </AnimatePresence>
-                        )}
-                      </div>
-
-                      {/* How it helps - subtle footer */}
-                      {personalLensNotes.length > 0 && (
-                        <div className="mt-8 p-4 rounded-xl bg-muted/30 border border-border">
-                          <div className="flex items-start gap-3">
-                            <Sparkles className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                            <div>
-                              <p className="text-body-sm font-medium text-foreground mb-1">
-                                These notes improve your suggestions
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                When you write essays, we'll reference these notes to give you more tailored story ideas and starting points. You're always in control of what you share.
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </main>
-              )}
-
-              {/* WRITE TAB CONTENT */}
-              {workspaceTab === 'write' && (
-                <>
-                  {/* Editor */}
-                  <main className="flex-1 flex flex-col overflow-hidden">
-                    {/* Formatting Toolbar */}
-                    <div className="border-b border-border bg-card/50 px-4 py-2 flex items-center justify-between flex-shrink-0">
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => applyFormatting('bold')}
-                          className={`p-2 rounded-lg transition-colors ${activeFormats.bold
-                              ? 'bg-primary/10 text-primary'
-                              : 'hover:bg-muted text-muted-foreground'
-                            }`}
-                          title="Bold (Cmd/Ctrl + B)"
-                        >
-                          <Bold className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => applyFormatting('italic')}
-                          className={`p-2 rounded-lg transition-colors ${activeFormats.italic
-                              ? 'bg-primary/10 text-primary'
-                              : 'hover:bg-muted text-muted-foreground'
-                            }`}
-                          title="Italic (Cmd/Ctrl + I)"
-                        >
-                          <Italic className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => applyFormatting('underline')}
-                          className={`p-2 rounded-lg transition-colors ${activeFormats.underline
-                              ? 'bg-primary/10 text-primary'
-                              : 'hover:bg-muted text-muted-foreground'
-                            }`}
-                          title="Underline (Cmd/Ctrl + U)"
-                        >
-                          <Underline className="w-4 h-4" />
-                        </button>
-                        <div className="w-px h-5 bg-border mx-1" />
-                        <button
-                          onClick={() => applyFormatting('bullet')}
-                          className={`p-2 rounded-lg transition-colors ${activeFormats.bullet
-                              ? 'bg-primary/10 text-primary'
-                              : 'hover:bg-muted text-muted-foreground'
-                            }`}
-                          title="Bulleted list"
-                        >
-                          <List className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => applyFormatting('numbered')}
-                          className={`p-2 rounded-lg transition-colors ${activeFormats.numbered
-                              ? 'bg-primary/10 text-primary'
-                              : 'hover:bg-muted text-muted-foreground'
-                            }`}
-                          title="Numbered list"
-                        >
-                          <ListOrdered className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <p className="hidden md:block text-xs text-muted-foreground">
-                          Select text, then format.
-                        </p>
-                        <button
-                          data-tour="show-guidance-button"
-                          onClick={() => setShowRightPanel(!showRightPanel)}
-                          className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
-                          title={showRightPanel ? 'Hide guidance' : 'Show guidance'}
-                        >
-                          {showRightPanel ? (
-                            <PanelRightClose className="w-4 h-4" />
-                          ) : (
-                            <PanelRightOpen className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Editor Area */}
-                    <div className="flex-1 overflow-y-auto px-6 py-8">
-                      <div className="max-w-2xl mx-auto">
-                        {/* Prompt Display - Above Editor */}
-                        <div data-tour="prompt-above-editor" className="mb-6 p-4 rounded-xl bg-muted/30 border border-border">
-                          {!isEditingPrompt ? (
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <FileText className="w-4 h-4 text-muted-foreground" />
-                                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                    Prompt
-                                  </span>
-                                </div>
-                                <p className="text-body text-foreground leading-relaxed">
-                                  {currentEssay?.prompt}
-                                </p>
-                              </div>
-                              <div className="flex-shrink-0 flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-                                  {currentEssay?.wordLimit} words max
-                                </span>
-                                <button
-                                  onClick={handleStartEditingPrompt}
-                                  className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                  title="Edit prompt"
-                                >
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="space-y-3">
-                              <div className="flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                  Edit Prompt
-                                </span>
-                              </div>
-                              <Textarea
-                                value={editedPromptText}
-                                onChange={(e) => setEditedPromptText(e.target.value)}
-                                className="min-h-[88px] resize-y"
-                                placeholder="Enter the essay prompt"
-                              />
-                              <div className="flex items-end gap-3">
-                                <div className="w-40">
-                                  <label className="text-xs text-muted-foreground">Word limit</label>
-                                  <Input
-                                    type="number"
-                                    min={50}
-                                    max={2000}
-                                    value={editedWordLimit}
-                                    onChange={(e) => setEditedWordLimit(e.target.value)}
-                                    className="h-9 mt-1"
-                                  />
-                                </div>
-                                <div className="flex items-center gap-2 ml-auto">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={handleCancelPromptEdit}
-                                    disabled={isUpdatingPrompt}
-                                  >
-                                    Cancel
-                                  </Button>
-                                  <Button
-                                    variant="collee"
-                                    size="sm"
-                                    onClick={handleSavePromptEdit}
-                                    disabled={isUpdatingPrompt}
-                                  >
-                                    {isUpdatingPrompt ? 'Saving...' : 'Save'}
-                                  </Button>
-                                </div>
-                              </div>
-                              {promptEditError && (
-                                <p className="text-xs text-destructive">{promptEditError}</p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        <AnimatePresence>
-                          {insertedReferences.map((ref) => (
-                            <motion.div
-                              key={ref.id}
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, height: 0 }}
-                              className="mb-6 p-4 rounded-xl bg-primary/5 border border-primary/20 relative group"
-                            >
-                              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                  onClick={() => handleRemoveReference(ref.id)}
-                                  className="p-1.5 rounded-lg bg-background/80 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                                  title="Remove reference"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-
-                              <div className="flex items-start gap-3">
-                                <Quote className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                                <div className="flex-1">
-                                  <p className="text-foreground/80 italic leading-relaxed mb-2">
-                                    "{ref.text}"
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    From: {ref.sourceName}
-                                  </p>
-                                  <p className="text-xs text-primary mt-2 flex items-center gap-1.5">
-                                    <Lightbulb className="w-3 h-3" />
-                                    This is a starting point — revise or delete freely.
-                                  </p>
-                                </div>
-                              </div>
-                            </motion.div>
-                          ))}
-                        </AnimatePresence>
-
-                        {/* Starter Text Helper */}
-                        <AnimatePresence>
-                          {showStarterHelper && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -5 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, height: 0 }}
-                              className="mb-4 flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/20"
-                            >
-                              <p className="text-xs text-primary flex items-center gap-1.5">
-                                <Lightbulb className="w-3 h-3" />
-                                This is just a starting point — revise freely or delete.
-                              </p>
-                              <button
-                                onClick={() => setShowStarterHelper(false)}
-                                className="p-1 rounded hover:bg-primary/10 text-primary/60 hover:text-primary transition-colors"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-
-                        {currentEssayId && (
-                          <div data-tour="essay-editor">
-                            <SyncEssayEditor
-                              key={`${currentEssayId}-${editorSyncKey}`}
-                              essayId={currentEssayId}
-                              initialStoredContent={currentEssay?.content ?? content}
-                              onStoredContentChange={handleEditorContentChange}
-                              onFormatsChange={setActiveFormats}
-                              onEditorChange={setEditorInstance}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Footer - Word Count */}
-                    <div className="border-t border-border bg-card/50 px-6 py-3 flex items-center justify-between flex-shrink-0">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-body font-medium transition-colors duration-300 ${
-                          isOverLimit
-                            ? 'text-destructive'
-                            : wordCount > wordLimit * 0.9
-                              ? 'text-amber-600 dark:text-amber-400'
-                              : wordCount > wordLimit * 0.5
-                                ? 'text-foreground'
-                                : 'text-emerald-600 dark:text-emerald-400'
-                        }`}>
-                          {wordCount}
-                        </span>
-                        <span className="text-body text-muted-foreground">/ {wordLimit} words</span>
-                      </div>
-                    </div>
-                  </main>
-
-                  <RightPanel
-                    show={showRightPanel}
-                    generatedSuggestions={generatedSuggestions}
-                    dismissedSuggestions={dismissedSuggestions}
-                    onDismissSuggestion={handleDismissSuggestion}
-                    currentEssay={currentEssay}
-                    currentEssayId={currentEssayId}
-                    currentCollege={currentCollege}
-                    currentPromptId={currentPromptId}
-                    promptStrategy={promptStrategy}
-                    isGeneratingStrategy={isGeneratingStrategy}
-                    strategyError={strategyError}
-                    onGeneratePromptStrategy={handleGeneratePromptStrategy}
-                    experienceSuggestions={experienceSuggestions}
-                    selectedExperience={selectedExperience}
-                    lockedExperience={lockedExperience}
-                    onSelectExperience={setSelectedExperience}
-                    onLockExperience={setLockedExperience}
-                    onDismissExperienceSuggestion={handleDismissExperienceSuggestion}
-                    onOpenPersonalLens={handleOpenPersonalLens}
-                    experienceIndex={experienceIndex}
-                    experienceUsageMap={experienceUsageMap}
-                    addExperienceUsage={addExperienceUsageMutation}
-                    editorInstance={editorInstance}
-                    onSetContent={setContent}
-                    onShowStarterHelper={setShowStarterHelper}
-                    feedbackType={feedbackType}
-                    onFeedbackTypeChange={setFeedbackType}
-                    onGenerateFeedback={handleGenerateFeedback}
-                    isGeneratingFeedback={isGeneratingFeedback}
-                    feedbackError={feedbackError}
-                    displayedFeedback={displayedFeedback}
-                    reviewerComments={reviewerComments}
-                    onResolveComment={(commentId) => void resolveCommentAsOwnerMutation({ commentId })}
-                    onAddOwnerReply={(commentId, contentValue) =>
-                      addOwnerReplyMutation({ commentId, content: contentValue })
-                    }
-                    showSmartReuse={showSmartReuse}
-                    smartReuseExcerpts={smartReuseExcerpts}
-                    onInsertAsReference={handleInsertAsReference}
-                    onDismissExcerpt={handleDismissExcerpt}
-                  />
-                </>
-              )}
-            </div>
+	              {workspaceTab === 'write' && (
+	                <WriteWorkspace
+	                  activeFormats={activeFormats}
+	                  applyFormatting={applyFormatting}
+	                  showRightPanel={showRightPanel}
+	                  onToggleRightPanel={() => setShowRightPanel((prev) => !prev)}
+	                  isEditingPrompt={isEditingPrompt}
+	                  isUpdatingPrompt={isUpdatingPrompt}
+	                  editedPromptText={editedPromptText}
+	                  editedWordLimit={editedWordLimit}
+	                  promptEditError={promptEditError}
+	                  onStartEditingPrompt={handleStartEditingPrompt}
+	                  onCancelPromptEdit={handleCancelPromptEdit}
+	                  onSavePromptEdit={() => void handleSavePromptEdit()}
+	                  onEditedPromptTextChange={setEditedPromptText}
+	                  onEditedWordLimitChange={setEditedWordLimit}
+	                  insertedReferences={insertedReferences}
+	                  onRemoveReference={handleRemoveReference}
+	                  showStarterHelper={showStarterHelper}
+	                  onDismissStarterHelper={() => setShowStarterHelper(false)}
+	                  hasPendingExternalReset={hasPendingExternalReset}
+	                  currentEssay={currentEssay}
+	                  currentEssayId={currentEssayId}
+	                  currentSyncDocumentId={currentSyncDocumentId}
+	                  editorSyncKey={editorSyncKey}
+	                  content={content}
+	                  onEditorContentChange={handleEditorContentChange}
+	                  onFormatsChange={setActiveFormats}
+	                  onEditorInstanceChange={setEditorInstance}
+	                  wordCount={wordCount}
+	                  wordLimit={wordLimit}
+	                  isOverLimit={isOverLimit}
+	                  rightPanelProps={{
+	                    show: showRightPanel,
+	                    generatedSuggestions,
+	                    dismissedSuggestions,
+	                    onDismissSuggestion: handleDismissSuggestion,
+	                    currentEssay,
+	                    currentEssayId,
+	                    currentCollege,
+	                    currentPromptId,
+	                    promptStrategy,
+	                    isGeneratingStrategy,
+	                    strategyError,
+	                    onGeneratePromptStrategy: () => void handleGeneratePromptStrategy(),
+	                    experienceSuggestions,
+	                    selectedExperience,
+	                    lockedExperience,
+	                    onSelectExperience: setSelectedExperience,
+	                    onLockExperience: setLockedExperience,
+	                    onDismissExperienceSuggestion: handleDismissExperienceSuggestion,
+	                    onOpenPersonalLens: handleOpenPersonalLens,
+	                    experienceIndex,
+	                    experienceUsageMap,
+	                    addExperienceUsage: addExperienceUsageMutation,
+	                    editorInstance,
+	                    onSetContent: setContent,
+	                    onShowStarterHelper: setShowStarterHelper,
+	                    feedbackType,
+	                    onFeedbackTypeChange: setFeedbackType,
+	                    onGenerateFeedback: () => void handleGenerateFeedback(),
+	                    isGeneratingFeedback,
+	                    feedbackError,
+	                    displayedFeedback,
+	                    reviewerComments,
+	                    onResolveComment: (commentId) => void resolveCommentAsOwnerMutation({ commentId }),
+	                    onAddOwnerReply: (commentId, contentValue) =>
+	                      addOwnerReplyMutation({ commentId, content: contentValue }),
+	                    showSmartReuse,
+	                    smartReuseExcerpts,
+	                    onInsertAsReference: handleInsertAsReference,
+	                    onDismissExcerpt: handleDismissExcerpt,
+	                  }}
+	                />
+	              )}
+	            </div>
           </div>
         )}
       </div>

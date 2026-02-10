@@ -155,6 +155,7 @@ export default defineSchema({
     status: v.string(), // 'not-started' | 'in-progress' | 'complete'
     wordCount: v.number(),
     lastUpdated: v.number(), // timestamp
+    syncGeneration: v.optional(v.number()), // ProseMirror sync session generation
   }).index("by_prompt", ["promptId"])
     .index("by_college", ["collegeId"])
     .index("by_user", ["userId"]),

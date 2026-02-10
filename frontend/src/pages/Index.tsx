@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useConvexAuth } from 'convex/react';
 import { useQuery } from 'convex/react';
@@ -22,25 +22,7 @@ import ExportScreen from '@/components/screens/ExportScreen';
 import ShareViewScreen from '@/components/screens/ShareViewScreen';
 import ColleeWorkspace from '@/components/screens/ColleeWorkspace';
 import EditStoryIdentityScreen from '@/components/screens/EditStoryIdentityScreen';
-
-type Screen =
-  | 'home'
-  | 'auth-loading'
-  | 'auth'
-  | 'welcome'
-  | 'resume'
-  | 'academic'
-  | 'diagnostics'
-  | 'writing-tone'
-  | 'personal-lens'
-  | 'reflection'
-  | 'loading'
-  | 'story-card'
-  | 'workspace'
-  | 'add-college'
-  | 'export'
-  | 'share-view'
-  | 'edit-story-identity';
+import { screenNavigationReducer, type Screen } from './indexNavigationMachine';
 
 // Export data for ExportScreen
 interface ExportData {
@@ -68,7 +50,7 @@ const Index = () => {
     isUserStored ? {} : "skip"
   );
 
-  const [currentScreen, setCurrentScreen] = useState<Screen>('auth-loading');
+  const [currentScreen, dispatchScreen] = useReducer(screenNavigationReducer, 'auth-loading');
   const hasNavigatedAfterAuth = useRef(false);
   const [exportData, setExportData] = useState<ExportData | null>(null);
   const [resumeEssaySelection, setResumeEssaySelection] = useState<{ collegeId: string; essayId: string } | null>(null);
@@ -87,20 +69,20 @@ const Index = () => {
     // Don't do anything while loading core auth/state.
     if (isAuthGateLoading) {
       if (currentScreen === 'home' || currentScreen === 'auth') {
-        setCurrentScreen('auth-loading');
+        dispatchScreen({ type: 'transition', to: 'auth-loading', force: true });
       }
       return;
     }
 
     if (!isSignedIn) {
       if (currentScreen === 'auth-loading') {
-        setCurrentScreen('home');
+        dispatchScreen({ type: 'transition', to: 'home', force: true });
       }
 
       // If user signed out, go back to home
       if (currentScreen !== 'home' && currentScreen !== 'auth') {
         hasNavigatedAfterAuth.current = false;
-        setCurrentScreen('home');
+        dispatchScreen({ type: 'transition', to: 'home', force: true });
       }
 
       return;
@@ -112,9 +94,9 @@ const Index = () => {
       hasNavigatedAfterAuth.current = true;
 
       if (storyIdentity || profile?.onboardingComplete) {
-        setCurrentScreen('workspace');
+        dispatchScreen({ type: 'transition', to: 'workspace', force: true });
       } else {
-        setCurrentScreen('welcome');
+        dispatchScreen({ type: 'transition', to: 'welcome', force: true });
       }
     }
   }, [
@@ -134,9 +116,9 @@ const Index = () => {
     }
   }, [currentScreen]);
 
-  const navigateTo = (screen: Screen) => {
-    setCurrentScreen(screen);
-  };
+  const navigateTo = useCallback((screen: Screen, force = false) => {
+    dispatchScreen({ type: 'transition', to: screen, force });
+  }, []);
 
   const handleGoHome = () => {
     // When user is logged in, stay in the app instead of going to public home

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useCallback } from "react";
+import type { SyncApi } from "@convex-dev/prosemirror-sync";
 import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
 import { useConvexAuth } from "convex/react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
@@ -16,7 +17,7 @@ export interface ActiveRichTextFormats {
 }
 
 interface SyncEssayEditorProps {
-  essayId: string;
+  syncDocumentId: string;
   initialStoredContent: string;
   onStoredContentChange: (nextContent: string) => void;
   onFormatsChange: (formats: ActiveRichTextFormats) => void;
@@ -44,14 +45,22 @@ const isSnapshotConflictError = (error: unknown) => {
   return message.includes("already exists with different content");
 };
 
+const prosemirrorSyncApi: SyncApi = {
+  getSnapshot: api.prosemirror.getSnapshot,
+  submitSnapshot: api.prosemirror.submitSnapshot,
+  latestVersion: api.prosemirror.latestVersion,
+  getSteps: api.prosemirror.getSteps,
+  submitSteps: api.prosemirror.submitSteps,
+};
+
 const SyncEssayEditorInner: React.FC<SyncEssayEditorProps> = ({
-  essayId,
+  syncDocumentId,
   initialStoredContent,
   onStoredContentChange,
   onFormatsChange,
   onEditorChange,
 }) => {
-  const sync = useTiptapSync((api as any).prosemirror, essayId, {
+  const sync = useTiptapSync(prosemirrorSyncApi, syncDocumentId, {
     onSyncError: (error) => {
       console.error("ProseMirror sync error:", error);
     },
@@ -73,7 +82,7 @@ const SyncEssayEditorInner: React.FC<SyncEssayEditorProps> = ({
 
   useEffect(() => {
     hasRequestedCreateRef.current = false;
-  }, [essayId]);
+  }, [syncDocumentId]);
 
   // Extract stable primitive values from sync object
   const syncIsLoading = sync.isLoading;
@@ -151,7 +160,7 @@ const SyncEssayEditorInner: React.FC<SyncEssayEditorProps> = ({
       onCreate: handleCreate,
       onTransaction: handleTransaction,
     },
-    [essayId, extensions, syncIsLoading, syncInitialContent],
+    [syncDocumentId, extensions, syncIsLoading, syncInitialContent],
   );
 
   // Notify parent of editor changes without causing re-render loops

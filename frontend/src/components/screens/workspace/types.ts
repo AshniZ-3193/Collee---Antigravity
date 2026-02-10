@@ -18,6 +18,7 @@ export interface Essay {
   content: string;
   promptType?: string;
   lastUpdated?: number;
+  syncGeneration?: number;
 }
 
 export interface College {

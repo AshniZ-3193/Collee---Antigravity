@@ -118,6 +118,7 @@ export const add = mutation({
         status: "not-started",
         wordCount: 0,
         lastUpdated: Date.now(),
+        syncGeneration: 0,
       });
     }
 

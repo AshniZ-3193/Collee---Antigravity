@@ -300,6 +300,49 @@ export const getComments = query({
   },
 });
 
+// Get all comments for a share with replies (single query for reviewer UI)
+export const getCommentsWithReplies = query({
+  args: {
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const share = await ctx.db
+      .query("shares")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .unique();
+
+    if (!share) {
+      return [];
+    }
+
+    const comments = await ctx.db
+      .query("shareComments")
+      .withIndex("by_share", (q) => q.eq("shareId", share._id))
+      .collect();
+
+    const sortedComments = comments.sort((a, b) => {
+      if (a.resolved !== b.resolved) {
+        return a.resolved ? 1 : -1;
+      }
+      return a.createdAt - b.createdAt;
+    });
+
+    return Promise.all(
+      sortedComments.map(async (comment) => {
+        const replies = await ctx.db
+          .query("shareCommentReplies")
+          .withIndex("by_comment", (q) => q.eq("commentId", comment._id))
+          .collect();
+        replies.sort((a, b) => a.createdAt - b.createdAt);
+        return {
+          ...comment,
+          replies,
+        };
+      }),
+    );
+  },
+});
+
 // Get all comments for an essay (by essay ID - for essay owner)
 export const getCommentsForEssay = query({
   args: {

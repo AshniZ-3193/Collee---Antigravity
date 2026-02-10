@@ -40,6 +40,10 @@ interface CommentReply {
   createdAt: number;
 }
 
+interface CommentWithReplies extends Comment {
+  replies: CommentReply[];
+}
+
 interface ShareCommentScreenProps {
   token: string;
   collegeName: string;
@@ -52,6 +56,7 @@ interface ShareCommentScreenProps {
 // Component for a single comment with replies
 const CommentCard: React.FC<{
   comment: Comment;
+  replies: CommentReply[];
   token: string;
   commenterName: string;
   isActive: boolean;
@@ -59,12 +64,21 @@ const CommentCard: React.FC<{
   onResolve: () => void;
   onDelete: () => void;
   formatTime: (ts: number) => string;
-}> = ({ comment, token, commenterName, isActive, onSetActive, onResolve, onDelete, formatTime }) => {
+}> = ({
+  comment,
+  replies,
+  token,
+  commenterName,
+  isActive,
+  onSetActive,
+  onResolve,
+  onDelete,
+  formatTime,
+}) => {
   const [showReplyInput, setShowReplyInput] = useState(false);
   const [replyContent, setReplyContent] = useState('');
   const replyInputRef = useRef<HTMLInputElement>(null);
 
-  const replies = useQuery(api.shares.getReplies, { commentId: comment._id }) ?? [];
   const addReplyMutation = useMutation(api.shares.addReply);
   const deleteReplyMutation = useMutation(api.shares.deleteReply);
 
@@ -296,7 +310,8 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
   const computedWordCount = countRichTextWords(essayContent);
 
   // Fetch comments
-  const comments = useQuery(api.shares.getComments, { token }) ?? [];
+  const commentsWithReplies =
+    (useQuery(api.shares.getCommentsWithReplies, { token }) as CommentWithReplies[] | undefined) ?? [];
   const addCommentMutation = useMutation(api.shares.addComment);
   const resolveCommentMutation = useMutation(api.shares.resolveComment);
   const deleteCommentMutation = useMutation(api.shares.deleteComment);
@@ -413,7 +428,7 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
 
   // Render essay with highlighted comment regions
   const renderEssayWithHighlights = () => {
-    const activeComments = comments.filter(c => !c.resolved);
+    const activeComments = commentsWithReplies.filter((c) => !c.resolved);
     
     if (activeComments.length === 0) {
       return plainEssayContent.split('\n\n').map((paragraph, index) => (
@@ -471,8 +486,8 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
     );
   };
 
-  const activeComments = comments.filter(c => !c.resolved);
-  const resolvedComments = comments.filter(c => c.resolved);
+  const activeComments = commentsWithReplies.filter((c) => !c.resolved);
+  const resolvedComments = commentsWithReplies.filter((c) => c.resolved);
 
   // Name prompt modal
   if (showNamePrompt) {
@@ -705,6 +720,7 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
                   <CommentCard
                     key={comment._id}
                     comment={comment}
+                    replies={comment.replies}
                     token={token}
                     commenterName={commenterName}
                     isActive={activeCommentId === comment._id}
