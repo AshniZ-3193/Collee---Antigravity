@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { normalizeAlias, slugifySchoolName } from "./ai/schoolNormalization";
+import { popularCollegeCatalog } from "./popularCollegeCatalog";
 
 const acronymStopWords = new Set(["of", "the", "and", "for", "at", "in", "on"]);
 
@@ -11,6 +12,13 @@ function toSchoolAcronym(name: string): string {
   if (words.length < 2) return "";
   return words.map((word) => word[0]).join("");
 }
+
+export const listPopularColleges = query({
+  args: {},
+  handler: async () => {
+    return popularCollegeCatalog;
+  },
+});
 
 export const getBySlug = query({
   args: {

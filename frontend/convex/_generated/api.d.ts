@@ -34,6 +34,7 @@ import type * as experienceBank from "../experienceBank.js";
 import type * as experienceBankHelpers from "../experienceBankHelpers.js";
 import type * as globalSchools from "../globalSchools.js";
 import type * as personalLens from "../personalLens.js";
+import type * as popularCollegeCatalog from "../popularCollegeCatalog.js";
 import type * as prosemirror from "../prosemirror.js";
 import type * as richTextHelpers from "../richTextHelpers.js";
 import type * as shares from "../shares.js";
@@ -74,6 +75,7 @@ declare const fullApi: ApiFromModules<{
   experienceBankHelpers: typeof experienceBankHelpers;
   globalSchools: typeof globalSchools;
   personalLens: typeof personalLens;
+  popularCollegeCatalog: typeof popularCollegeCatalog;
   prosemirror: typeof prosemirror;
   richTextHelpers: typeof richTextHelpers;
   shares: typeof shares;
