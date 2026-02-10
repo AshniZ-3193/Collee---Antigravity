@@ -74,21 +74,21 @@ Collee helps students manage college essays end-to-end: onboarding, prompt strat
               v                                        | essay feedback        |
  +------------+-----------+   RPC    +-----------------+-----------------------+
  |                        |<-------->|                                         |
- |   Frontend (React)     |         |            Convex Backend               |
+ |   Frontend (React)     |          |            Convex Backend               |
  |                        |          |                                         |
  |  - App routes          |          |  Queries / Mutations                    |
- |  - Workspace + editor  |          |  .- users, userProfile, colleges       |
- |  - Share page          |          |  .- essays, shares, storyIdentity      |
- |                        |          |  .- experienceBank, personalLens       |
+ |  - Workspace + editor  |          |  .- users, userProfile, colleges        |
+ |  - Share page          |          |  .- essays, shares, storyIdentity       |
+ |                        |          |  .- experienceBank, personalLens        |
  +------------+-----------+          |                                         |
               |                      |  ProseMirror Sync                       |
-              | public               |  .- get / submitSnapshot               |
-              | share token          |  .- steps / reset                      |
+              | public               |  .- get / submitSnapshot                |
+              | share token          |  .- steps / reset                       |
               v                      |                                         |
  +----------------------------+      |  Node Actions (AI + enrichment)         |
- | Token-Scoped Share Layer   |      |  .- generateStoryIdentity              |
- |----------------------------|      |  .- PromptStrategy / Suggestions       |
- | getByToken                 |      |  .- EssayFeedback / SchoolContent      |
+ | Token-Scoped Share Layer   |      |  .- generateStoryIdentity               |
+ |----------------------------|      |  .- PromptStrategy / Suggestions        |
+ | getByToken                 |      |  .- EssayFeedback / SchoolContent       |
  | addComment / replies       |      |                                         |
  | updateEssayViaShare        +----->|                                         |
  +----------------------------+      +-----------+-----------------------------+
