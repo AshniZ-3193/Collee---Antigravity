@@ -65,46 +65,53 @@ Collee helps students manage college essays end-to-end: onboarding, prompt strat
 ## Backend Architecture
 
 ```text
-                               +------------------------------+
-                               |            Clerk             |
-                               |      Auth + Session JWT      |
-                               +---------------+--------------+
-                                               |
-                                               | tokenIdentifier
-                                               v
-+------------------------------+      +--------+------------------------------------+
-|      Frontend (React)        |<---->|               Convex Backend                |
-| - App routes                 | RPC  |---------------------------------------------|
-| - Workspace + editor         |      | Queries/Mutations:                          |
-| - Share page (/share/:token) |      | users, userProfile, colleges, essays, shares|
-+---------------+--------------+      | storyIdentity, experienceBank, personalLens |
-                |                     |                                             |
-                | public share token  | ProseMirror Sync Component:                 |
-                v                     | prosemirror.get/submitSnapshot/steps/reset  |
- +--------------+------------------+  |                                             |
- | Token-scoped share handlers     |  | Node Actions (AI + enrichment):             |
- | getByToken, addComment, replies |  | generateStoryIdentity / PromptStrategy /    |
- | updateEssayViaShare             |  | Suggestions / EssayFeedback / SchoolContent |
- +--------------+------------------+  +------------------+--------------------------+
-                |                                         |
-                | read/write                              | API calls
-                v                                         v
- +--------------+---------------------------------------------------+   +--------------------+
- |                        Convex DB Tables                           |   |     OpenAI API     |
- |-------------------------------------------------------------------|   |--------------------|
- | Identity: users, userProfiles, storyIdentities                    |   | - story identity   |
- | Writing: colleges, prompts, essays, essayVersions, essayExcerpts  |   | - strategies       |
- | Sharing: shares, shareComments, shareCommentReplies               |   | - suggestions      |
- | AI cache: globalSchools, globalSchoolContent, generationLocks     |   | - essay feedback   |
- +--------------+---------------------------------------------------+   +----------+---------+
-                |                                                               ^
-                | school prompt/deadline enrichment                             |
-                v                                                               |
-         +------+------------------+                                            |
-         |       Exa Search API    |--------------------------------------------+
-         | sources for prompts and |
-         | application deadlines   |
-         +-------------------------+
+ +--------------------------+                          +-----------------------+
+ |          Clerk           |                          |      OpenAI API       |
+ |    Auth + Session JWT    |                          |-----------------------|
+ +------------+-------------+                          | story identity        |
+              |                                        | prompt strategies     |
+              | tokenIdentifier                        | smart suggestions     |
+              v                                        | essay feedback        |
+ +------------+-----------+   RPC    +-----------------+-----------------------+
+ |                        |<-------->|                                         |
+ |   Frontend (React)     |         |            Convex Backend               |
+ |                        |          |                                         |
+ |  - App routes          |          |  Queries / Mutations                    |
+ |  - Workspace + editor  |          |  .- users, userProfile, colleges       |
+ |  - Share page          |          |  .- essays, shares, storyIdentity      |
+ |                        |          |  .- experienceBank, personalLens       |
+ +------------+-----------+          |                                         |
+              |                      |  ProseMirror Sync                       |
+              | public               |  .- get / submitSnapshot               |
+              | share token          |  .- steps / reset                      |
+              v                      |                                         |
+ +----------------------------+      |  Node Actions (AI + enrichment)         |
+ | Token-Scoped Share Layer   |      |  .- generateStoryIdentity              |
+ |----------------------------|      |  .- PromptStrategy / Suggestions       |
+ | getByToken                 |      |  .- EssayFeedback / SchoolContent      |
+ | addComment / replies       |      |                                         |
+ | updateEssayViaShare        +----->|                                         |
+ +----------------------------+      +-----------+-----------------------------+
+                                                 |
+                                                 | read / write
+                                                 v
+ +-----------------------------------------------------------------------+
+ |                          Convex DB Tables                             |
+ |-----------------------------------------------------------------------|
+ |  Identity : users, userProfiles, storyIdentities                      |
+ |  Writing  : colleges, prompts, essays, essayVersions, essayExcerpts   |
+ |  Sharing  : shares, shareComments, shareCommentReplies                |
+ |  AI Cache : globalSchools, globalSchoolContent, generationLocks       |
+ +-----------------------------------+-----------------------------------+
+                                     |
+                                     | school prompt / deadline enrichment
+                                     v
+                        +----------------------------+
+                        |      Exa Search API        |
+                        |----------------------------|
+                        | sources for prompts and    |
+                        | application deadlines      |
+                        +----------------------------+
 ```
 
 ## Rich-Text + Sync Notes
