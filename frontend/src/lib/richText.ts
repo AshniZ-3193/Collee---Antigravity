@@ -186,6 +186,14 @@ const applyMarksToHtml = (text: string, marks?: ProseMirrorMark[]) => {
     } else if (mark.type === "link") {
       const href = typeof mark.attrs?.href === "string" ? mark.attrs.href : "";
       html = `<a href=\"${escapeHtml(href)}\" rel=\"noopener noreferrer\" target=\"_blank\">${html}</a>`;
+    } else if (mark.type === "textStyle") {
+      const color = typeof mark.attrs?.color === "string" ? mark.attrs.color : "";
+      if (color) {
+        html = `<span style="color:${escapeHtml(color)}">${html}</span>`;
+      }
+    } else if (mark.type === "highlight") {
+      const bgColor = typeof mark.attrs?.color === "string" ? mark.attrs.color : "#fef9c3";
+      html = `<mark style="background-color:${escapeHtml(bgColor)}">${html}</mark>`;
     }
   }
   return html;
@@ -238,6 +246,11 @@ const renderNodeToHtml = (node: ProseMirrorNode): string => {
       return `<pre class=\"my-5 overflow-x-auto rounded-md bg-muted/70 p-3\"><code>${escapeHtml(
         (node.content ?? []).map((child) => nodeToPlainText(child)).join(""),
       )}</code></pre>`;
+    case "image": {
+      const src = typeof node.attrs?.src === "string" ? node.attrs.src : "";
+      const alt = typeof node.attrs?.alt === "string" ? node.attrs.alt : "";
+      return `<img src=\"${escapeHtml(src)}\" alt=\"${escapeHtml(alt)}\" class=\"my-5 max-w-full rounded-lg\" />`;
+    }
     default:
       return (node.content ?? []).map(renderNodeToHtml).join("");
   }
@@ -279,6 +292,10 @@ const nodeToPlainText = (node: ProseMirrorNode): string => {
       return "\n";
     case "horizontalRule":
       return "";
+    case "image": {
+      const alt = typeof node.attrs?.alt === "string" ? node.attrs.alt : "";
+      return alt || "[image]";
+    }
     case "text":
       return node.text ?? "";
     default:

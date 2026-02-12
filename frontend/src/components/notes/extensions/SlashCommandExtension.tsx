@@ -6,6 +6,23 @@ import Suggestion, {
 } from '@tiptap/suggestion';
 import { ReactRenderer } from '@tiptap/react';
 import tippy, { type Instance, type Props as TippyProps } from 'tippy.js';
+import {
+  Heading1,
+  Heading2,
+  Heading3,
+  Type,
+  List,
+  ListOrdered,
+  CheckSquare,
+  TextQuote,
+  Minus,
+  Code,
+  Info,
+  ImageIcon,
+  AlertTriangle,
+  Lightbulb,
+  type LucideIcon,
+} from 'lucide-react';
 
 import SlashCommandMenu, {
   type SlashCommandItem,
@@ -14,6 +31,8 @@ import SlashCommandMenu, {
 
 type CommandItem = SlashCommandItem & {
   aliases?: string[];
+  icon?: LucideIcon;
+  category?: string;
 };
 
 const COMMAND_ITEMS: CommandItem[] = [
@@ -22,6 +41,8 @@ const COMMAND_ITEMS: CommandItem[] = [
     label: 'Heading 1',
     description: 'Large section heading',
     aliases: ['title', 'h1'],
+    icon: Heading1,
+    category: 'Text',
     command: (editor) => editor.chain().focus().toggleHeading({ level: 1 }).run(),
   },
   {
@@ -29,6 +50,8 @@ const COMMAND_ITEMS: CommandItem[] = [
     label: 'Heading 2',
     description: 'Medium section heading',
     aliases: ['subtitle', 'h2'],
+    icon: Heading2,
+    category: 'Text',
     command: (editor) => editor.chain().focus().toggleHeading({ level: 2 }).run(),
   },
   {
@@ -36,6 +59,8 @@ const COMMAND_ITEMS: CommandItem[] = [
     label: 'Heading 3',
     description: 'Small section heading',
     aliases: ['h3'],
+    icon: Heading3,
+    category: 'Text',
     command: (editor) => editor.chain().focus().toggleHeading({ level: 3 }).run(),
   },
   {
@@ -43,6 +68,8 @@ const COMMAND_ITEMS: CommandItem[] = [
     label: 'Paragraph',
     description: 'Plain body text',
     aliases: ['text', 'p'],
+    icon: Type,
+    category: 'Text',
     command: (editor) => editor.chain().focus().setParagraph().run(),
   },
   {
@@ -50,6 +77,8 @@ const COMMAND_ITEMS: CommandItem[] = [
     label: 'Bullet List',
     description: 'Create a bulleted list',
     aliases: ['list', 'bullets'],
+    icon: List,
+    category: 'Lists',
     command: (editor) => editor.chain().focus().toggleBulletList().run(),
   },
   {
@@ -57,6 +86,8 @@ const COMMAND_ITEMS: CommandItem[] = [
     label: 'Numbered List',
     description: 'Create a numbered list',
     aliases: ['ordered', 'numbers'],
+    icon: ListOrdered,
+    category: 'Lists',
     command: (editor) => editor.chain().focus().toggleOrderedList().run(),
   },
   {
@@ -64,6 +95,8 @@ const COMMAND_ITEMS: CommandItem[] = [
     label: 'Checklist',
     description: 'Track tasks with checkboxes',
     aliases: ['todo', 'task'],
+    icon: CheckSquare,
+    category: 'Lists',
     command: (editor) => editor.chain().focus().toggleTaskList().run(),
   },
   {
@@ -71,6 +104,8 @@ const COMMAND_ITEMS: CommandItem[] = [
     label: 'Quote',
     description: 'Insert a quote block',
     aliases: ['blockquote'],
+    icon: TextQuote,
+    category: 'Blocks',
     command: (editor) => editor.chain().focus().toggleBlockquote().run(),
   },
   {
@@ -78,6 +113,8 @@ const COMMAND_ITEMS: CommandItem[] = [
     label: 'Divider',
     description: 'Insert a horizontal rule',
     aliases: ['rule', 'hr'],
+    icon: Minus,
+    category: 'Blocks',
     command: (editor) => editor.chain().focus().setHorizontalRule().run(),
   },
   {
@@ -85,14 +122,60 @@ const COMMAND_ITEMS: CommandItem[] = [
     label: 'Code Block',
     description: 'Insert a code block',
     aliases: ['snippet'],
+    icon: Code,
+    category: 'Blocks',
     command: (editor) => editor.chain().focus().toggleCodeBlock().run(),
   },
   {
     id: 'callout-info',
     label: 'Callout',
     description: 'Insert an info callout',
-    aliases: ['tip', 'note'],
+    aliases: ['note'],
+    icon: Info,
+    category: 'Blocks',
     command: (editor) => editor.chain().focus().setCallout('info').run(),
+  },
+  {
+    id: 'callout-warning',
+    label: 'Warning Callout',
+    description: 'Insert a warning callout',
+    aliases: ['warning', 'caution'],
+    icon: AlertTriangle,
+    category: 'Blocks',
+    command: (editor) => editor.chain().focus().setCallout('warning').run(),
+  },
+  {
+    id: 'callout-tip',
+    label: 'Tip Callout',
+    description: 'Insert a tip callout',
+    aliases: ['tip', 'hint'],
+    icon: Lightbulb,
+    category: 'Blocks',
+    command: (editor) => editor.chain().focus().setCallout('tip').run(),
+  },
+  {
+    id: 'image',
+    label: 'Image',
+    description: 'Upload an image from your device',
+    aliases: ['img', 'picture', 'photo'],
+    icon: ImageIcon,
+    category: 'Media',
+    command: (editor) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const src = reader.result as string;
+          editor.chain().focus().setImage({ src }).run();
+        };
+        reader.readAsDataURL(file);
+      };
+      input.click();
+    },
   },
 ];
 
@@ -109,23 +192,23 @@ const filterItems = (query: string) => {
 };
 
 const suggestion: Omit<
-  SuggestionOptions<CommandItem, { items: CommandItem[] }>,
+  SuggestionOptions<CommandItem>,
   'editor'
 > = {
   char: '/',
   allowSpaces: false,
   startOfLine: false,
   items: ({ query }) => filterItems(query),
-  command: ({ editor, range, props }) => {
+  command: ({ editor, range, props }: { editor: any; range: any; props: CommandItem }) => {
     editor.chain().focus().deleteRange(range).run();
     props.command(editor);
   },
   render: () => {
-    let component: ReactRenderer<SlashCommandListRef, { items: CommandItem[]; command: (item: CommandItem) => void }> | null = null;
+    let component: ReactRenderer<SlashCommandListRef> | null = null;
     let popup: Instance<TippyProps>[] = [];
 
     return {
-      onStart: (props: SuggestionProps<CommandItem, { items: CommandItem[] }>) => {
+      onStart: (props: SuggestionProps<CommandItem>) => {
         component = new ReactRenderer(SlashCommandMenu, {
           props: {
             items: props.items,
@@ -147,7 +230,7 @@ const suggestion: Omit<
         });
       },
 
-      onUpdate: (props: SuggestionProps<CommandItem, { items: CommandItem[] }>) => {
+      onUpdate: (props: SuggestionProps<CommandItem>) => {
         if (!component) return;
 
         component.updateProps({
