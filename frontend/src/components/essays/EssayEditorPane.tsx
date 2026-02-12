@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Clock, FileText, Pencil, X } from 'lucide-react';
+import { ChevronDown, FileText, Pencil, X } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import SyncEssayEditor, { type ActiveRichTextFormats } from '@/components/editor/SyncEssayEditor';
 import type { Essay } from '@/components/screens/workspace/types';
 
@@ -95,6 +96,8 @@ const EssayEditorPane: React.FC<EssayEditorPaneProps> = ({
   isSaving,
   lastSavedLabel,
 }) => {
+  const [promptOpen, setPromptOpen] = useState(false);
+
   return (
     <main className="flex-1 flex flex-col overflow-hidden">
       <EssayToolbar
@@ -113,72 +116,78 @@ const EssayEditorPane: React.FC<EssayEditorPaneProps> = ({
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-8">
-        <div className="mx-auto max-w-2xl">
-          <div className="mb-6 rounded-xl border border-border bg-muted/30 p-4">
-            {!isEditingPrompt ? (
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="mb-2 flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Prompt
-                    </span>
+        <div className="mx-auto max-w-[1180px]">
+          <Collapsible open={promptOpen} onOpenChange={setPromptOpen} className="mb-6">
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/50"
+              >
+                <span className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  <span>Prompt</span>
+                  <span className="text-xs">&middot; {currentEssay?.wordLimit} words max</span>
+                </span>
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${promptOpen ? 'rotate-180' : ''}`} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+              <div className="rounded-b-lg border border-t-0 border-border bg-muted/30 p-4">
+                {!isEditingPrompt ? (
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <p className="text-body leading-relaxed text-foreground">{currentEssay?.prompt}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={onStartEditingPrompt}
+                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      title="Edit prompt"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                  <p className="text-body leading-relaxed text-foreground">{currentEssay?.prompt}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">
-                    {currentEssay?.wordLimit} words max
-                  </span>
-                  <button
-                    type="button"
-                    onClick={onStartEditingPrompt}
-                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    title="Edit prompt"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Edit Prompt
-                  </span>
-                </div>
-                <Textarea
-                  value={editedPromptText}
-                  onChange={(event) => onEditedPromptTextChange(event.target.value)}
-                  className="min-h-[88px] resize-y"
-                  placeholder="Enter the essay prompt"
-                />
-                <div className="flex items-end gap-3">
-                  <div className="w-40">
-                    <label className="text-xs text-muted-foreground">Word limit</label>
-                    <Input
-                      type="number"
-                      min={50}
-                      max={2000}
-                      value={editedWordLimit}
-                      onChange={(event) => onEditedWordLimitChange(event.target.value)}
-                      className="mt-1 h-9"
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Edit Prompt
+                      </span>
+                    </div>
+                    <Textarea
+                      value={editedPromptText}
+                      onChange={(event) => onEditedPromptTextChange(event.target.value)}
+                      className="min-h-[88px] resize-y"
+                      placeholder="Enter the essay prompt"
                     />
+                    <div className="flex items-end gap-3">
+                      <div className="w-40">
+                        <label className="text-xs text-muted-foreground">Word limit</label>
+                        <Input
+                          type="number"
+                          min={50}
+                          max={2000}
+                          value={editedWordLimit}
+                          onChange={(event) => onEditedWordLimitChange(event.target.value)}
+                          className="mt-1 h-9"
+                        />
+                      </div>
+                      <div className="ml-auto flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={onCancelPromptEdit} disabled={isUpdatingPrompt}>
+                          Cancel
+                        </Button>
+                        <Button variant="collee" size="sm" onClick={onSavePromptEdit} disabled={isUpdatingPrompt}>
+                          {isUpdatingPrompt ? 'Saving...' : 'Save'}
+                        </Button>
+                      </div>
+                    </div>
+                    {promptEditError && <p className="text-xs text-destructive">{promptEditError}</p>}
                   </div>
-                  <div className="ml-auto flex items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={onCancelPromptEdit} disabled={isUpdatingPrompt}>
-                      Cancel
-                    </Button>
-                    <Button variant="collee" size="sm" onClick={onSavePromptEdit} disabled={isUpdatingPrompt}>
-                      {isUpdatingPrompt ? 'Saving...' : 'Save'}
-                    </Button>
-                  </div>
-                </div>
-                {promptEditError && <p className="text-xs text-destructive">{promptEditError}</p>}
+                )}
               </div>
-            )}
-          </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           <AnimatePresence>
             {insertedReferences.map((reference) => (

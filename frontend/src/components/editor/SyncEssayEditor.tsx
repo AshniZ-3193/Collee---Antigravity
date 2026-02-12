@@ -152,7 +152,7 @@ const SyncEssayEditorInner: React.FC<SyncEssayEditorProps> = ({
       editorProps: {
         attributes: {
           class:
-            "min-h-[380px] w-full rounded-2xl border border-border bg-background p-4 text-lg leading-relaxed text-foreground shadow-sm focus:outline-none",
+            "min-h-[380px] w-full rounded-xl border border-border/50 bg-background p-5 text-lg leading-relaxed text-foreground focus:outline-none",
         },
       },
       onUpdate: handleUpdate,
@@ -181,11 +181,16 @@ const SyncEssayEditorInner: React.FC<SyncEssayEditorProps> = ({
   }, []);
 
   return (
-    <div className="w-full min-h-[380px] rounded-2xl border border-border bg-background">
+    <div className="w-full min-h-[380px]">
       <EditorContent editor={editor ?? null} />
-      {editor === null ? (
-        <div className="p-6 text-sm text-muted-foreground">Preparing editor...</div>
-      ) : null}
+      {editor === null && (
+        <div className="p-5 space-y-3 animate-pulse">
+          <div className="h-4 w-3/4 rounded bg-muted" />
+          <div className="h-4 w-full rounded bg-muted" />
+          <div className="h-4 w-5/6 rounded bg-muted" />
+          <div className="h-4 w-2/3 rounded bg-muted" />
+        </div>
+      )}
     </div>
   );
 };
@@ -202,8 +207,13 @@ const SyncEssayEditor: React.FC<SyncEssayEditorProps> = (props) => {
 
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="w-full min-h-[380px] rounded-2xl border border-border bg-background">
-        <div className="p-6 text-sm text-muted-foreground">Preparing editor...</div>
+      <div className="w-full min-h-[380px]">
+        <div className="p-5 space-y-3 animate-pulse">
+          <div className="h-4 w-3/4 rounded bg-muted" />
+          <div className="h-4 w-full rounded bg-muted" />
+          <div className="h-4 w-5/6 rounded bg-muted" />
+          <div className="h-4 w-2/3 rounded bg-muted" />
+        </div>
       </div>
     );
   }

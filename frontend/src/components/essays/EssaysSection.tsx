@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import { Check, Download, History, Share2 } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { Check, Download, History, PenLine, Share2 } from 'lucide-react';
 import { countRichTextWords, parseStoredRichTextToDoc, stripRichTextFormatting } from '@/lib/richText';
 import { getEssaySyncDocumentId } from '@/lib/prosemirrorSync';
 
@@ -20,6 +20,7 @@ import {
 import { useEssaySync } from '@/components/screens/workspace/useEssaySync';
 import { Button } from '@/components/ui/button';
 
+import CollegeNavigator from './CollegeNavigator';
 import CommentsDrawer from './CommentsDrawer';
 import EssayEditorPane from './EssayEditorPane';
 import FeedbackDialog from './FeedbackDialog';
@@ -37,6 +38,7 @@ interface EssaysSectionProps {
   onExport: (data: ExportData) => void;
   storyIdentityData: unknown;
   experienceUsagesResult: unknown;
+  onBackToSchools: () => void;
 }
 
 const formatTime = (date: Date) =>
@@ -55,9 +57,17 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
   onExport,
   storyIdentityData,
   experienceUsagesResult,
+  onBackToSchools,
 }) => {
   const state = useEssayEditorState();
   const strategyAttempts = useRef<Set<string>>(new Set());
+
+  const handleSelectEssay = useCallback(
+    (collegeId: string, essayId: string) => {
+      setActiveEssay({ collegeId, essayId });
+    },
+    [setActiveEssay],
+  );
 
   const selectedCollege = selectedCollegeId
     ? colleges.find((college) => college.id === selectedCollegeId) ?? null
@@ -117,10 +127,13 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
 
   const displayedFeedback = state.feedbackResult ?? parsedStoredFeedback;
 
+  const currentEssayContent = currentEssay?.content;
+  const currentEssayLastUpdated = currentEssay?.lastUpdated;
+
   useEffect(() => {
-    if (!currentEssay) return;
-    state.setContent(currentEssay.content);
-    markLoadedEssayVersion(currentEssay.lastUpdated);
+    if (!currentEssayId || currentEssayContent === undefined) return;
+    state.setContent(currentEssayContent);
+    markLoadedEssayVersion(currentEssayLastUpdated);
     state.setActiveFormats({
       bold: false,
       italic: false,
@@ -129,7 +142,7 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
       numbered: false,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentEssay, currentEssayId, markLoadedEssayVersion]);
+  }, [currentEssayId, markLoadedEssayVersion]);
 
   useEffect(() => {
     state.resetForEssayChange();
@@ -476,12 +489,15 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
   if (colleges.length === 0) {
     return (
       <section className="flex h-full flex-1 items-center justify-center p-8">
-        <div className="max-w-md rounded-2xl border border-dashed border-border p-8 text-center">
-          <h2 className="text-lg font-semibold text-foreground">No colleges yet</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Add a college first, then open its essay directly from the dashboard.
+        <div className="max-w-md rounded-2xl border border-border bg-gradient-to-br from-primary/5 via-card to-accent/5 p-10 text-center shadow-soft">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+            <PenLine className="h-7 w-7 text-primary" />
+          </div>
+          <h2 className="font-display text-heading text-foreground">No colleges yet</h2>
+          <p className="mt-2 text-body-sm text-muted-foreground">
+            Add a college first, then come back here to write and polish your essays.
           </p>
-          <Button className="mt-4" onClick={onAddCollege}>
+          <Button variant="collee" className="mt-6" onClick={onAddCollege}>
             Add College
           </Button>
         </div>
@@ -517,6 +533,13 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
 
   return (
     <section className="flex h-full flex-1 overflow-hidden">
+      <CollegeNavigator
+        college={currentCollege}
+        activeEssay={activeEssay}
+        onSelectEssay={handleSelectEssay}
+        onBackToSchools={onBackToSchools}
+      />
+
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex items-center justify-between border-b border-border bg-card/80 px-4 py-2">
           <div>
