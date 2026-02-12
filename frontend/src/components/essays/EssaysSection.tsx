@@ -18,8 +18,8 @@ import {
   type StoredFeedbackEntry,
 } from '@/components/screens/workspace/dataTransforms';
 import { useEssaySync } from '@/components/screens/workspace/useEssaySync';
+import { Button } from '@/components/ui/button';
 
-import CollegeNavigator from './CollegeNavigator';
 import CommentsDrawer from './CommentsDrawer';
 import EssayEditorPane from './EssayEditorPane';
 import FeedbackDialog from './FeedbackDialog';
@@ -32,8 +32,7 @@ interface EssaysSectionProps {
   colleges: College[];
   activeEssay: { collegeId: string; essayId: string } | null;
   setActiveEssay: (essay: { collegeId: string; essayId: string } | null) => void;
-  expandedColleges: Set<string>;
-  setExpandedColleges: React.Dispatch<React.SetStateAction<Set<string>>>;
+  selectedCollegeId?: string | null;
   onAddCollege: () => void;
   onExport: (data: ExportData) => void;
   storyIdentityData: unknown;
@@ -51,8 +50,7 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
   colleges,
   activeEssay,
   setActiveEssay,
-  expandedColleges,
-  setExpandedColleges,
+  selectedCollegeId,
   onAddCollege,
   onExport,
   storyIdentityData,
@@ -61,16 +59,21 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
   const state = useEssayEditorState();
   const strategyAttempts = useRef<Set<string>>(new Set());
 
+  const selectedCollege = selectedCollegeId
+    ? colleges.find((college) => college.id === selectedCollegeId) ?? null
+    : null;
   const currentCollege = activeEssay ? colleges.find((college) => college.id === activeEssay.collegeId) : null;
   const currentEssay = currentCollege?.essays.find((essay) => essay.id === activeEssay?.essayId);
   const currentEssayId = currentEssay?.id;
+  const currentEssayPersistedId =
+    currentEssay?.persistedId ?? (currentEssay && currentEssay.id !== currentEssay.promptId ? currentEssay.id : undefined);
   const currentEssaySyncGeneration = currentEssay?.syncGeneration ?? 0;
   const currentSyncDocumentId = currentEssayId
     ? getEssaySyncDocumentId(currentEssayId, currentEssaySyncGeneration)
     : undefined;
   const currentPromptId = currentEssay?.promptId;
 
-  const queries = useEssaySectionQueries({ currentEssayId, currentPromptId });
+  const queries = useEssaySectionQueries({ currentEssayId: currentEssayPersistedId, currentPromptId });
 
   const { editorSyncKey, hasPendingExternalReset, markLocalEdit, markLoadedEssayVersion } = useEssaySync({
     currentSyncDocumentId,
@@ -125,7 +128,8 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
       bullet: false,
       numbered: false,
     });
-  }, [currentEssay, currentEssayId, markLoadedEssayVersion, state]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentEssay, currentEssayId, markLoadedEssayVersion]);
 
   useEffect(() => {
     state.resetForEssayChange();
@@ -210,21 +214,36 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
     chain.toggleOrderedList().run();
   };
 
-  const handleToggleCollege = (collegeId: string) => {
-    setExpandedColleges((prev) => {
-      const next = new Set(prev);
-      if (next.has(collegeId)) {
-        next.delete(collegeId);
-      } else {
-        next.add(collegeId);
-      }
-      return next;
+  useEffect(() => {
+    if (activeEssay) return;
+    if (!selectedCollege || selectedCollege.essays.length === 0) return;
+    setActiveEssay({
+      collegeId: selectedCollege.id,
+      essayId: selectedCollege.essays[0].id,
     });
-  };
+  }, [activeEssay, selectedCollege, setActiveEssay]);
 
-  const handleSelectEssay = (collegeId: string, essayId: string) => {
-    setActiveEssay({ collegeId, essayId });
-  };
+  useEffect(() => {
+    if (!activeEssay) return;
+    const essayCollege = colleges.find((college) => college.id === activeEssay.collegeId);
+    if (!essayCollege) {
+      setActiveEssay(null);
+      return;
+    }
+
+    if (essayCollege.essays.length === 0) {
+      setActiveEssay(null);
+      return;
+    }
+
+    const hasEssay = essayCollege.essays.some((essay) => essay.id === activeEssay.essayId);
+    if (!hasEssay) {
+      setActiveEssay({
+        collegeId: essayCollege.id,
+        essayId: essayCollege.essays[0].id,
+      });
+    }
+  }, [activeEssay, colleges, setActiveEssay]);
 
   const handleGeneratePromptStrategy = async () => {
     if (!currentPromptId) return;
@@ -242,12 +261,12 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
   };
 
   const handleGenerateFeedback = async () => {
-    if (!currentEssayId) return;
+    if (!currentEssayPersistedId) return;
     state.setIsGeneratingFeedback(true);
     state.setFeedbackError(null);
     try {
       const result = await queries.generateEssayFeedbackAction({
-        essayId: currentEssayId as Id<'essays'>,
+        essayId: currentEssayPersistedId as Id<'essays'>,
         feedbackType: state.feedbackType,
       });
       state.setFeedbackResult(result);
@@ -260,10 +279,10 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
   };
 
   const handleRestoreVersion = async (version: Version) => {
-    if (!currentEssayId || !version.content) return;
+    if (!currentEssayPersistedId || !version.content) return;
     try {
       await queries.restoreVersionMutation({
-        essayId: currentEssayId as Id<'essays'>,
+        essayId: currentEssayPersistedId as Id<'essays'>,
         versionId: version.id as Id<'essayVersions'>,
       });
       state.setContent(version.content);
@@ -387,7 +406,7 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
   };
 
   const handleShareSubmit = async () => {
-    if (!state.shareEmail.trim() || !currentEssayId) return;
+    if (!state.shareEmail.trim() || !currentEssayPersistedId) return;
 
     state.setIsCreatingShare(true);
     state.setShareError(null);
@@ -396,7 +415,7 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
 
     try {
       const result = await queries.createShareMutation({
-        essayId: currentEssayId as Id<'essays'>,
+        essayId: currentEssayPersistedId as Id<'essays'>,
         permission: state.sharePermission,
         recipientEmail: state.shareEmail.trim(),
         recipientType: state.shareRecipientType,
@@ -454,13 +473,42 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
   const hasSameTypeExcerpts = smartReuseExcerpts.some((excerpt) => excerpt.matchesSamePromptType);
   const showSmartReuse = (hasWrittenContent || hasSameTypeExcerpts) && smartReuseExcerpts.length > 0;
 
+  if (colleges.length === 0) {
+    return (
+      <section className="flex h-full flex-1 items-center justify-center p-8">
+        <div className="max-w-md rounded-2xl border border-dashed border-border p-8 text-center">
+          <h2 className="text-lg font-semibold text-foreground">No colleges yet</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Add a college first, then open its essay directly from the dashboard.
+          </p>
+          <Button className="mt-4" onClick={onAddCollege}>
+            Add College
+          </Button>
+        </div>
+      </section>
+    );
+  }
+
+  if (selectedCollege && selectedCollege.essays.length === 0) {
+    return (
+      <section className="flex h-full flex-1 items-center justify-center p-8">
+        <div className="max-w-md rounded-2xl border border-dashed border-border p-8 text-center">
+          <h2 className="text-lg font-semibold text-foreground">No essays found</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {selectedCollege.name} does not have essay prompts yet.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
   if (!activeEssay || !currentEssay || !currentCollege) {
     return (
       <section className="flex h-full flex-1 items-center justify-center p-8">
         <div className="max-w-md rounded-2xl border border-dashed border-border p-8 text-center">
-          <h2 className="text-lg font-semibold text-foreground">Choose an essay to begin</h2>
+          <h2 className="text-lg font-semibold text-foreground">Open an essay from Dashboard</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Pick an essay from the left panel or add a college to get started.
+            Pick a college and click Open Essays to jump straight into writing.
           </p>
         </div>
       </section>
@@ -469,15 +517,6 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
 
   return (
     <section className="flex h-full flex-1 overflow-hidden">
-      <CollegeNavigator
-        colleges={colleges}
-        activeEssay={activeEssay}
-        expandedColleges={expandedColleges}
-        onToggleCollege={handleToggleCollege}
-        onSelectEssay={handleSelectEssay}
-        onAddCollege={onAddCollege}
-      />
-
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex items-center justify-between border-b border-border bg-card/80 px-4 py-2">
           <div>
@@ -575,7 +614,7 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
         open={state.strategySheetOpen}
         onOpenChange={state.setStrategySheetOpen}
         currentEssay={currentEssay}
-        currentEssayId={currentEssayId}
+        currentEssayId={currentEssayPersistedId}
         currentCollege={currentCollege}
         currentPromptId={currentPromptId}
         promptStrategy={queries.promptStrategy}
@@ -606,7 +645,7 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
         isGeneratingFeedback={state.isGeneratingFeedback}
         feedbackError={state.feedbackError}
         displayedFeedback={displayedFeedback}
-        currentEssayId={currentEssayId}
+        currentEssayId={currentEssayPersistedId}
       />
 
       <SmartReusePopover
@@ -647,7 +686,7 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
         shareLinkCopyState={state.shareLinkCopyState}
         shareLinkCopyMessage={state.shareLinkCopyMessage}
         shareError={state.shareError}
-        currentEssayId={currentEssayId}
+        currentEssayId={currentEssayPersistedId}
         onShareEmailChange={state.setShareEmail}
         onShareRecipientTypeChange={state.setShareRecipientType}
         onSharePermissionChange={state.setSharePermission}

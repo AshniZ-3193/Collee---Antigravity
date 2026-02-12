@@ -9,6 +9,7 @@ export interface PersonalLensNote {
 
 export interface Essay {
   id: string;
+  persistedId?: string;
   promptId: string;
   title: string;
   prompt: string;

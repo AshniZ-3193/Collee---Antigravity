@@ -22,6 +22,7 @@ const DeadlineList: React.FC<DeadlineListProps> = ({ deadlines, onOpenEssays }) 
     <div className="space-y-3" data-tour="dashboard-deadlines">
       {deadlines.map((deadline) => {
         const requiredSummary = `${deadline.essayCounts.requiredCompleted}/${deadline.essayCounts.requiredTotal} required complete`;
+        const hasEssay = Boolean(deadline.firstEssayId);
         return (
           <div
             key={deadline.collegeId}
@@ -41,9 +42,10 @@ const DeadlineList: React.FC<DeadlineListProps> = ({ deadlines, onOpenEssays }) 
             <Button
               variant="outline"
               size="sm"
+              disabled={!hasEssay}
               onClick={() => onOpenEssays(deadline.collegeId, deadline.firstEssayId)}
             >
-              Open Essays
+              {hasEssay ? 'Open Essays' : 'No Essays'}
             </Button>
           </div>
         );

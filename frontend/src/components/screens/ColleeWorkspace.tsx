@@ -272,6 +272,8 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const currentCollege = activeEssay ? colleges.find(c => c.id === activeEssay.collegeId) : null;
   const currentEssay = currentCollege?.essays.find(e => e.id === activeEssay?.essayId);
   const currentEssayId = currentEssay?.id;
+  const currentEssayPersistedId =
+    currentEssay?.persistedId ?? (currentEssay && currentEssay.id !== currentEssay.promptId ? currentEssay.id : undefined);
   const currentEssaySyncGeneration = currentEssay?.syncGeneration ?? 0;
   const currentSyncDocumentId = currentEssayId
     ? getEssaySyncDocumentId(currentEssayId, currentEssaySyncGeneration)
@@ -284,20 +286,20 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   );
   const reuseSuggestionsResult = useQuery(
     api.experienceBank.getReuseSuggestions,
-    currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
+    currentEssayPersistedId ? { essayId: currentEssayPersistedId as Id<"essays"> } : "skip"
   );
   const reuseSuggestions = useMemo(() => reuseSuggestionsResult ?? [], [reuseSuggestionsResult]);
   const essayVersionsResult = useQuery(
     api.essays.getVersions,
-    currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
+    currentEssayPersistedId ? { essayId: currentEssayPersistedId as Id<"essays"> } : "skip"
   );
   const essayFeedbackResult = useQuery(
     api.ai.essayFeedback.getForEssay,
-    currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
+    currentEssayPersistedId ? { essayId: currentEssayPersistedId as Id<"essays"> } : "skip"
   );
   const reviewerComments = useQuery(
     api.shares.getCommentsForEssay,
-    currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
+    currentEssayPersistedId ? { essayId: currentEssayPersistedId as Id<"essays"> } : "skip"
   ) ?? [];
   const wordLimit = currentEssay?.wordLimit || 650;
   const wordCount = countRichTextWords(content);
@@ -504,7 +506,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   };
 
   const handleShareSubmit = async () => {
-    if (!shareEmail.trim() || !currentEssayId) return;
+    if (!shareEmail.trim() || !currentEssayPersistedId) return;
     
     setIsCreatingShare(true);
     setShareError(null);
@@ -514,7 +516,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     try {
       // Create the share link using the mutation with permission level
       const result = await createShareMutation({
-        essayId: currentEssayId as Id<"essays">,
+        essayId: currentEssayPersistedId as Id<"essays">,
         permission: sharePermission,
         recipientEmail: shareEmail.trim(),
         recipientType: shareRecipientType,
@@ -732,12 +734,12 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   };
 
   const handleGenerateFeedback = async () => {
-    if (!currentEssayId) return;
+    if (!currentEssayPersistedId) return;
     setIsGeneratingFeedback(true);
     setFeedbackError(null);
     try {
       const result = await generateEssayFeedbackAction({
-        essayId: currentEssayId as Id<"essays">,
+        essayId: currentEssayPersistedId as Id<"essays">,
         feedbackType,
       });
       setFeedbackResult(result);
@@ -750,10 +752,10 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   };
 
   const handleRestoreVersion = async (version: Version) => {
-    if (!currentEssayId || !version.content) return;
+    if (!currentEssayPersistedId || !version.content) return;
     try {
       await restoreVersionMutation({
-        essayId: currentEssayId as Id<"essays">,
+        essayId: currentEssayPersistedId as Id<"essays">,
         versionId: version.id as Id<"essayVersions">,
       });
       setContent(version.content);
@@ -1486,13 +1488,13 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
 	                  wordCount={wordCount}
 	                  wordLimit={wordLimit}
 	                  isOverLimit={isOverLimit}
-	                  rightPanelProps={{
+		                  rightPanelProps={{
 	                    show: showRightPanel,
 	                    generatedSuggestions,
 	                    dismissedSuggestions,
 	                    onDismissSuggestion: handleDismissSuggestion,
 	                    currentEssay,
-	                    currentEssayId,
+		                    currentEssayId: currentEssayPersistedId,
 	                    currentCollege,
 	                    currentPromptId,
 	                    promptStrategy,
@@ -1543,7 +1545,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
         onRestore={handleRestoreVersion}
       />
 
-      <ShareDialog
+	      <ShareDialog
         isOpen={showShareDialog}
         isShareSent={isShareSent}
         isCreatingShare={isCreatingShare}
@@ -1554,7 +1556,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
         shareLinkCopyState={shareLinkCopyState}
         shareLinkCopyMessage={shareLinkCopyMessage}
         shareError={shareError}
-        currentEssayId={currentEssayId}
+	        currentEssayId={currentEssayPersistedId}
         onShareEmailChange={setShareEmail}
         onShareRecipientTypeChange={setShareRecipientType}
         onSharePermissionChange={setSharePermission}

@@ -36,6 +36,8 @@ interface ExportData {
   essayId: string;
 }
 
+const LEGACY_PENDING_ESSAY_KEY = 'collee-pending-active-essay';
+
 const Index = () => {
   const { isAuthenticated: isConvexAuth, isLoading: isConvexLoading } = useConvexAuth();
   const { isSignedIn, isLoaded: isClerkLoaded } = useAuth();
@@ -57,6 +59,21 @@ const Index = () => {
   const [exportData, setExportData] = useState<ExportData | null>(null);
   const [resumeEssaySelection, setResumeEssaySelection] = useState<{ collegeId: string; essayId: string } | null>(null);
   const { isLegacy, mode, setMode } = useWorkspaceMode();
+
+  const getPendingLegacyEssaySelection = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = window.localStorage.getItem(LEGACY_PENDING_ESSAY_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { collegeId?: unknown; essayId?: unknown };
+      if (typeof parsed.collegeId === 'string' && typeof parsed.essayId === 'string') {
+        return { collegeId: parsed.collegeId, essayId: parsed.essayId };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
 
   const isProfileLoading =
     isSignedIn && isUserStored && (profile === undefined || storyIdentity === undefined);
@@ -266,8 +283,13 @@ const Index = () => {
                 onEditStoryIdentity={() => navigateTo('edit-story-identity')}
                 onLogoClick={handleGoDashboard}
                 onLogout={handleLogout}
-                initialActiveEssay={resumeEssaySelection}
-                onInitialActiveEssayApplied={() => setResumeEssaySelection(null)}
+                initialActiveEssay={resumeEssaySelection ?? getPendingLegacyEssaySelection()}
+                onInitialActiveEssayApplied={() => {
+                  setResumeEssaySelection(null);
+                  if (typeof window !== 'undefined') {
+                    window.localStorage.removeItem(LEGACY_PENDING_ESSAY_KEY);
+                  }
+                }}
                 mode={mode}
                 onModeChange={setMode}
               />

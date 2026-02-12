@@ -26,6 +26,8 @@ interface DashboardShellProps {
   onModeChange: (mode: WorkspaceMode) => void;
 }
 
+const LEGACY_PENDING_ESSAY_KEY = 'collee-pending-active-essay';
+
 const DashboardShell: React.FC<DashboardShellProps> = ({
   onAddCollege,
   onExport,
@@ -45,7 +47,7 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
 
   const [activeSection, setActiveSection] = useState<DashboardSectionType>('dashboard');
   const [activeEssay, setActiveEssay] = useState<{ collegeId: string; essayId: string } | null>(null);
-  const [expandedColleges, setExpandedColleges] = useState<Set<string>>(new Set());
+  const [selectedCollegeId, setSelectedCollegeId] = useState<string | null>(null);
 
   const {
     showOnboarding,
@@ -62,8 +64,8 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
       activeEssay?.essayId === initialActiveEssay.essayId;
     if (!matchesCurrent) {
       setActiveEssay(initialActiveEssay);
+      setSelectedCollegeId(initialActiveEssay.collegeId);
       setActiveSection('essays');
-      setExpandedColleges((prev) => new Set(prev).add(initialActiveEssay.collegeId));
     }
 
     onInitialActiveEssayApplied?.();
@@ -78,11 +80,56 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
     const college = colleges.find((item) => item.id === collegeId);
     const targetEssayId = essayId ?? college?.essays[0]?.id;
     if (targetEssayId) {
-      setActiveEssay({ collegeId, essayId: targetEssayId });
-      setExpandedColleges((prev) => new Set(prev).add(collegeId));
+      try {
+        window.localStorage.setItem(
+          LEGACY_PENDING_ESSAY_KEY,
+          JSON.stringify({ collegeId, essayId: targetEssayId }),
+        );
+      } catch (error) {
+        console.error('Failed to persist pending essay selection:', error);
+      }
+      onModeChange('legacy');
+      return;
     }
+
+    setSelectedCollegeId(collegeId);
+    setActiveEssay(null);
     setActiveSection('essays');
   };
+
+  useEffect(() => {
+    if (activeSection !== 'essays') return;
+    if (!selectedCollegeId) return;
+
+    const selectedCollege = colleges.find((college) => college.id === selectedCollegeId);
+    if (!selectedCollege || selectedCollege.essays.length === 0) {
+      return;
+    }
+
+    const hasValidActiveEssay =
+      activeEssay?.collegeId === selectedCollege.id &&
+      selectedCollege.essays.some((essay) => essay.id === activeEssay.essayId);
+
+    if (!hasValidActiveEssay) {
+      setActiveEssay({
+        collegeId: selectedCollege.id,
+        essayId: selectedCollege.essays[0].id,
+      });
+    }
+  }, [activeSection, selectedCollegeId, colleges, activeEssay]);
+
+  useEffect(() => {
+    if (activeSection !== 'essays') return;
+    if (activeEssay) return;
+    if (selectedCollegeId) return;
+    if (colleges.length === 0) return;
+
+    const firstCollege = colleges[0];
+    setSelectedCollegeId(firstCollege.id);
+    if (firstCollege.essays.length > 0) {
+      setActiveEssay({ collegeId: firstCollege.id, essayId: firstCollege.essays[0].id });
+    }
+  }, [activeSection, activeEssay, selectedCollegeId, colleges]);
 
   return (
     <div className="h-screen flex overflow-hidden bg-background">
@@ -112,8 +159,7 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
             colleges={colleges}
             activeEssay={activeEssay}
             setActiveEssay={setActiveEssay}
-            expandedColleges={expandedColleges}
-            setExpandedColleges={setExpandedColleges}
+            selectedCollegeId={selectedCollegeId}
             onAddCollege={onAddCollege}
             onExport={onExport}
             storyIdentityData={storyIdentityData}
