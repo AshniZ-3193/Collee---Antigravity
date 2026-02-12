@@ -4,7 +4,7 @@ import { action } from "../_generated/server";
 import { v } from "convex/values";
 import { api } from "../_generated/api";
 import { SUGGESTION_SYSTEM_PROMPT } from "./prompts";
-import { getAuthenticatedUser, createOpenAIClient, AI_MODEL } from "./aiHelpers";
+import { getAuthenticatedUser, createOpenAIClient, AI_MODEL, getUserNotesContext } from "./aiHelpers";
 import { stripRichTextFormatting } from "../richTextHelpers";
 
 export const generate = action({
@@ -22,6 +22,7 @@ export const generate = action({
     const storyIdentity = await ctx.runQuery(api.storyIdentity.get, {
       userId: user._id,
     });
+    const notesContext = await getUserNotesContext(ctx, user._id);
     const lensNotes = await ctx.runQuery(api.personalLens.list, {
       userId: user._id,
     });
@@ -54,6 +55,9 @@ ${storyIdentity?.pillars?.map((p: any) => `- ${p.theme}`).join("\n") || "None"}
 
 PERSONAL LENS NOTES:
 ${lensNotes?.map((n: any) => `- [${n.category}] ${n.content}`).join("\n") || "None"}
+
+USER NOTES:
+${notesContext}
 
 OTHER ESSAYS (for overlap awareness):
 ${colleges?.flatMap((c: any) =>

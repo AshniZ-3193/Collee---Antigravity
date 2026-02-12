@@ -176,6 +176,18 @@ export default defineSchema({
     category: v.string(), // 'moment' | 'observation' | 'responsibility' | 'realization' | 'value' | 'shift'
   }).index("by_user", ["userId"]),
 
+  notesDocuments: defineTable({
+    userId: v.id("users"),
+    title: v.string(),
+    content: v.string(),
+    status: v.string(), // 'active' | 'archived'
+    linkedCollegeIds: v.array(v.id("colleges")),
+    source: v.string(), // 'manual' | 'migrated_personal_lens'
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"])
+    .index("by_user_status", ["userId", "status"]),
+
   // AI-generated story suggestions
   storySuggestions: defineTable({
     userId: v.id("users"),

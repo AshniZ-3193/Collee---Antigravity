@@ -93,6 +93,7 @@ export const mapCollegesFromConvex = (convexCollegesResult: unknown): College[] 
           promptId,
           title: promptText,
           prompt: promptText,
+          isOptional: Boolean(prompt?.isOptional),
           status: normalizeEssayStatus(essayRecord?.status),
           wordCount: asNumber(essayRecord?.wordCount, 0),
           wordLimit: asNumber(prompt?.wordCountMax, 650),

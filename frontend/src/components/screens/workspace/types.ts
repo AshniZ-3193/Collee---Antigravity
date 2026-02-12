@@ -12,6 +12,7 @@ export interface Essay {
   promptId: string;
   title: string;
   prompt: string;
+  isOptional?: boolean;
   status: 'not-started' | 'in-progress' | 'complete';
   wordCount: number;
   wordLimit: number;

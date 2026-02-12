@@ -12,7 +12,12 @@ type HighlightArea =
   | 'personal-lens'
   | 'prompt-above-editor'
   | 'calendar-toggle'
-  | 'dismiss-suggestion';
+  | 'dismiss-suggestion'
+  | 'sidebar-nav'
+  | 'dashboard-progress'
+  | 'dashboard-deadlines'
+  | 'essays-section'
+  | 'essay-toolbar';
 
 interface OnboardingStep {
   id: string;
@@ -22,7 +27,7 @@ interface OnboardingStep {
   icon: React.ReactNode;
 }
 
-const onboardingSteps: OnboardingStep[] = [
+const legacyOnboardingSteps: OnboardingStep[] = [
   {
     id: 'colleges',
     title: 'Your Colleges',
@@ -81,8 +86,47 @@ const onboardingSteps: OnboardingStep[] = [
   },
 ];
 
+const dashboardOnboardingSteps: OnboardingStep[] = [
+  {
+    id: 'sidebar-nav',
+    title: 'Sidebar Navigation',
+    description: 'Use this rail to move between Dashboard, Essays, and Notes.',
+    highlightArea: 'sidebar-nav',
+    icon: <MapPin className="w-5 h-5" />,
+  },
+  {
+    id: 'dashboard-progress',
+    title: 'Progress Ring',
+    description: 'Track required essay completion at a glance.',
+    highlightArea: 'dashboard-progress',
+    icon: <Sparkles className="w-5 h-5" />,
+  },
+  {
+    id: 'dashboard-deadlines',
+    title: 'Deadlines',
+    description: 'Upcoming deadlines and progress are grouped here.',
+    highlightArea: 'dashboard-deadlines',
+    icon: <Calendar className="w-5 h-5" />,
+  },
+  {
+    id: 'essays-section',
+    title: 'Essays Section',
+    description: 'Open the Essays area to continue writing and managing drafts.',
+    highlightArea: 'essays-section',
+    icon: <FileText className="w-5 h-5" />,
+  },
+  {
+    id: 'essay-toolbar',
+    title: 'AI Toolbar',
+    description: 'Use Strategy, Feedback, Reuse, and Comments while writing.',
+    highlightArea: 'essay-toolbar',
+    icon: <Sparkles className="w-5 h-5" />,
+  },
+];
+
 interface OnboardingWalkthroughProps {
   isOpen: boolean;
+  mode?: 'legacy' | 'dashboard';
   onClose: () => void;
   onComplete: () => void;
 }
@@ -100,6 +144,11 @@ const TOUR_TARGET_SELECTORS: Record<HighlightArea, string[]> = {
   'context-panel': ['[data-tour="context-panel"]', '[data-tour="show-guidance-button"]'],
   'dismiss-suggestion': ['[data-tour="dismiss-suggestion"]'],
   'back-button': ['[data-tour="back-to-colleges"]', '[data-tour="logo-button"]'],
+  'sidebar-nav': ['[data-tour="sidebar-nav"]'],
+  'dashboard-progress': ['[data-tour="dashboard-progress"]'],
+  'dashboard-deadlines': ['[data-tour="dashboard-deadlines"]'],
+  'essays-section': ['[data-tour="essays-section"]'],
+  'essay-toolbar': ['[data-tour="essay-toolbar"]'],
 };
 
 const FALLBACK_HIGHLIGHT_STYLES: Record<HighlightArea, React.CSSProperties> = {
@@ -112,6 +161,11 @@ const FALLBACK_HIGHLIGHT_STYLES: Record<HighlightArea, React.CSSProperties> = {
   'context-panel': { left: 'calc(100% - 320px)', top: 48, width: 320, height: 'calc(100% - 48px)' },
   'dismiss-suggestion': { left: 'calc(100% - 320px)', top: 190, width: 280, height: 120 },
   'back-button': { left: 336, top: 56, width: 160, height: 44 },
+  'sidebar-nav': { left: 8, top: 8, width: 56, height: 'calc(100% - 16px)' },
+  'dashboard-progress': { left: 160, top: 180, width: 240, height: 240 },
+  'dashboard-deadlines': { left: 120, top: 420, width: 'calc(100% - 220px)', height: 220 },
+  'essays-section': { left: 8, top: 118, width: 56, height: 40 },
+  'essay-toolbar': { left: 340, top: 100, width: 'calc(100% - 420px)', height: 56 },
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
@@ -156,6 +210,7 @@ export const useOnboardingState = () => {
 
 const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
   isOpen,
+  mode = 'legacy',
   onClose,
   onComplete,
 }) => {
@@ -164,8 +219,10 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const [tooltipSize, setTooltipSize] = useState({ width: 384, height: 260 });
 
+  const steps = mode === 'dashboard' ? dashboardOnboardingSteps : legacyOnboardingSteps;
+
   const handleNext = () => {
-    if (currentStep < onboardingSteps.length - 1) {
+    if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
       onComplete();
@@ -189,8 +246,14 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
     }
   }, [isOpen]);
 
-  const step = onboardingSteps[currentStep];
-  const isLastStep = currentStep === onboardingSteps.length - 1;
+  useEffect(() => {
+    if (currentStep > steps.length - 1) {
+      setCurrentStep(0);
+    }
+  }, [currentStep, steps.length]);
+
+  const step = steps[currentStep];
+  const isLastStep = currentStep === steps.length - 1;
   const isFirstStep = currentStep === 0;
 
   const findTargetRect = useCallback((area: HighlightArea): DOMRect | null => {
@@ -409,7 +472,7 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
 
               {/* Progress dots */}
               <div className="flex items-center justify-center gap-1.5 my-4">
-                {onboardingSteps.map((_, index) => (
+                {steps.map((_, index) => (
                   <div
                     key={index}
                     className={`w-2 h-2 rounded-full transition-colors ${

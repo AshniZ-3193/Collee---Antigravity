@@ -108,6 +108,8 @@ interface ColleeWorkspaceProps {
   onLogout?: () => void;
   initialActiveEssay?: { collegeId: string; essayId: string } | null;
   onInitialActiveEssayApplied?: () => void;
+  mode?: 'legacy' | 'dashboard';
+  onModeChange?: (mode: 'legacy' | 'dashboard') => void;
 }
 
 // ===== MAIN COMPONENT =====
@@ -119,6 +121,8 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   onLogout,
   initialActiveEssay,
   onInitialActiveEssayApplied,
+  mode = 'legacy',
+  onModeChange,
 }) => {
   // Convex queries
   const convexCollegesResult = useQuery(api.colleges.list, {});
@@ -251,6 +255,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const personalLensNotes: PersonalLensNote[] = useMemo(() => {
     return mapPersonalLensNotesFromConvex(convexLensNotesResult);
   }, [convexLensNotesResult]);
+  const showNotesMigrationBanner = mode === 'legacy' && personalLensNotes.length > 0;
 
   // Calendar view state
   const [viewMode, setViewMode] = useState<'cards' | 'calendar'>('cards');
@@ -870,6 +875,13 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                   <HelpCircle className="w-4 h-4 mr-2" />
                   Take the tour again
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => onModeChange?.(mode === 'legacy' ? 'dashboard' : 'legacy')}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  {mode === 'legacy' ? 'Switch to Dashboard' : 'Switch to Legacy'}
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="cursor-pointer" onClick={onEditStoryIdentity}>
                   <Pencil className="w-4 h-4 mr-2" />
@@ -895,6 +907,23 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
         {/* Gradient bottom border */}
         <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/15 to-transparent" />
       </header>
+
+      {showNotesMigrationBanner && (
+        <div className="border-b border-border bg-primary/5 px-4 py-2 text-xs text-foreground">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+            <p>
+              Your notes are now in <span className="font-medium">Notes</span>.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onModeChange?.('dashboard')}
+            >
+              Go to Notes
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex overflow-hidden">
@@ -1544,6 +1573,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
       {/* Onboarding Walkthrough */}
       <OnboardingWalkthrough
         isOpen={showOnboarding}
+        mode="legacy"
         onClose={() => setShowOnboarding(false)}
         onComplete={completeOnboarding}
       />
