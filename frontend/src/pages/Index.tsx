@@ -20,10 +20,8 @@ import StoryCardScreen from '@/components/screens/StoryCardScreen';
 import AddCollegeScreen from '@/components/screens/AddCollegeScreen';
 import ExportScreen from '@/components/screens/ExportScreen';
 import ShareViewScreen from '@/components/screens/ShareViewScreen';
-import ColleeWorkspace from '@/components/screens/ColleeWorkspace';
 import EditStoryIdentityScreen from '@/components/screens/EditStoryIdentityScreen';
 import DashboardShell from '@/components/dashboard/DashboardShell';
-import { useWorkspaceMode } from '@/components/hooks/useWorkspaceMode';
 import { screenNavigationReducer, type Screen } from './indexNavigationMachine';
 
 // Export data for ExportScreen
@@ -35,8 +33,6 @@ interface ExportData {
   essayContent: string;
   essayId: string;
 }
-
-const LEGACY_PENDING_ESSAY_KEY = 'collee-pending-active-essay';
 
 const Index = () => {
   const { isAuthenticated: isConvexAuth, isLoading: isConvexLoading } = useConvexAuth();
@@ -58,22 +54,6 @@ const Index = () => {
   const hasNavigatedAfterAuth = useRef(false);
   const [exportData, setExportData] = useState<ExportData | null>(null);
   const [resumeEssaySelection, setResumeEssaySelection] = useState<{ collegeId: string; essayId: string } | null>(null);
-  const { isLegacy, mode, setMode } = useWorkspaceMode();
-
-  const getPendingLegacyEssaySelection = () => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const raw = window.localStorage.getItem(LEGACY_PENDING_ESSAY_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw) as { collegeId?: unknown; essayId?: unknown };
-      if (typeof parsed.collegeId === 'string' && typeof parsed.essayId === 'string') {
-        return { collegeId: parsed.collegeId, essayId: parsed.essayId };
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  };
 
   const isProfileLoading =
     isSignedIn && isUserStored && (profile === undefined || storyIdentity === undefined);
@@ -271,46 +251,18 @@ const Index = () => {
 
         {/* MAIN APP */}
         {currentScreen === 'workspace' && (
-          <>
-            {isLegacy ? (
-              <ColleeWorkspace
-                onAddCollege={() => navigateTo('add-college')}
-                onExport={(data: ExportData) => {
-                  setExportData(data);
-                  setResumeEssaySelection({ collegeId: data.collegeId, essayId: data.essayId });
-                  navigateTo('export');
-                }}
-                onEditStoryIdentity={() => navigateTo('edit-story-identity')}
-                onLogoClick={handleGoDashboard}
-                onLogout={handleLogout}
-                initialActiveEssay={resumeEssaySelection ?? getPendingLegacyEssaySelection()}
-                onInitialActiveEssayApplied={() => {
-                  setResumeEssaySelection(null);
-                  if (typeof window !== 'undefined') {
-                    window.localStorage.removeItem(LEGACY_PENDING_ESSAY_KEY);
-                  }
-                }}
-                mode={mode}
-                onModeChange={setMode}
-              />
-            ) : (
-              <DashboardShell
-                onAddCollege={() => navigateTo('add-college')}
-                onExport={(data: ExportData) => {
-                  setExportData(data);
-                  setResumeEssaySelection({ collegeId: data.collegeId, essayId: data.essayId });
-                  navigateTo('export');
-                }}
-                onEditStoryIdentity={() => navigateTo('edit-story-identity')}
-                onLogoClick={handleGoDashboard}
-                onLogout={handleLogout}
-                initialActiveEssay={resumeEssaySelection}
-                onInitialActiveEssayApplied={() => setResumeEssaySelection(null)}
-                mode={mode}
-                onModeChange={setMode}
-              />
-            )}
-          </>
+          <DashboardShell
+            onAddCollege={() => navigateTo('add-college')}
+            onExport={(data: ExportData) => {
+              setExportData(data);
+              setResumeEssaySelection({ collegeId: data.collegeId, essayId: data.essayId });
+              navigateTo('export');
+            }}
+            onEditStoryIdentity={() => navigateTo('edit-story-identity')}
+            onLogout={handleLogout}
+            initialActiveEssay={resumeEssaySelection}
+            onInitialActiveEssayApplied={() => setResumeEssaySelection(null)}
+          />
         )}
 
         {currentScreen === 'add-college' && (

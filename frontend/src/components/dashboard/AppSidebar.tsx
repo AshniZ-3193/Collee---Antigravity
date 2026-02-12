@@ -8,7 +8,6 @@ import {
   Pencil,
   Plus,
   Settings,
-  ArrowRightLeft,
   User,
 } from 'lucide-react';
 
@@ -31,9 +30,6 @@ interface AppSidebarProps {
   onLogout?: () => void;
   onEditStoryIdentity?: () => void;
   onTakeTour: () => void;
-  mode: 'legacy' | 'dashboard';
-  onModeChange: (mode: 'legacy' | 'dashboard') => void;
-  notesEnabled: boolean;
 }
 
 interface SidebarIconButtonProps {
@@ -82,9 +78,6 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
   onLogout,
   onEditStoryIdentity,
   onTakeTour,
-  mode,
-  onModeChange,
-  notesEnabled,
 }) => {
   return (
     <TooltipProvider>
@@ -108,9 +101,8 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
           </SidebarIconButton>
 
           <SidebarIconButton
-            label={notesEnabled ? 'Notes' : 'Notes (coming soon)'}
+            label="Notes"
             active={activeSection === 'notes'}
-            disabled={!notesEnabled}
             onClick={() => onSectionChange('notes')}
           >
             <NotebookPen className="h-4 w-4" />
@@ -139,13 +131,6 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
               <DropdownMenuItem className="cursor-pointer" onClick={onTakeTour}>
                 <HelpCircle className="mr-2 h-4 w-4" />
                 Take tour
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onClick={() => onModeChange(mode === 'legacy' ? 'dashboard' : 'legacy')}
-              >
-                <ArrowRightLeft className="mr-2 h-4 w-4" />
-                {mode === 'legacy' ? 'Switch to Dashboard' : 'Switch to Legacy'}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <div className="px-2 py-1.5">

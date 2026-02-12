@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { useQuery } from 'convex/react';
 
 import { api } from '../../../convex/_generated/api';
@@ -6,7 +7,6 @@ import OnboardingWalkthrough, { useOnboardingState } from '@/components/Onboardi
 import { mapCollegesFromConvex } from '@/components/screens/workspace/dataTransforms';
 import type { College, ExportData } from '@/components/screens/workspace/types';
 
-import type { WorkspaceMode } from '@/components/hooks/useWorkspaceMode';
 import AppSidebar from './AppSidebar';
 import DashboardSection from './DashboardSection';
 import type { DashboardSection as DashboardSectionType } from './types';
@@ -18,15 +18,10 @@ interface DashboardShellProps {
   onAddCollege: () => void;
   onExport: (data: ExportData) => void;
   onEditStoryIdentity?: () => void;
-  onLogoClick?: () => void;
   onLogout?: () => void;
   initialActiveEssay?: { collegeId: string; essayId: string } | null;
   onInitialActiveEssayApplied?: () => void;
-  mode: WorkspaceMode;
-  onModeChange: (mode: WorkspaceMode) => void;
 }
-
-const LEGACY_PENDING_ESSAY_KEY = 'collee-pending-active-essay';
 
 const DashboardShell: React.FC<DashboardShellProps> = ({
   onAddCollege,
@@ -35,15 +30,14 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
   onLogout,
   initialActiveEssay,
   onInitialActiveEssayApplied,
-  mode,
-  onModeChange,
 }) => {
   const convexCollegesResult = useQuery(api.colleges.list, {});
   const storyIdentityData = useQuery(api.storyIdentity.get, {});
   const experienceUsagesResult = useQuery(api.experienceBank.getUsages);
 
+  const { user } = useUser();
   const colleges: College[] = useMemo(() => mapCollegesFromConvex(convexCollegesResult), [convexCollegesResult]);
-  const dashboardData = useDashboardData(colleges);
+  const dashboardData = useDashboardData(colleges, user?.firstName || undefined);
 
   const [activeSection, setActiveSection] = useState<DashboardSectionType>('dashboard');
   const [activeEssay, setActiveEssay] = useState<{ collegeId: string; essayId: string } | null>(null);
@@ -79,57 +73,15 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
   const handleOpenEssays = (collegeId: string, essayId?: string) => {
     const college = colleges.find((item) => item.id === collegeId);
     const targetEssayId = essayId ?? college?.essays[0]?.id;
-    if (targetEssayId) {
-      try {
-        window.localStorage.setItem(
-          LEGACY_PENDING_ESSAY_KEY,
-          JSON.stringify({ collegeId, essayId: targetEssayId }),
-        );
-      } catch (error) {
-        console.error('Failed to persist pending essay selection:', error);
-      }
-      onModeChange('legacy');
-      return;
-    }
 
     setSelectedCollegeId(collegeId);
-    setActiveEssay(null);
+    if (targetEssayId) {
+      setActiveEssay({ collegeId, essayId: targetEssayId });
+    } else {
+      setActiveEssay(null);
+    }
     setActiveSection('essays');
   };
-
-  useEffect(() => {
-    if (activeSection !== 'essays') return;
-    if (!selectedCollegeId) return;
-
-    const selectedCollege = colleges.find((college) => college.id === selectedCollegeId);
-    if (!selectedCollege || selectedCollege.essays.length === 0) {
-      return;
-    }
-
-    const hasValidActiveEssay =
-      activeEssay?.collegeId === selectedCollege.id &&
-      selectedCollege.essays.some((essay) => essay.id === activeEssay.essayId);
-
-    if (!hasValidActiveEssay) {
-      setActiveEssay({
-        collegeId: selectedCollege.id,
-        essayId: selectedCollege.essays[0].id,
-      });
-    }
-  }, [activeSection, selectedCollegeId, colleges, activeEssay]);
-
-  useEffect(() => {
-    if (activeSection !== 'essays') return;
-    if (activeEssay) return;
-    if (selectedCollegeId) return;
-    if (colleges.length === 0) return;
-
-    const firstCollege = colleges[0];
-    setSelectedCollegeId(firstCollege.id);
-    if (firstCollege.essays.length > 0) {
-      setActiveEssay({ collegeId: firstCollege.id, essayId: firstCollege.essays[0].id });
-    }
-  }, [activeSection, activeEssay, selectedCollegeId, colleges]);
 
   return (
     <div className="h-screen flex overflow-hidden bg-background">
@@ -140,9 +92,6 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
         onLogout={onLogout}
         onEditStoryIdentity={onEditStoryIdentity}
         onTakeTour={resetOnboarding}
-        mode={mode}
-        onModeChange={onModeChange}
-        notesEnabled={true}
       />
 
       <main className="flex-1 overflow-hidden">
@@ -164,6 +113,7 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
             onExport={onExport}
             storyIdentityData={storyIdentityData}
             experienceUsagesResult={experienceUsagesResult}
+            onBackToSchools={() => setActiveSection('dashboard')}
           />
         )}
 

@@ -56,7 +56,7 @@ const toCollegeDeadline = (college: College): CollegeDeadline | null => {
   };
 };
 
-export const useDashboardData = (colleges: College[]): DashboardData => {
+export const useDashboardData = (colleges: College[], userName?: string): DashboardData => {
   return useMemo(() => {
     const requiredEssays = colleges.flatMap((college) =>
       college.essays.filter((essay) => essay.isOptional !== true),
@@ -75,7 +75,7 @@ export const useDashboardData = (colleges: College[]): DashboardData => {
       .sort((a, b) => deadlineSortValue(a.deadline) - deadlineSortValue(b.deadline));
 
     return {
-      userName: 'there',
+      userName: userName || 'there',
       totalRequiredEssays,
       completedRequiredEssays,
       progressFraction,
@@ -83,5 +83,5 @@ export const useDashboardData = (colleges: College[]): DashboardData => {
       colleges,
       hasColleges: colleges.length > 0,
     };
-  }, [colleges]);
+  }, [colleges, userName]);
 };
