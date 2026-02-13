@@ -262,16 +262,14 @@ const applyMarksToHtml = (text: string, marks?: ProseMirrorMark[]) => {
       const color = typeof mark.attrs?.color === "string" ? mark.attrs.color : "";
       const safeColor = sanitizeColor(color);
       if (safeColor) {
-        html = `<span style="color:${safeColor}">${html}</span>`;
+        html = `<span style="color:${escapeHtml(safeColor)}">${html}</span>`;
       }
-      // If color is invalid, still render the span to maintain mark structure
-      // but without the potentially malicious color style
     } else if (mark.type === "highlight") {
       const bgColor = typeof mark.attrs?.color === "string" ? mark.attrs.color : "#fef9c3";
       const safeBgColor = sanitizeColor(bgColor);
       // Use sanitized color or fall back to default if validation fails
       const finalBgColor = safeBgColor || "#fef9c3";
-      html = `<mark style="background-color:${finalBgColor}">${html}</mark>`;
+      html = `<mark style="background-color:${escapeHtml(finalBgColor)}">${html}</mark>`;
     }
   }
   return html;
