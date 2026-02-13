@@ -5,7 +5,6 @@ import { useConvexAuth } from "convex/react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import type { Extension } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
 import { api } from "../../../convex/_generated/api";
 import { normalizeRichTextForStorage, parseStoredRichTextToDoc } from "@/lib/richText";
 
@@ -117,7 +116,7 @@ const SyncEssayEditorInner: React.FC<SyncEssayEditorProps> = ({
 
   // Memoize extensions using stable primitive values
   const extensions = useMemo(() => {
-    const base = [StarterKit, Underline, ...(additionalExtensions ?? [])];
+    const base = [StarterKit, ...(additionalExtensions ?? [])];
     if (!syncIsLoading && syncInitialContent !== null && syncExtension) {
       return [...base, syncExtension];
     }
