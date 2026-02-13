@@ -108,6 +108,8 @@ interface ColleeWorkspaceProps {
   onLogout?: () => void;
   initialActiveEssay?: { collegeId: string; essayId: string } | null;
   onInitialActiveEssayApplied?: () => void;
+  mode?: 'legacy' | 'dashboard';
+  onModeChange?: (mode: 'legacy' | 'dashboard') => void;
 }
 
 // ===== MAIN COMPONENT =====
@@ -119,6 +121,8 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   onLogout,
   initialActiveEssay,
   onInitialActiveEssayApplied,
+  mode = 'legacy',
+  onModeChange,
 }) => {
   // Convex queries
   const convexCollegesResult = useQuery(api.colleges.list, {});
@@ -251,6 +255,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const personalLensNotes: PersonalLensNote[] = useMemo(() => {
     return mapPersonalLensNotesFromConvex(convexLensNotesResult);
   }, [convexLensNotesResult]);
+  const showNotesMigrationBanner = mode === 'legacy' && personalLensNotes.length > 0;
 
   // Calendar view state
   const [viewMode, setViewMode] = useState<'cards' | 'calendar'>('cards');
@@ -267,6 +272,8 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   const currentCollege = activeEssay ? colleges.find(c => c.id === activeEssay.collegeId) : null;
   const currentEssay = currentCollege?.essays.find(e => e.id === activeEssay?.essayId);
   const currentEssayId = currentEssay?.id;
+  const currentEssayPersistedId =
+    currentEssay?.persistedId ?? (currentEssay && currentEssay.id !== currentEssay.promptId ? currentEssay.id : undefined);
   const currentEssaySyncGeneration = currentEssay?.syncGeneration ?? 0;
   const currentSyncDocumentId = currentEssayId
     ? getEssaySyncDocumentId(currentEssayId, currentEssaySyncGeneration)
@@ -279,20 +286,20 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   );
   const reuseSuggestionsResult = useQuery(
     api.experienceBank.getReuseSuggestions,
-    currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
+    currentEssayPersistedId ? { essayId: currentEssayPersistedId as Id<"essays"> } : "skip"
   );
   const reuseSuggestions = useMemo(() => reuseSuggestionsResult ?? [], [reuseSuggestionsResult]);
   const essayVersionsResult = useQuery(
     api.essays.getVersions,
-    currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
+    currentEssayPersistedId ? { essayId: currentEssayPersistedId as Id<"essays"> } : "skip"
   );
   const essayFeedbackResult = useQuery(
     api.ai.essayFeedback.getForEssay,
-    currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
+    currentEssayPersistedId ? { essayId: currentEssayPersistedId as Id<"essays"> } : "skip"
   );
   const reviewerComments = useQuery(
     api.shares.getCommentsForEssay,
-    currentEssayId ? { essayId: currentEssayId as Id<"essays"> } : "skip"
+    currentEssayPersistedId ? { essayId: currentEssayPersistedId as Id<"essays"> } : "skip"
   ) ?? [];
   const wordLimit = currentEssay?.wordLimit || 650;
   const wordCount = countRichTextWords(content);
@@ -499,7 +506,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   };
 
   const handleShareSubmit = async () => {
-    if (!shareEmail.trim() || !currentEssayId) return;
+    if (!shareEmail.trim() || !currentEssayPersistedId) return;
     
     setIsCreatingShare(true);
     setShareError(null);
@@ -509,7 +516,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
     try {
       // Create the share link using the mutation with permission level
       const result = await createShareMutation({
-        essayId: currentEssayId as Id<"essays">,
+        essayId: currentEssayPersistedId as Id<"essays">,
         permission: sharePermission,
         recipientEmail: shareEmail.trim(),
         recipientType: shareRecipientType,
@@ -727,12 +734,12 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   };
 
   const handleGenerateFeedback = async () => {
-    if (!currentEssayId) return;
+    if (!currentEssayPersistedId) return;
     setIsGeneratingFeedback(true);
     setFeedbackError(null);
     try {
       const result = await generateEssayFeedbackAction({
-        essayId: currentEssayId as Id<"essays">,
+        essayId: currentEssayPersistedId as Id<"essays">,
         feedbackType,
       });
       setFeedbackResult(result);
@@ -745,10 +752,10 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
   };
 
   const handleRestoreVersion = async (version: Version) => {
-    if (!currentEssayId || !version.content) return;
+    if (!currentEssayPersistedId || !version.content) return;
     try {
       await restoreVersionMutation({
-        essayId: currentEssayId as Id<"essays">,
+        essayId: currentEssayPersistedId as Id<"essays">,
         versionId: version.id as Id<"essayVersions">,
       });
       setContent(version.content);
@@ -870,6 +877,13 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
                   <HelpCircle className="w-4 h-4 mr-2" />
                   Take the tour again
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => onModeChange?.(mode === 'legacy' ? 'dashboard' : 'legacy')}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  {mode === 'legacy' ? 'Switch to Dashboard' : 'Switch to Legacy'}
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="cursor-pointer" onClick={onEditStoryIdentity}>
                   <Pencil className="w-4 h-4 mr-2" />
@@ -895,6 +909,23 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
         {/* Gradient bottom border */}
         <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/15 to-transparent" />
       </header>
+
+      {showNotesMigrationBanner && (
+        <div className="border-b border-border bg-primary/5 px-4 py-2 text-xs text-foreground">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+            <p>
+              Your notes are now in <span className="font-medium">Notes</span>.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onModeChange?.('dashboard')}
+            >
+              Go to Notes
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex overflow-hidden">
@@ -1457,13 +1488,13 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
 	                  wordCount={wordCount}
 	                  wordLimit={wordLimit}
 	                  isOverLimit={isOverLimit}
-	                  rightPanelProps={{
+		                  rightPanelProps={{
 	                    show: showRightPanel,
 	                    generatedSuggestions,
 	                    dismissedSuggestions,
 	                    onDismissSuggestion: handleDismissSuggestion,
 	                    currentEssay,
-	                    currentEssayId,
+		                    currentEssayId: currentEssayPersistedId,
 	                    currentCollege,
 	                    currentPromptId,
 	                    promptStrategy,
@@ -1514,7 +1545,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
         onRestore={handleRestoreVersion}
       />
 
-      <ShareDialog
+	      <ShareDialog
         isOpen={showShareDialog}
         isShareSent={isShareSent}
         isCreatingShare={isCreatingShare}
@@ -1525,7 +1556,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
         shareLinkCopyState={shareLinkCopyState}
         shareLinkCopyMessage={shareLinkCopyMessage}
         shareError={shareError}
-        currentEssayId={currentEssayId}
+	        currentEssayId={currentEssayPersistedId}
         onShareEmailChange={setShareEmail}
         onShareRecipientTypeChange={setShareRecipientType}
         onSharePermissionChange={setSharePermission}
@@ -1544,6 +1575,7 @@ const ColleeWorkspace: React.FC<ColleeWorkspaceProps> = ({
       {/* Onboarding Walkthrough */}
       <OnboardingWalkthrough
         isOpen={showOnboarding}
+        mode="legacy"
         onClose={() => setShowOnboarding(false)}
         onComplete={completeOnboarding}
       />

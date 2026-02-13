@@ -8,6 +8,7 @@ export const useWriteTabState = () => {
   const [showStarterHelper, setShowStarterHelper] = useState(false);
   const [excerptUsages, setExcerptUsages] = useState<ExcerptUsageRecord[]>([]);
   const [dismissedExcerpts, setDismissedExcerpts] = useState<Set<string>>(new Set());
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
   const [insertedReferences, setInsertedReferences] = useState<
     { id: string; excerptId: string; text: string; sourceName: string }[]
   >([]);
@@ -48,6 +49,8 @@ export const useWriteTabState = () => {
     setExcerptUsages,
     dismissedExcerpts,
     setDismissedExcerpts,
+    dismissedSuggestions,
+    setDismissedSuggestions,
     insertedReferences,
     setInsertedReferences,
     isEditingPrompt,

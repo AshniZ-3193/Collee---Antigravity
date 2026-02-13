@@ -9,9 +9,11 @@ export interface PersonalLensNote {
 
 export interface Essay {
   id: string;
+  persistedId?: string;
   promptId: string;
   title: string;
   prompt: string;
+  isOptional?: boolean;
   status: 'not-started' | 'in-progress' | 'complete';
   wordCount: number;
   wordLimit: number;

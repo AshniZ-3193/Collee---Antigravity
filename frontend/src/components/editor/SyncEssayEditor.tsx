@@ -3,6 +3,7 @@ import type { SyncApi } from "@convex-dev/prosemirror-sync";
 import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
 import { useConvexAuth } from "convex/react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
+import type { Extension } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import { api } from "../../../convex/_generated/api";
@@ -22,6 +23,7 @@ interface SyncEssayEditorProps {
   onStoredContentChange: (nextContent: string) => void;
   onFormatsChange: (formats: ActiveRichTextFormats) => void;
   onEditorChange: (editor: Editor | null) => void;
+  additionalExtensions?: Extension[];
 }
 
 const EMPTY_FORMATS: ActiveRichTextFormats = {
@@ -59,6 +61,7 @@ const SyncEssayEditorInner: React.FC<SyncEssayEditorProps> = ({
   onStoredContentChange,
   onFormatsChange,
   onEditorChange,
+  additionalExtensions,
 }) => {
   const sync = useTiptapSync(prosemirrorSyncApi, syncDocumentId, {
     onSyncError: (error) => {
@@ -114,12 +117,12 @@ const SyncEssayEditorInner: React.FC<SyncEssayEditorProps> = ({
 
   // Memoize extensions using stable primitive values
   const extensions = useMemo(() => {
-    const base = [StarterKit, Underline];
+    const base = [StarterKit, Underline, ...(additionalExtensions ?? [])];
     if (!syncIsLoading && syncInitialContent !== null && syncExtension) {
       return [...base, syncExtension];
     }
     return base;
-  }, [syncIsLoading, syncInitialContent, syncExtension]);
+  }, [syncIsLoading, syncInitialContent, syncExtension, additionalExtensions]);
 
   // Stable callbacks for editor events
   const handleUpdate = useCallback(({ editor: nextEditor }: { editor: Editor }) => {
@@ -152,7 +155,7 @@ const SyncEssayEditorInner: React.FC<SyncEssayEditorProps> = ({
       editorProps: {
         attributes: {
           class:
-            "min-h-[380px] w-full rounded-2xl border border-border bg-background p-4 text-lg leading-relaxed text-foreground shadow-sm focus:outline-none",
+            "essay-editor min-h-[420px] w-full text-[1.0625rem] leading-[1.75] tracking-[-0.005em] text-foreground/90 focus:outline-none placeholder:text-muted-foreground/40",
         },
       },
       onUpdate: handleUpdate,
@@ -181,11 +184,19 @@ const SyncEssayEditorInner: React.FC<SyncEssayEditorProps> = ({
   }, []);
 
   return (
-    <div className="w-full min-h-[380px] rounded-2xl border border-border bg-background">
+    <div className="w-full min-h-[380px]">
       <EditorContent editor={editor ?? null} />
-      {editor === null ? (
-        <div className="p-6 text-sm text-muted-foreground">Preparing editor...</div>
-      ) : null}
+      {editor === null && (
+        <div className="py-4">
+          <div className="space-y-4 animate-pulse">
+            <div className="h-4 w-3/4 rounded-full bg-muted/60" />
+            <div className="h-4 w-full rounded-full bg-muted/60" />
+            <div className="h-4 w-5/6 rounded-full bg-muted/60" />
+            <div className="h-4 w-2/3 rounded-full bg-muted/60" />
+            <div className="h-4 w-4/5 rounded-full bg-muted/60" />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -202,8 +213,16 @@ const SyncEssayEditor: React.FC<SyncEssayEditorProps> = (props) => {
 
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="w-full min-h-[380px] rounded-2xl border border-border bg-background">
-        <div className="p-6 text-sm text-muted-foreground">Preparing editor...</div>
+      <div className="w-full min-h-[420px]">
+        <div className="py-4">
+          <div className="space-y-4 animate-pulse">
+            <div className="h-4 w-3/4 rounded-full bg-muted/60" />
+            <div className="h-4 w-full rounded-full bg-muted/60" />
+            <div className="h-4 w-5/6 rounded-full bg-muted/60" />
+            <div className="h-4 w-2/3 rounded-full bg-muted/60" />
+            <div className="h-4 w-4/5 rounded-full bg-muted/60" />
+          </div>
+        </div>
       </div>
     );
   }

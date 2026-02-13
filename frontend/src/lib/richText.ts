@@ -32,6 +32,85 @@ const escapeHtml = (value: string) =>
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+const SAFE_NAMED_COLORS = new Set([
+  "black", "white", "red", "green", "blue", "yellow", "cyan", "magenta",
+  "gray", "grey", "silver", "maroon", "olive", "lime", "aqua", "teal",
+  "navy", "fuchsia", "purple", "orange", "pink", "brown", "gold",
+  "transparent", "currentcolor",
+]);
+
+const sanitizeColor = (color: string): string | null => {
+  if (!color || typeof color !== "string") return null;
+
+  const trimmed = color.trim();
+  if (/[;{}]/.test(trimmed)) return null;
+
+  if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const rgbMatch = trimmed.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/);
+  if (rgbMatch) {
+    const [, r, g, b, a] = rgbMatch;
+    const rNum = parseInt(r, 10);
+    const gNum = parseInt(g, 10);
+    const bNum = parseInt(b, 10);
+    const aNum = a ? parseFloat(a) : 1;
+
+    if (rNum >= 0 && rNum <= 255 && r === rNum.toString() &&
+        gNum >= 0 && gNum <= 255 && g === gNum.toString() &&
+        bNum >= 0 && bNum <= 255 && b === bNum.toString() &&
+        aNum >= 0 && aNum <= 1) {
+      return trimmed;
+    }
+  }
+
+  const hslMatch = trimmed.match(/^hsla?\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*(?:,\s*([\d.]+)\s*)?\)$/);
+  if (hslMatch) {
+    const [, h, s, l, a] = hslMatch;
+    const hNum = parseInt(h, 10);
+    const sNum = parseInt(s, 10);
+    const lNum = parseInt(l, 10);
+    const aNum = a ? parseFloat(a) : 1;
+
+    if (hNum >= 0 && hNum <= 360 && h === hNum.toString() &&
+        sNum >= 0 && sNum <= 100 && s === sNum.toString() &&
+        lNum >= 0 && lNum <= 100 && l === lNum.toString() &&
+        aNum >= 0 && aNum <= 1) {
+      return trimmed;
+    }
+  }
+
+  if (SAFE_NAMED_COLORS.has(trimmed.toLowerCase())) {
+    return trimmed.toLowerCase();
+  }
+
+  return null;
+};
+
+const SAFE_HREF_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
+const SAFE_IMAGE_PROTOCOLS = new Set(["http:", "https:"]);
+
+const sanitizeUrl = (
+  value: string,
+  options: { allowRelative?: boolean; allowedProtocols: Set<string> },
+) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  if (options.allowRelative && /^(\/|\.\/|\.\.\/|#)/.test(trimmed)) {
+    return trimmed;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (!options.allowedProtocols.has(parsed.protocol)) return "";
+    return trimmed;
+  } catch {
+    return "";
+  }
+};
+
 const safeParseJson = (value: string): unknown | null => {
   if (!value) return null;
   const trimmed = value.trim();
@@ -185,7 +264,22 @@ const applyMarksToHtml = (text: string, marks?: ProseMirrorMark[]) => {
       html = `<code>${html}</code>`;
     } else if (mark.type === "link") {
       const href = typeof mark.attrs?.href === "string" ? mark.attrs.href : "";
-      html = `<a href=\"${escapeHtml(href)}\" rel=\"noopener noreferrer\" target=\"_blank\">${html}</a>`;
+      const safeHref = sanitizeUrl(href, { allowRelative: true, allowedProtocols: SAFE_HREF_PROTOCOLS });
+      if (safeHref) {
+        html = `<a href=\"${escapeHtml(safeHref)}\" rel=\"noopener noreferrer\" target=\"_blank\">${html}</a>`;
+      }
+    } else if (mark.type === "textStyle") {
+      const color = typeof mark.attrs?.color === "string" ? mark.attrs.color : "";
+      const safeColor = sanitizeColor(color);
+      if (safeColor) {
+        html = `<span style="color:${escapeHtml(safeColor)}">${html}</span>`;
+      }
+    } else if (mark.type === "highlight") {
+      const bgColor = typeof mark.attrs?.color === "string" ? mark.attrs.color : "#fef9c3";
+      const safeBgColor = sanitizeColor(bgColor);
+      // Use sanitized color or fall back to default if validation fails
+      const finalBgColor = safeBgColor || "#fef9c3";
+      html = `<mark style="background-color:${escapeHtml(finalBgColor)}">${html}</mark>`;
     }
   }
   return html;
@@ -238,6 +332,13 @@ const renderNodeToHtml = (node: ProseMirrorNode): string => {
       return `<pre class=\"my-5 overflow-x-auto rounded-md bg-muted/70 p-3\"><code>${escapeHtml(
         (node.content ?? []).map((child) => nodeToPlainText(child)).join(""),
       )}</code></pre>`;
+    case "image": {
+      const src = typeof node.attrs?.src === "string" ? node.attrs.src : "";
+      const alt = typeof node.attrs?.alt === "string" ? node.attrs.alt : "";
+      const safeSrc = sanitizeUrl(src, { allowRelative: true, allowedProtocols: SAFE_IMAGE_PROTOCOLS });
+      if (!safeSrc) return alt ? `<span>${escapeHtml(alt)}</span>` : "";
+      return `<img src=\"${escapeHtml(safeSrc)}\" alt=\"${escapeHtml(alt)}\" class=\"my-5 max-w-full rounded-lg\" />`;
+    }
     default:
       return (node.content ?? []).map(renderNodeToHtml).join("");
   }
@@ -279,6 +380,10 @@ const nodeToPlainText = (node: ProseMirrorNode): string => {
       return "\n";
     case "horizontalRule":
       return "";
+    case "image": {
+      const alt = typeof node.attrs?.alt === "string" ? node.attrs.alt : "";
+      return alt || "[image]";
+    }
     case "text":
       return node.text ?? "";
     default:

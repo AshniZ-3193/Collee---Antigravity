@@ -55,8 +55,13 @@ export default defineConfig(({ mode }) => ({
               id.includes("node_modules/openai")) {
             return "vendor-services";
           }
+          // Grammar checker (WASM)
+          if (id.includes("node_modules/harper.js") ||
+              id.includes("node_modules/harper-wasm")) {
+            return "vendor-grammar";
+          }
           // Utilities
-          if (id.includes("node_modules/date-fns") || 
+          if (id.includes("node_modules/date-fns") ||
               id.includes("node_modules/zod") ||
               id.includes("node_modules/react-hook-form") ||
               id.includes("node_modules/@hookform")) {

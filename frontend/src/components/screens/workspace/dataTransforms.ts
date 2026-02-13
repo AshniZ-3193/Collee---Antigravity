@@ -82,29 +82,34 @@ export const mapCollegesFromConvex = (convexCollegesResult: unknown): College[] 
       const collegeName = asString(college.name);
       if (!collegeId || !collegeName) return null;
 
-      const essays: Essay[] = asArray(college.prompts).map((promptValue, promptIndex) => {
-        const prompt = asRecord(promptValue);
-        const essayRecord = asRecord(prompt?.essay);
-        const promptId = asString(prompt?._id, `prompt-${promptIndex}`);
-        const promptText = asString(prompt?.text);
+      const essays: Essay[] = asArray(college.prompts)
+        .map((promptValue, promptIndex) => {
+          const prompt = asRecord(promptValue);
+          const essayRecord = asRecord(prompt?.essay);
+          const promptId = asString(prompt?._id, `prompt-${promptIndex}`);
+          const promptText = asString(prompt?.text);
+          const essayId = asString(essayRecord?._id, promptId);
 
-        return {
-          id: asString(essayRecord?._id, promptId),
-          promptId,
-          title: promptText,
-          prompt: promptText,
-          status: normalizeEssayStatus(essayRecord?.status),
-          wordCount: asNumber(essayRecord?.wordCount, 0),
-          wordLimit: asNumber(prompt?.wordCountMax, 650),
-          content: asString(essayRecord?.content),
-          promptType: asString(prompt?.promptType) || undefined,
-          lastUpdated:
-            typeof essayRecord?.lastUpdated === 'number'
-              ? essayRecord.lastUpdated
-              : undefined,
-          syncGeneration: asNumber(essayRecord?.syncGeneration, 0),
-        };
-      });
+          return {
+            id: essayId,
+            persistedId: asString(essayRecord?._id) || undefined,
+            promptId,
+            title: promptText,
+            prompt: promptText,
+            isOptional: Boolean(prompt?.isOptional),
+            status: normalizeEssayStatus(essayRecord?.status),
+            wordCount: asNumber(essayRecord?.wordCount, 0),
+            wordLimit: asNumber(prompt?.wordCountMax, 650),
+            content: asString(essayRecord?.content),
+            promptType: asString(prompt?.promptType) || undefined,
+            lastUpdated:
+              typeof essayRecord?.lastUpdated === 'number'
+                ? essayRecord.lastUpdated
+                : undefined,
+            syncGeneration: asNumber(essayRecord?.syncGeneration, 0),
+          };
+        })
+        .filter((essay): essay is Essay => essay !== null);
 
       return {
         id: collegeId,

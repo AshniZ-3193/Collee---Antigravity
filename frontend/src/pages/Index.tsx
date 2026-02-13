@@ -20,8 +20,8 @@ import StoryCardScreen from '@/components/screens/StoryCardScreen';
 import AddCollegeScreen from '@/components/screens/AddCollegeScreen';
 import ExportScreen from '@/components/screens/ExportScreen';
 import ShareViewScreen from '@/components/screens/ShareViewScreen';
-import ColleeWorkspace from '@/components/screens/ColleeWorkspace';
 import EditStoryIdentityScreen from '@/components/screens/EditStoryIdentityScreen';
+import DashboardShell from '@/components/dashboard/DashboardShell';
 import { screenNavigationReducer, type Screen } from './indexNavigationMachine';
 
 // Export data for ExportScreen
@@ -251,7 +251,7 @@ const Index = () => {
 
         {/* MAIN APP */}
         {currentScreen === 'workspace' && (
-          <ColleeWorkspace
+          <DashboardShell
             onAddCollege={() => navigateTo('add-college')}
             onExport={(data: ExportData) => {
               setExportData(data);
@@ -259,7 +259,6 @@ const Index = () => {
               navigateTo('export');
             }}
             onEditStoryIdentity={() => navigateTo('edit-story-identity')}
-            onLogoClick={handleGoDashboard}
             onLogout={handleLogout}
             initialActiveEssay={resumeEssaySelection}
             onInitialActiveEssayApplied={() => setResumeEssaySelection(null)}

@@ -95,6 +95,7 @@ export default {
       },
       maxWidth: {
         'content': '720px',
+        'editor': '820px',
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -4,7 +4,7 @@ import { action } from "../_generated/server";
 import { v } from "convex/values";
 import { api } from "../_generated/api";
 import { PROMPT_STRATEGY_SYSTEM_PROMPT } from "./prompts";
-import { getAuthenticatedUser, createOpenAIClient, AI_MODEL } from "./aiHelpers";
+import { getAuthenticatedUser, createOpenAIClient, AI_MODEL, getUserNotesContext } from "./aiHelpers";
 
 export const generate = action({
   args: {
@@ -16,6 +16,7 @@ export const generate = action({
     const storyIdentity = await ctx.runQuery(api.storyIdentity.get, {
       userId: user._id,
     });
+    const notesContext = await getUserNotesContext(ctx, user._id);
     const colleges = await ctx.runQuery(api.colleges.list, {
       userId: user._id,
     });
@@ -37,6 +38,9 @@ ${storyIdentity?.pillars?.map((p: any) => `- ${p.theme}: ${p.description || ""}`
 VOICE PROFILE:
 Tone: ${storyIdentity?.voiceTone || "N/A"}
 Style: ${storyIdentity?.voiceStyle || "N/A"}
+
+USER NOTES CONTEXT:
+${notesContext}
     `.trim();
 
     const openai = createOpenAIClient();

@@ -2,6 +2,8 @@
 
 import { ActionCtx } from "../_generated/server";
 import { api } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
+import { stripRichTextFormatting } from "../richTextHelpers";
 import OpenAI from "openai";
 
 // Shared model constant - update this in one place when changing models
@@ -23,4 +25,26 @@ export async function getAuthenticatedUser(ctx: ActionCtx) {
   if (!user) throw new Error("User not found");
 
   return user;
+}
+
+export async function getUserNotesContext(ctx: ActionCtx, userId: Id<"users">) {
+  const notes = await ctx.runQuery(api.notes.list, {
+    userId,
+    status: "active",
+  });
+
+  if (!notes || notes.length === 0) {
+    return "None";
+  }
+
+  return notes
+    .slice(0, 20)
+    .map((note: any) => {
+      const text = stripRichTextFormatting(note.content || "")
+        .replace(/\s+/g, " ")
+        .trim();
+      const clipped = text.length > 280 ? `${text.slice(0, 280)}...` : text;
+      return `- ${note.title}: ${clipped || "(empty)"}`;
+    })
+    .join("\n");
 }
