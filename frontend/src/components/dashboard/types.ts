@@ -1,6 +1,6 @@
 import type { College } from '@/components/screens/workspace/types';
 
-export type DashboardSection = 'dashboard' | 'essays' | 'notes' | 'profile' | 'settings';
+export type DashboardSection = 'dashboard' | 'essays' | 'profile' | 'settings';
 
 export interface CollegeDeadline {
   collegeId: string;

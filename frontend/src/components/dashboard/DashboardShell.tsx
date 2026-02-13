@@ -12,7 +12,6 @@ import DashboardSection from './DashboardSection';
 import type { DashboardSection as DashboardSectionType } from './types';
 import { useDashboardData } from './useDashboardData';
 import EssaysSection from '@/components/essays/EssaysSection';
-import NotesSection from '@/components/notes/NotesSection';
 
 interface DashboardShellProps {
   onAddCollege: () => void;
@@ -84,14 +83,12 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
   };
 
   return (
-    <div className="h-screen flex overflow-hidden bg-background">
+    <div className="h-screen flex flex-col overflow-hidden bg-background">
       <AppSidebar
-        activeSection={activeSection}
-        onSectionChange={setActiveSection}
-        onAddCollege={onAddCollege}
         onLogout={onLogout}
         onEditStoryIdentity={onEditStoryIdentity}
         onTakeTour={resetOnboarding}
+        onLogoClick={() => setActiveSection('dashboard')}
       />
 
       <main className="flex-1 overflow-hidden">
@@ -117,7 +114,6 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
           />
         )}
 
-        {activeSection === 'notes' && <NotesSection colleges={colleges} />}
       </main>
 
       <OnboardingWalkthrough
