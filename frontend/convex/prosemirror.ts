@@ -234,7 +234,9 @@ export const {
   submitSteps,
 } = prosemirrorSync.syncApi<DataModel>({
   checkRead: async (ctx, id) => {
-    await ensureSyncDocumentOwner(ctx as QueryCtx, id);
+    // Allow reads on stale generations so clients can observe the latest server
+    // state and transition to the current sync generation without crashing.
+    await ensureSyncDocumentOwner(ctx as QueryCtx, id, { allowStaleGeneration: true });
   },
   checkWrite: async (ctx, id) => {
     await ensureSyncDocumentOwner(ctx as MutationCtx, id);
