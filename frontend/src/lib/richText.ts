@@ -32,6 +32,50 @@ const escapeHtml = (value: string) =>
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+/**
+ * Sanitizes a color value to prevent CSS injection attacks.
+ * Only allows safe CSS color formats: hex, rgb/rgba, hsl/hsla, and CSS named colors.
+ * Returns the sanitized color or null if the value is invalid/unsafe.
+ */
+const sanitizeColor = (color: string): string | null => {
+  if (!color || typeof color !== "string") return null;
+  
+  const trimmed = color.trim();
+  
+  // Reject any value containing semicolons or other CSS injection patterns
+  if (/[;{}]/.test(trimmed)) return null;
+  
+  // Allow hex colors: #RGB, #RRGGBB, #RRGGBBAA
+  if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(trimmed)) {
+    return trimmed;
+  }
+  
+  // Allow rgb/rgba: rgb(r, g, b) or rgba(r, g, b, a)
+  if (/^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(,\s*[\d.]+\s*)?\)$/.test(trimmed)) {
+    return trimmed;
+  }
+  
+  // Allow hsl/hsla: hsl(h, s%, l%) or hsla(h, s%, l%, a)
+  if (/^hsla?\(\s*\d+\s*,\s*\d+%\s*,\s*\d+%\s*(,\s*[\d.]+\s*)?\)$/.test(trimmed)) {
+    return trimmed;
+  }
+  
+  // Allow CSS named colors (basic set for safety)
+  const namedColors = new Set([
+    "black", "white", "red", "green", "blue", "yellow", "cyan", "magenta",
+    "gray", "grey", "silver", "maroon", "olive", "lime", "aqua", "teal",
+    "navy", "fuchsia", "purple", "orange", "pink", "brown", "gold",
+    "transparent", "currentcolor"
+  ]);
+  
+  if (namedColors.has(trimmed.toLowerCase())) {
+    return trimmed.toLowerCase();
+  }
+  
+  // Reject anything else as potentially unsafe
+  return null;
+};
+
 const safeParseJson = (value: string): unknown | null => {
   if (!value) return null;
   const trimmed = value.trim();
@@ -188,12 +232,16 @@ const applyMarksToHtml = (text: string, marks?: ProseMirrorMark[]) => {
       html = `<a href=\"${escapeHtml(href)}\" rel=\"noopener noreferrer\" target=\"_blank\">${html}</a>`;
     } else if (mark.type === "textStyle") {
       const color = typeof mark.attrs?.color === "string" ? mark.attrs.color : "";
-      if (color) {
-        html = `<span style="color:${escapeHtml(color)}">${html}</span>`;
+      const safeColor = sanitizeColor(color);
+      if (safeColor) {
+        html = `<span style="color:${safeColor}">${html}</span>`;
       }
     } else if (mark.type === "highlight") {
       const bgColor = typeof mark.attrs?.color === "string" ? mark.attrs.color : "#fef9c3";
-      html = `<mark style="background-color:${escapeHtml(bgColor)}">${html}</mark>`;
+      const safeBgColor = sanitizeColor(bgColor);
+      if (safeBgColor) {
+        html = `<mark style="background-color:${safeBgColor}">${html}</mark>`;
+      }
     }
   }
   return html;
