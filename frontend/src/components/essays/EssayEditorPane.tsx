@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bold, FileText, Italic, List, ListOrdered, MessageSquare, Pencil, Sparkles, Underline, Wand2, X } from 'lucide-react';
+import { Bold, FileText, Italic, List, ListOrdered, MessageSquare, Pencil, SpellCheck, Sparkles, Underline, Wand2, X } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
+import type { Extension } from '@tiptap/core';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -15,6 +16,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import SyncEssayEditor, { type ActiveRichTextFormats } from '@/components/editor/SyncEssayEditor';
+import GrammarTooltip from './grammar/GrammarTooltip';
+import type { GrammarIssue } from './grammar/types';
 import type { Essay } from '@/components/screens/workspace/types';
 
 interface InsertedReference {
@@ -51,11 +54,19 @@ interface EssayEditorPaneProps {
   onOpenStrategy: () => void;
   onOpenFeedback: () => void;
   onOpenComments: () => void;
+  onOpenGrammar: () => void;
   activeFormats: ActiveRichTextFormats;
   applyFormatting: (format: keyof ActiveRichTextFormats) => void;
   wordCount: number;
   wordLimit: number;
   isOverLimit: boolean;
+  additionalExtensions?: Extension[];
+  grammarIssues?: GrammarIssue[];
+  grammarEnabled?: boolean;
+  editorInstance?: Editor | null;
+  onApplyGrammarSuggestion?: (issue: GrammarIssue, suggestion: { text: string }) => void;
+  onIgnoreGrammarIssue?: (issue: GrammarIssue) => void;
+  onAddToDictionary?: (word: string) => void;
 }
 
 const FormatButton: React.FC<{
@@ -105,13 +116,22 @@ const EssayEditorPane: React.FC<EssayEditorPaneProps> = ({
   onOpenStrategy,
   onOpenFeedback,
   onOpenComments,
+  onOpenGrammar,
   activeFormats,
   applyFormatting,
   wordCount,
   wordLimit,
   isOverLimit,
+  additionalExtensions,
+  grammarIssues,
+  grammarEnabled,
+  editorInstance,
+  onApplyGrammarSuggestion,
+  onIgnoreGrammarIssue,
+  onAddToDictionary,
 }) => {
   const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
+  const editorWrapperRef = useRef<HTMLDivElement>(null);
 
   const handlePromptDialogOpenChange = (open: boolean) => {
     setIsPromptDialogOpen(open);
@@ -193,6 +213,14 @@ const EssayEditorPane: React.FC<EssayEditorPaneProps> = ({
               <MessageSquare className="h-3.5 w-3.5" />
               Comments
             </button>
+            <button
+              type="button"
+              onClick={onOpenGrammar}
+              className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5 text-[11px] text-foreground/80"
+            >
+              <SpellCheck className="h-3.5 w-3.5" />
+              Grammar
+            </button>
           </div>
 
           {/* Inserted references */}
@@ -256,7 +284,7 @@ const EssayEditorPane: React.FC<EssayEditorPaneProps> = ({
 
           {/* Editor */}
           {currentEssayId && currentSyncDocumentId ? (
-            <div className="essay-editor-wrapper">
+            <div ref={editorWrapperRef} className="essay-editor-wrapper">
               <SyncEssayEditor
                 key={`${currentEssayId}-${editorSyncKey}`}
                 syncDocumentId={currentSyncDocumentId}
@@ -264,7 +292,17 @@ const EssayEditorPane: React.FC<EssayEditorPaneProps> = ({
                 onStoredContentChange={onEditorContentChange}
                 onFormatsChange={onFormatsChange}
                 onEditorChange={onEditorInstanceChange}
+                additionalExtensions={additionalExtensions}
               />
+              {grammarEnabled && editorInstance && grammarIssues && onApplyGrammarSuggestion && onIgnoreGrammarIssue && (
+                <GrammarTooltip
+                  containerRef={editorWrapperRef}
+                  issues={grammarIssues}
+                  onApplySuggestion={onApplyGrammarSuggestion}
+                  onIgnoreIssue={onIgnoreGrammarIssue}
+                  onAddToDictionary={onAddToDictionary}
+                />
+              )}
             </div>
           ) : (
             <div className="flex min-h-[380px] items-center justify-center rounded-2xl border border-dashed border-border/60 bg-muted/10">

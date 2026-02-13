@@ -140,6 +140,9 @@ importers:
       '@tiptap/extension-underline':
         specifier: ^3.19.0
         version: 3.19.0(@tiptap/core@3.19.0(@tiptap/pm@3.19.0))
+      '@tiptap/pm':
+        specifier: ^3.19.0
+        version: 3.19.0
       '@tiptap/react':
         specifier: ^3.19.0
         version: 3.19.0(@floating-ui/dom@1.7.5)(@tiptap/core@3.19.0(@tiptap/pm@3.19.0))(@tiptap/pm@3.19.0)(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -182,6 +185,9 @@ importers:
       framer-motion:
         specifier: ^12.25.0
         version: 12.31.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      harper.js:
+        specifier: ^1.6.0
+        version: 1.6.0
       input-otp:
         specifier: ^1.4.2
         version: 1.4.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -2802,6 +2808,9 @@ packages:
   globals@15.15.0:
     resolution: {integrity: sha512-7ACyT3wmyp3I61S4fG682L0VA2RGD9otkqGJIwNUMF1SWUombIIk+af1unuDYgMm082aHYwD+mzJvv9Iu8dsgg==}
     engines: {node: '>=18'}
+
+  harper.js@1.6.0:
+    resolution: {integrity: sha512-+VjsauI2UTeJW1Y55WYhIZ4bOgz/s2sRX9WKq4sOdJjobNN+E1s3j1jPiz0CMGqb0VgyKxBDalxxloNosCn9fQ==}
 
   has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
@@ -6023,6 +6032,10 @@ snapshots:
   globals@14.0.0: {}
 
   globals@15.15.0: {}
+
+  harper.js@1.6.0:
+    dependencies:
+      fflate: 0.8.2
 
   has-flag@4.0.0: {}
 

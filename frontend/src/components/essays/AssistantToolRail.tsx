@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, Sparkles, Wand2 } from 'lucide-react';
+import { MessageSquare, SpellCheck, Sparkles, Wand2 } from 'lucide-react';
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { SidebarTab } from './AssistantSidebar';
@@ -10,6 +10,8 @@ interface AssistantToolRailProps {
   onOpenStrategy: () => void;
   onOpenFeedback: () => void;
   onOpenComments: () => void;
+  onOpenGrammar: () => void;
+  grammarIssueCount?: number;
 }
 
 const RailButton: React.FC<{
@@ -45,6 +47,8 @@ const AssistantToolRail: React.FC<AssistantToolRailProps> = ({
   onOpenStrategy,
   onOpenFeedback,
   onOpenComments,
+  onOpenGrammar,
+  grammarIssueCount,
 }) => {
   return (
     <TooltipProvider delayDuration={120}>
@@ -61,6 +65,16 @@ const AssistantToolRail: React.FC<AssistantToolRailProps> = ({
         </RailButton>
         <RailButton active={isSidebarOpen && activeTab === 'comments'} title="Comments" onClick={onOpenComments}>
           <MessageSquare className="h-4 w-4" />
+        </RailButton>
+        <RailButton active={isSidebarOpen && activeTab === 'grammar'} title="Grammar" onClick={onOpenGrammar}>
+          <div className="relative">
+            <SpellCheck className="h-4 w-4" />
+            {grammarIssueCount != null && grammarIssueCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-destructive px-0.5 text-[9px] font-bold text-destructive-foreground">
+                {grammarIssueCount > 99 ? '99+' : grammarIssueCount}
+              </span>
+            )}
+          </div>
         </RailButton>
       </div>
     </TooltipProvider>

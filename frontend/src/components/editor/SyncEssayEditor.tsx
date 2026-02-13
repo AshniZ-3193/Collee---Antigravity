@@ -3,8 +3,8 @@ import type { SyncApi } from "@convex-dev/prosemirror-sync";
 import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
 import { useConvexAuth } from "convex/react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
+import type { Extension } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
 import { api } from "../../../convex/_generated/api";
 import { normalizeRichTextForStorage, parseStoredRichTextToDoc } from "@/lib/richText";
 
@@ -22,6 +22,7 @@ interface SyncEssayEditorProps {
   onStoredContentChange: (nextContent: string) => void;
   onFormatsChange: (formats: ActiveRichTextFormats) => void;
   onEditorChange: (editor: Editor | null) => void;
+  additionalExtensions?: Extension[];
 }
 
 const EMPTY_FORMATS: ActiveRichTextFormats = {
@@ -59,6 +60,7 @@ const SyncEssayEditorInner: React.FC<SyncEssayEditorProps> = ({
   onStoredContentChange,
   onFormatsChange,
   onEditorChange,
+  additionalExtensions,
 }) => {
   const sync = useTiptapSync(prosemirrorSyncApi, syncDocumentId, {
     onSyncError: (error) => {
@@ -114,12 +116,12 @@ const SyncEssayEditorInner: React.FC<SyncEssayEditorProps> = ({
 
   // Memoize extensions using stable primitive values
   const extensions = useMemo(() => {
-    const base = [StarterKit, Underline];
+    const base = [StarterKit, ...(additionalExtensions ?? [])];
     if (!syncIsLoading && syncInitialContent !== null && syncExtension) {
       return [...base, syncExtension];
     }
     return base;
-  }, [syncIsLoading, syncInitialContent, syncExtension]);
+  }, [syncIsLoading, syncInitialContent, syncExtension, additionalExtensions]);
 
   // Stable callbacks for editor events
   const handleUpdate = useCallback(({ editor: nextEditor }: { editor: Editor }) => {

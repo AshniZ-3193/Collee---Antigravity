@@ -298,6 +298,19 @@ export default defineSchema({
     .index("by_essay", ["essayId"])
     .index("by_user", ["userId"]),
 
+  // Grammar preferences (dictionary + ignored rules)
+  grammarPreferences: defineTable({
+    userId: v.id("users"),
+    customDictionary: v.array(v.string()),
+    ignoredRules: v.array(v.string()),
+    // Context-sensitive ignored lint hashes from Harper.
+    ignoredLintHashes: v.optional(v.array(v.string())),
+    // Serialized Harper lint config (JSON string).
+    lintConfigJson: v.optional(v.string()),
+    // Harper dialect label (American, British, etc).
+    dialect: v.optional(v.string()),
+  }).index("by_user", ["userId"]),
+
   // Inline comments on shared essays
   shareComments: defineTable({
     shareId: v.id("shares"),

@@ -71,6 +71,15 @@ export const useEssayEditorState = () => {
     setSidebarOpen(true);
   }, [activeSidebarTab, sidebarOpen]);
 
+  const openGrammarPanel = useCallback(() => {
+    if (sidebarOpen && activeSidebarTab === 'grammar') {
+      setSidebarOpen(false);
+      return;
+    }
+    setActiveSidebarTab('grammar');
+    setSidebarOpen(true);
+  }, [activeSidebarTab, sidebarOpen]);
+
   const closeShareDialog = useCallback(() => {
     setShowShareDialog(false);
     setShareEmail('');
@@ -131,6 +140,7 @@ export const useEssayEditorState = () => {
     openStrategySheet,
     openFeedbackPanel,
     openCommentsDrawer,
+    openGrammarPanel,
     closeShareDialog,
   };
 };

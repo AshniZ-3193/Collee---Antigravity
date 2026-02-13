@@ -2,7 +2,11 @@ import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { PenLine } from 'lucide-react';
 import { countRichTextWords, parseStoredRichTextToDoc, stripRichTextFormatting } from '@/lib/richText';
 import { getEssaySyncDocumentId } from '@/lib/prosemirrorSync';
+import { useGrammarAnalysis } from './grammar/useGrammarAnalysis';
+import { GrammarDecorationExtension } from './grammar/GrammarDecorationPlugin';
 
+import { useMutation, useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { College, ExportData, GeneratedSuggestion, PromptFitGuidance, ReusableExcerpt, StoryExperience, Version } from '@/components/screens/workspace/types';
 import VersionHistoryDrawer from '@/components/screens/workspace/VersionHistoryDrawer';
@@ -61,6 +65,50 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
 }) => {
   const state = useEssayEditorState();
   const strategyAttempts = useRef<Set<string>>(new Set());
+  const grammarEnabled = true;
+
+  const grammarExtensions = useMemo(
+    () => (grammarEnabled ? [GrammarDecorationExtension] : []),
+    [grammarEnabled],
+  );
+
+  const grammarPreferences = useQuery(api.grammar.getPreferences);
+  const addToDictionaryMutation = useMutation(api.grammar.addToDictionary);
+  const ignoreLintHashMutation = useMutation(api.grammar.ignoreLintHash);
+
+  const persistIgnoredLintHash = useCallback(
+    (hash: string) => {
+      ignoreLintHashMutation({ hash }).catch(console.error);
+    },
+    [ignoreLintHashMutation],
+  );
+
+  const grammar = useGrammarAnalysis({
+    editor: state.editorInstance,
+    enabled: grammarEnabled,
+    customDictionary: grammarPreferences?.customDictionary ?? undefined,
+    ignoredRules: grammarPreferences?.ignoredRules ?? undefined,
+    ignoredLintHashes: grammarPreferences?.ignoredLintHashes ?? undefined,
+    lintConfigJson: grammarPreferences?.lintConfigJson ?? undefined,
+    dialect: grammarPreferences?.dialect as
+      | 'American'
+      | 'British'
+      | 'Australian'
+      | 'Canadian'
+      | 'Indian'
+      | undefined,
+    persistIgnoredLintHash,
+  });
+  const addGrammarWordToDictionary = grammar.addToDictionary;
+  const triggerGrammarAnalysis = grammar.triggerAnalysis;
+
+  const handleAddToDictionary = useCallback(
+    (word: string) => {
+      addGrammarWordToDictionary(word);
+      addToDictionaryMutation({ word }).catch(console.error);
+    },
+    [addGrammarWordToDictionary, addToDictionaryMutation],
+  );
 
   const handleSelectEssay = useCallback(
     (collegeId: string, essayId: string) => {
@@ -196,6 +244,7 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
     state.setContent(nextContent);
     state.setIsSaving(true);
     markLocalEdit();
+    triggerGrammarAnalysis();
     if (state.saveIndicatorTimerRef.current !== null) {
       window.clearTimeout(state.saveIndicatorTimerRef.current);
     }
@@ -204,6 +253,11 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
       state.setLastSaved(new Date());
     }, 1400);
   };
+
+  useEffect(() => {
+    if (!state.editorInstance || !currentEssayId) return;
+    triggerGrammarAnalysis();
+  }, [state.editorInstance, currentEssayId, triggerGrammarAnalysis]);
 
   const applyFormatting = (format: keyof typeof state.activeFormats) => {
     if (!state.editorInstance) return;
@@ -591,11 +645,19 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
             onOpenStrategy={state.openStrategySheet}
             onOpenFeedback={state.openFeedbackPanel}
             onOpenComments={state.openCommentsDrawer}
+            onOpenGrammar={state.openGrammarPanel}
             activeFormats={state.activeFormats}
             applyFormatting={applyFormatting}
             wordCount={wordCount}
             wordLimit={wordLimit}
             isOverLimit={isOverLimit}
+            additionalExtensions={grammarExtensions}
+            grammarIssues={grammar.issues}
+            grammarEnabled={grammarEnabled}
+            editorInstance={state.editorInstance}
+            onApplyGrammarSuggestion={grammar.applySuggestion}
+            onIgnoreGrammarIssue={grammar.ignoreIssue}
+            onAddToDictionary={handleAddToDictionary}
           />
 
           <AssistantSidebar
@@ -640,6 +702,16 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
               onAddOwnerReply: (commentId, contentValue) =>
                 queries.addOwnerReplyMutation({ commentId, content: contentValue }),
             }}
+            grammarProps={{
+              issues: grammar.issues,
+              isAnalyzing: grammar.isAnalyzing,
+              score: grammar.score,
+              counts: grammar.counts,
+              onApplySuggestion: grammar.applySuggestion,
+              onIgnoreIssue: grammar.ignoreIssue,
+              onAddToDictionary: handleAddToDictionary,
+              editor: state.editorInstance,
+            }}
           />
 
           <div className="hidden w-[76px] shrink-0 items-center justify-center bg-muted/20 md:flex">
@@ -649,6 +721,8 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
               onOpenStrategy={state.openStrategySheet}
               onOpenFeedback={state.openFeedbackPanel}
               onOpenComments={state.openCommentsDrawer}
+              onOpenGrammar={state.openGrammarPanel}
+              grammarIssueCount={grammar.counts.total}
             />
           </div>
         </div>
