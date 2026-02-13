@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
-import type { WorkerLinter, Lint, Suggestion, Dialect as HarperDialect } from 'harper.js';
+import type { WorkerLinter, Lint, Dialect as HarperDialect } from 'harper.js';
 
 import { buildPositionMapping, classifyLintKind, calculateGrammarScore } from './grammarUtils';
 import { grammarPluginKey } from './GrammarDecorationPlugin';
@@ -27,7 +27,7 @@ interface UseGrammarAnalysisReturn {
   score: number;
   counts: GrammarCounts;
   triggerAnalysis: () => void;
-  applySuggestion: (issue: GrammarIssue, suggestion: { text: string }, rawSuggestion: Suggestion) => void;
+  applySuggestion: (issue: GrammarIssue, suggestion: { text: string }) => void;
   ignoreIssue: (issue: GrammarIssue) => void;
   addToDictionary: (word: string) => void;
 }
