@@ -35,13 +35,24 @@ const DashboardSection: React.FC<DashboardSectionProps> = ({ data, onAddCollege,
   const percentComplete = Math.round(data.progressFraction * 100);
   const dueSoonCount = data.collegeDeadlines.filter((d) => d.isApproaching).length;
   const remaining = data.totalRequiredEssays - data.completedRequiredEssays;
+  const requiredEssays = useMemo(
+    () =>
+      data.colleges.flatMap((college) =>
+        college.essays.filter((essay) => essay.isOptional !== true),
+      ),
+    [data.colleges],
+  );
+  const completedCount = requiredEssays.filter((essay) => essay.status === 'complete').length;
+  const inProgressCount = requiredEssays.filter((essay) => essay.status === 'in-progress').length;
+  const notStartedCount = Math.max(0, requiredEssays.length - completedCount - inProgressCount);
 
   const donutData = useMemo(
     () => [
-      { name: 'Completed', value: data.completedRequiredEssays },
-      { name: 'Remaining', value: Math.max(0, remaining) },
+      { name: 'Completed', value: completedCount, fill: '#10b981' },
+      { name: 'In Progress', value: inProgressCount, fill: 'hsl(var(--primary))' },
+      { name: 'Not Started', value: notStartedCount, fill: 'hsl(var(--border))' },
     ],
-    [data.completedRequiredEssays, remaining],
+    [completedCount, inProgressCount, notStartedCount],
   );
 
   if (!data.hasColleges) {
@@ -149,8 +160,9 @@ const DashboardSection: React.FC<DashboardSectionProps> = ({ data, onAddCollege,
                   endAngle={-270}
                   strokeWidth={0}
                 >
-                  <Cell fill="hsl(var(--primary))" />
-                  <Cell fill="hsl(var(--border))" />
+                  {donutData.map((entry) => (
+                    <Cell key={entry.name} fill={entry.fill} />
+                  ))}
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
@@ -169,6 +181,20 @@ const DashboardSection: React.FC<DashboardSectionProps> = ({ data, onAddCollege,
                 </span>
               )}
             </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-caption text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                Completed ({completedCount})
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+                In progress ({inProgressCount})
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-border" />
+                Not started ({notStartedCount})
+              </span>
+            </div>
           </div>
         </motion.div>
 
