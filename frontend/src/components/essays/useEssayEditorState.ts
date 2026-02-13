@@ -4,6 +4,7 @@ import type { Editor } from '@tiptap/react';
 import type { ActiveRichTextFormats } from '@/components/editor/SyncEssayEditor';
 import type { Version } from '@/components/screens/workspace/types';
 import { useWriteTabState } from '@/components/screens/workspace/useWriteTabState';
+import type { SidebarTab } from './AssistantSidebar';
 
 const EMPTY_FORMATS: ActiveRichTextFormats = {
   bold: false,
@@ -23,10 +24,11 @@ export const useEssayEditorState = () => {
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const saveIndicatorTimerRef = useRef<number | null>(null);
 
-  const [strategySheetOpen, setStrategySheetOpen] = useState(false);
-  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
+  // Sidebar state (replaces old modal booleans)
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeSidebarTab, setActiveSidebarTab] = useState<SidebarTab>('strategy');
+
   const [smartReusePopoverOpen, setSmartReusePopoverOpen] = useState(false);
-  const [commentsDrawerOpen, setCommentsDrawerOpen] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showDeletePromptDialog, setShowDeletePromptDialog] = useState(false);
@@ -43,14 +45,31 @@ export const useEssayEditorState = () => {
   const [shareError, setShareError] = useState<string | null>(null);
 
   const openStrategySheet = useCallback(() => {
-    setCommentsDrawerOpen(false);
-    setStrategySheetOpen(true);
-  }, []);
+    if (sidebarOpen && activeSidebarTab === 'strategy') {
+      setSidebarOpen(false);
+      return;
+    }
+    setActiveSidebarTab('strategy');
+    setSidebarOpen(true);
+  }, [activeSidebarTab, sidebarOpen]);
+
+  const openFeedbackPanel = useCallback(() => {
+    if (sidebarOpen && activeSidebarTab === 'feedback') {
+      setSidebarOpen(false);
+      return;
+    }
+    setActiveSidebarTab('feedback');
+    setSidebarOpen(true);
+  }, [activeSidebarTab, sidebarOpen]);
 
   const openCommentsDrawer = useCallback(() => {
-    setStrategySheetOpen(false);
-    setCommentsDrawerOpen(true);
-  }, []);
+    if (sidebarOpen && activeSidebarTab === 'comments') {
+      setSidebarOpen(false);
+      return;
+    }
+    setActiveSidebarTab('comments');
+    setSidebarOpen(true);
+  }, [activeSidebarTab, sidebarOpen]);
 
   const closeShareDialog = useCallback(() => {
     setShowShareDialog(false);
@@ -76,14 +95,13 @@ export const useEssayEditorState = () => {
     lastSaved,
     setLastSaved,
     saveIndicatorTimerRef,
-    strategySheetOpen,
-    setStrategySheetOpen,
-    feedbackDialogOpen,
-    setFeedbackDialogOpen,
+    // Sidebar
+    sidebarOpen,
+    setSidebarOpen,
+    activeSidebarTab,
+    setActiveSidebarTab,
     smartReusePopoverOpen,
     setSmartReusePopoverOpen,
-    commentsDrawerOpen,
-    setCommentsDrawerOpen,
     showVersionHistory,
     setShowVersionHistory,
     showShareDialog,
@@ -111,6 +129,7 @@ export const useEssayEditorState = () => {
     shareError,
     setShareError,
     openStrategySheet,
+    openFeedbackPanel,
     openCommentsDrawer,
     closeShareDialog,
   };

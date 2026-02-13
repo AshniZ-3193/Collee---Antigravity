@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { Check, Download, History, PenLine, Share2 } from 'lucide-react';
+import { PenLine } from 'lucide-react';
 import { countRichTextWords, parseStoredRichTextToDoc, stripRichTextFormatting } from '@/lib/richText';
 import { getEssaySyncDocumentId } from '@/lib/prosemirrorSync';
 
@@ -20,12 +20,12 @@ import {
 import { useEssaySync } from '@/components/screens/workspace/useEssaySync';
 import { Button } from '@/components/ui/button';
 
+import AssistantSidebar from './AssistantSidebar';
+import AssistantToolRail from './AssistantToolRail';
 import CollegeNavigator from './CollegeNavigator';
-import CommentsDrawer from './CommentsDrawer';
+import EditorStickyHeader from './EditorStickyHeader';
 import EssayEditorPane from './EssayEditorPane';
-import FeedbackDialog from './FeedbackDialog';
 import SmartReusePopover from './SmartReusePopover';
-import StrategySheet from './StrategySheet';
 import { useEssayEditorState } from './useEssayEditorState';
 import { useEssaySectionQueries } from './useEssaySectionQueries';
 
@@ -482,6 +482,7 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
   const wordLimit = currentEssay?.wordLimit || 650;
   const wordCount = countRichTextWords(state.content);
   const isOverLimit = wordCount > wordLimit;
+  const headerEssayTitle = currentEssay && currentEssay.title.length > 90 ? 'Essay Draft' : currentEssay?.title ?? 'Essay Draft';
   const hasWrittenContent = stripRichTextFormatting(state.content).trim().length > 50;
   const hasSameTypeExcerpts = smartReuseExcerpts.some((excerpt) => excerpt.matchesSamePromptType);
   const showSmartReuse = (hasWrittenContent || hasSameTypeExcerpts) && smartReuseExcerpts.length > 0;
@@ -541,135 +542,117 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
       />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex items-center justify-between border-b border-border bg-card/80 px-4 py-2">
-          <div>
-            <p className="text-sm font-medium text-foreground line-clamp-1">{currentEssay.title}</p>
-            <p className="text-xs text-muted-foreground">{currentCollege.name}</p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {!state.isSaving ? (
-              <div className="hidden items-center gap-1 text-xs text-muted-foreground sm:flex">
-                <Check className="h-3.5 w-3.5 text-primary" />
-                <span>Saved {formatTime(state.lastSaved)}</span>
-              </div>
-            ) : null}
-
-            <button
-              type="button"
-              onClick={() => state.setShowVersionHistory(true)}
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              title="Version history"
-            >
-              <History className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                onExport({
-                  essayTitle: currentEssay.title,
-                  collegeName: currentCollege.name,
-                  collegeId: currentCollege.id,
-                  wordCount,
-                  essayContent: stripRichTextFormatting(state.content),
-                  essayId: currentEssay.id,
-                });
-              }}
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              title="Export"
-            >
-              <Download className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => state.setShowShareDialog(true)}
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              title="Share"
-            >
-              <Share2 className="h-4 w-4" />
-            </button>
-          </div>
-        </header>
-
-        <EssayEditorPane
-          activeFormats={state.activeFormats}
-          applyFormatting={applyFormatting}
-          onOpenStrategy={state.openStrategySheet}
-          onOpenFeedback={() => state.setFeedbackDialogOpen(true)}
-          onOpenSmartReuse={() => state.setSmartReusePopoverOpen(true)}
-          onOpenComments={state.openCommentsDrawer}
-          commentsCount={queries.reviewerComments.filter((comment) => !comment.resolved).length}
-          canShowSmartReuse={showSmartReuse}
-          isEditingPrompt={state.isEditingPrompt}
-          isUpdatingPrompt={state.isUpdatingPrompt}
-          editedPromptText={state.editedPromptText}
-          editedWordLimit={state.editedWordLimit}
-          promptEditError={state.promptEditError}
-          onStartEditingPrompt={handleStartEditingPrompt}
-          onCancelPromptEdit={handleCancelPromptEdit}
-          onSavePromptEdit={() => void handleSavePromptEdit()}
-          onEditedPromptTextChange={state.setEditedPromptText}
-          onEditedWordLimitChange={state.setEditedWordLimit}
-          insertedReferences={state.insertedReferences}
-          onRemoveReference={(referenceId) =>
-            state.setInsertedReferences((prev) => prev.filter((reference) => reference.id !== referenceId))
-          }
-          showStarterHelper={state.showStarterHelper}
-          onDismissStarterHelper={() => state.setShowStarterHelper(false)}
-          hasPendingExternalReset={hasPendingExternalReset}
-          currentEssay={currentEssay}
-          currentEssayId={currentEssayId}
-          currentSyncDocumentId={currentSyncDocumentId}
-          editorSyncKey={editorSyncKey}
-          content={state.content}
-          onEditorContentChange={handleEditorContentChange}
-          onFormatsChange={state.setActiveFormats}
-          onEditorInstanceChange={state.setEditorInstance}
-          wordCount={wordCount}
-          wordLimit={wordLimit}
-          isOverLimit={isOverLimit}
+        <EditorStickyHeader
+          essayTitle={headerEssayTitle}
+          collegeName={currentCollege.name}
           isSaving={state.isSaving}
           lastSavedLabel={formatTime(state.lastSaved)}
+          onShowVersionHistory={() => state.setShowVersionHistory(true)}
+          onExport={() => {
+            onExport({
+              essayTitle: currentEssay.title,
+              collegeName: currentCollege.name,
+              collegeId: currentCollege.id,
+              wordCount,
+              essayContent: stripRichTextFormatting(state.content),
+              essayId: currentEssay.id,
+            });
+          }}
+          onShowShareDialog={() => state.setShowShareDialog(true)}
         />
+
+        <div className="flex flex-1 overflow-hidden">
+          <EssayEditorPane
+            isEditingPrompt={state.isEditingPrompt}
+            isUpdatingPrompt={state.isUpdatingPrompt}
+            editedPromptText={state.editedPromptText}
+            editedWordLimit={state.editedWordLimit}
+            promptEditError={state.promptEditError}
+            onStartEditingPrompt={handleStartEditingPrompt}
+            onCancelPromptEdit={handleCancelPromptEdit}
+            onSavePromptEdit={() => void handleSavePromptEdit()}
+            onEditedPromptTextChange={state.setEditedPromptText}
+            onEditedWordLimitChange={state.setEditedWordLimit}
+            insertedReferences={state.insertedReferences}
+            onRemoveReference={(referenceId) =>
+              state.setInsertedReferences((prev) => prev.filter((reference) => reference.id !== referenceId))
+            }
+            showStarterHelper={state.showStarterHelper}
+            onDismissStarterHelper={() => state.setShowStarterHelper(false)}
+            hasPendingExternalReset={hasPendingExternalReset}
+            currentEssay={currentEssay}
+            currentEssayId={currentEssayId}
+            currentSyncDocumentId={currentSyncDocumentId}
+            editorSyncKey={editorSyncKey}
+            content={state.content}
+            onEditorContentChange={handleEditorContentChange}
+            onFormatsChange={state.setActiveFormats}
+            onEditorInstanceChange={state.setEditorInstance}
+            onOpenStrategy={state.openStrategySheet}
+            onOpenFeedback={state.openFeedbackPanel}
+            onOpenComments={state.openCommentsDrawer}
+            activeFormats={state.activeFormats}
+            applyFormatting={applyFormatting}
+            wordCount={wordCount}
+            wordLimit={wordLimit}
+            isOverLimit={isOverLimit}
+          />
+
+          <AssistantSidebar
+            isOpen={state.sidebarOpen}
+            onClose={() => state.setSidebarOpen(false)}
+            activeTab={state.activeSidebarTab}
+            strategyProps={{
+              currentEssay,
+              currentEssayId: currentEssayPersistedId,
+              currentCollege,
+              currentPromptId,
+              promptStrategy: queries.promptStrategy,
+              isGeneratingStrategy: state.isGeneratingStrategy,
+              strategyError: state.strategyError,
+              onGeneratePromptStrategy: () => void handleGeneratePromptStrategy(),
+              experienceSuggestions,
+              selectedExperience: state.selectedExperience,
+              lockedExperience: state.lockedExperience,
+              dismissedSuggestions: state.dismissedSuggestions,
+              onSelectExperience: state.setSelectedExperience,
+              onLockExperience: state.setLockedExperience,
+              onDismissExperienceSuggestion: handleDismissExperienceSuggestion,
+              experienceIndex,
+              experienceUsageMap,
+              addExperienceUsage: queries.addExperienceUsageMutation,
+              editorInstance: state.editorInstance,
+              onSetContent: state.setContent,
+              onShowStarterHelper: state.setShowStarterHelper,
+            }}
+            feedbackProps={{
+              feedbackType: state.feedbackType,
+              onFeedbackTypeChange: state.setFeedbackType,
+              onGenerateFeedback: () => void handleGenerateFeedback(),
+              isGeneratingFeedback: state.isGeneratingFeedback,
+              feedbackError: state.feedbackError,
+              displayedFeedback,
+              currentEssayId: currentEssayPersistedId,
+            }}
+            commentsProps={{
+              reviewerComments: queries.reviewerComments,
+              onResolveComment: (commentId) => void queries.resolveCommentAsOwnerMutation({ commentId }),
+              onAddOwnerReply: (commentId, contentValue) =>
+                queries.addOwnerReplyMutation({ commentId, content: contentValue }),
+            }}
+          />
+
+          <div className="hidden w-[76px] shrink-0 items-center justify-center bg-muted/20 md:flex">
+            <AssistantToolRail
+              isSidebarOpen={state.sidebarOpen}
+              activeTab={state.activeSidebarTab}
+              onOpenStrategy={state.openStrategySheet}
+              onOpenFeedback={state.openFeedbackPanel}
+              onOpenComments={state.openCommentsDrawer}
+            />
+          </div>
+        </div>
       </div>
-
-      <StrategySheet
-        open={state.strategySheetOpen}
-        onOpenChange={state.setStrategySheetOpen}
-        currentEssay={currentEssay}
-        currentEssayId={currentEssayPersistedId}
-        currentCollege={currentCollege}
-        currentPromptId={currentPromptId}
-        promptStrategy={queries.promptStrategy}
-        isGeneratingStrategy={state.isGeneratingStrategy}
-        strategyError={state.strategyError}
-        onGeneratePromptStrategy={() => void handleGeneratePromptStrategy()}
-        experienceSuggestions={experienceSuggestions}
-        selectedExperience={state.selectedExperience}
-        lockedExperience={state.lockedExperience}
-        dismissedSuggestions={state.dismissedSuggestions}
-        onSelectExperience={state.setSelectedExperience}
-        onLockExperience={state.setLockedExperience}
-        onDismissExperienceSuggestion={handleDismissExperienceSuggestion}
-        experienceIndex={experienceIndex}
-        experienceUsageMap={experienceUsageMap}
-        addExperienceUsage={queries.addExperienceUsageMutation}
-        editorInstance={state.editorInstance}
-        onSetContent={state.setContent}
-        onShowStarterHelper={state.setShowStarterHelper}
-      />
-
-      <FeedbackDialog
-        open={state.feedbackDialogOpen}
-        onOpenChange={state.setFeedbackDialogOpen}
-        feedbackType={state.feedbackType}
-        onFeedbackTypeChange={state.setFeedbackType}
-        onGenerateFeedback={() => void handleGenerateFeedback()}
-        isGeneratingFeedback={state.isGeneratingFeedback}
-        feedbackError={state.feedbackError}
-        displayedFeedback={displayedFeedback}
-        currentEssayId={currentEssayPersistedId}
-      />
 
       <SmartReusePopover
         open={state.smartReusePopoverOpen}
@@ -677,16 +660,6 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
         smartReuseExcerpts={smartReuseExcerpts}
         onInsertAsReference={handleInsertAsReference}
         onDismissExcerpt={handleDismissExcerpt}
-      />
-
-      <CommentsDrawer
-        open={state.commentsDrawerOpen}
-        onOpenChange={state.setCommentsDrawerOpen}
-        reviewerComments={queries.reviewerComments}
-        onResolveComment={(commentId) => void queries.resolveCommentAsOwnerMutation({ commentId })}
-        onAddOwnerReply={(commentId, contentValue) =>
-          queries.addOwnerReplyMutation({ commentId, content: contentValue })
-        }
       />
 
       <VersionHistoryDrawer
