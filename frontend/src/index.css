@@ -240,3 +240,74 @@
     50% { transform: translateY(-6px); }
   }
 }
+
+/* ── Essay Editor TipTap Prose Styling ── */
+.essay-editor .tiptap,
+.essay-editor.tiptap {
+  outline: none;
+  caret-color: hsl(var(--primary));
+}
+
+.essay-editor .tiptap p,
+.essay-editor.tiptap p {
+  margin-bottom: 0.85em;
+}
+
+.essay-editor .tiptap p:last-child,
+.essay-editor.tiptap p:last-child {
+  margin-bottom: 0;
+}
+
+.essay-editor .tiptap p.is-editor-empty:first-child::before,
+.essay-editor.tiptap p.is-editor-empty:first-child::before {
+  content: "Start writing your essay...";
+  color: hsl(var(--muted-foreground) / 0.4);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  font-style: italic;
+}
+
+.essay-editor .tiptap ul,
+.essay-editor.tiptap ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin-bottom: 0.75em;
+}
+
+.essay-editor .tiptap ol,
+.essay-editor.tiptap ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin-bottom: 0.75em;
+}
+
+.essay-editor .tiptap li {
+  margin-bottom: 0.25em;
+}
+
+.essay-editor .tiptap strong {
+  font-weight: 600;
+}
+
+.essay-editor .tiptap em {
+  font-style: italic;
+}
+
+.essay-editor .tiptap u {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Selection styling */
+.essay-editor .tiptap ::selection,
+.essay-editor.tiptap ::selection {
+  background: hsl(var(--primary) / 0.15);
+}
+
+/* Smooth scrollbar for the editor area */
+.essay-editor-wrapper {
+  position: relative;
+}
+
+/* Page card border replaces the gradient line */

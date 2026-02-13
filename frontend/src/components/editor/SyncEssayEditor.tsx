@@ -152,7 +152,7 @@ const SyncEssayEditorInner: React.FC<SyncEssayEditorProps> = ({
       editorProps: {
         attributes: {
           class:
-            "min-h-[380px] w-full rounded-xl border border-border/50 bg-background p-5 text-lg leading-relaxed text-foreground focus:outline-none",
+            "essay-editor min-h-[420px] w-full text-[1.0625rem] leading-[1.75] tracking-[-0.005em] text-foreground/90 focus:outline-none placeholder:text-muted-foreground/40",
         },
       },
       onUpdate: handleUpdate,
@@ -184,11 +184,14 @@ const SyncEssayEditorInner: React.FC<SyncEssayEditorProps> = ({
     <div className="w-full min-h-[380px]">
       <EditorContent editor={editor ?? null} />
       {editor === null && (
-        <div className="p-5 space-y-3 animate-pulse">
-          <div className="h-4 w-3/4 rounded bg-muted" />
-          <div className="h-4 w-full rounded bg-muted" />
-          <div className="h-4 w-5/6 rounded bg-muted" />
-          <div className="h-4 w-2/3 rounded bg-muted" />
+        <div className="py-4">
+          <div className="space-y-4 animate-pulse">
+            <div className="h-4 w-3/4 rounded-full bg-muted/60" />
+            <div className="h-4 w-full rounded-full bg-muted/60" />
+            <div className="h-4 w-5/6 rounded-full bg-muted/60" />
+            <div className="h-4 w-2/3 rounded-full bg-muted/60" />
+            <div className="h-4 w-4/5 rounded-full bg-muted/60" />
+          </div>
         </div>
       )}
     </div>
@@ -207,12 +210,15 @@ const SyncEssayEditor: React.FC<SyncEssayEditorProps> = (props) => {
 
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="w-full min-h-[380px]">
-        <div className="p-5 space-y-3 animate-pulse">
-          <div className="h-4 w-3/4 rounded bg-muted" />
-          <div className="h-4 w-full rounded bg-muted" />
-          <div className="h-4 w-5/6 rounded bg-muted" />
-          <div className="h-4 w-2/3 rounded bg-muted" />
+      <div className="w-full min-h-[420px]">
+        <div className="py-4">
+          <div className="space-y-4 animate-pulse">
+            <div className="h-4 w-3/4 rounded-full bg-muted/60" />
+            <div className="h-4 w-full rounded-full bg-muted/60" />
+            <div className="h-4 w-5/6 rounded-full bg-muted/60" />
+            <div className="h-4 w-2/3 rounded-full bg-muted/60" />
+            <div className="h-4 w-4/5 rounded-full bg-muted/60" />
+          </div>
         </div>
       </div>
     );

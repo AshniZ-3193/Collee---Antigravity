@@ -24,31 +24,40 @@ const FormatButton: React.FC<{
     type="button"
     onClick={onClick}
     title={title}
-    className={`rounded-lg p-2 transition-colors ${
-      active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
+    className={`relative rounded-md p-1.5 transition-all duration-150 ${
+      active
+        ? 'bg-primary/10 text-primary shadow-sm'
+        : 'text-foreground/50 hover:bg-muted/80 hover:text-foreground/80'
     }`}
   >
     {children}
   </button>
 );
 
-const TriggerButton: React.FC<{
+const FeatureButton: React.FC<{
   label: string;
   onClick: () => void;
   children: React.ReactNode;
   badge?: string | number;
   disabled?: boolean;
-}> = ({ label, onClick, children, badge, disabled }) => (
+  variant?: 'default' | 'accent';
+}> = ({ label, onClick, children, badge, disabled, variant = 'default' }) => (
   <button
     type="button"
     onClick={onClick}
     disabled={disabled}
-    className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+    className={`group inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-30 ${
+      variant === 'accent'
+        ? 'bg-primary/6 text-primary hover:bg-primary/12 hover:shadow-sm'
+        : 'text-foreground/60 hover:bg-muted/80 hover:text-foreground/80'
+    }`}
   >
-    {children}
+    <span className="transition-transform duration-150 group-hover:scale-110">{children}</span>
     <span>{label}</span>
-    {badge !== undefined && (
-      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-foreground">{badge}</span>
+    {badge !== undefined && Number(badge) > 0 && (
+      <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary/15 px-1 text-[10px] font-semibold text-primary">
+        {badge}
+      </span>
     )}
   </button>
 );
@@ -65,53 +74,60 @@ const EssayToolbar: React.FC<EssayToolbarProps> = ({
 }) => {
   return (
     <div
-      className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-card/50 px-4 py-2"
+      className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 bg-card/60 px-5 py-2 backdrop-blur-sm"
       data-tour="essay-toolbar"
     >
-      <div className="flex items-center gap-1.5">
-        <FormatButton active={activeFormats.bold} onClick={() => applyFormatting('bold')} title="Bold">
-          <Bold className="h-4 w-4" />
+      {/* Formatting group */}
+      <div className="flex items-center gap-0.5 rounded-lg bg-muted/40 p-1">
+        <FormatButton active={activeFormats.bold} onClick={() => applyFormatting('bold')} title="Bold (Cmd+B)">
+          <Bold className="h-3.5 w-3.5" strokeWidth={2.5} />
         </FormatButton>
-        <FormatButton active={activeFormats.italic} onClick={() => applyFormatting('italic')} title="Italic">
-          <Italic className="h-4 w-4" />
+        <FormatButton active={activeFormats.italic} onClick={() => applyFormatting('italic')} title="Italic (Cmd+I)">
+          <Italic className="h-3.5 w-3.5" strokeWidth={2.5} />
         </FormatButton>
         <FormatButton
           active={activeFormats.underline}
           onClick={() => applyFormatting('underline')}
-          title="Underline"
+          title="Underline (Cmd+U)"
         >
-          <Underline className="h-4 w-4" />
+          <Underline className="h-3.5 w-3.5" strokeWidth={2.5} />
         </FormatButton>
-        <div className="mx-1 h-5 w-px bg-border" />
-        <FormatButton active={activeFormats.bullet} onClick={() => applyFormatting('bullet')} title="Bulleted">
-          <List className="h-4 w-4" />
+
+        <div className="mx-0.5 h-4 w-px bg-border/60" />
+
+        <FormatButton active={activeFormats.bullet} onClick={() => applyFormatting('bullet')} title="Bullet list">
+          <List className="h-3.5 w-3.5" strokeWidth={2.5} />
         </FormatButton>
         <FormatButton
           active={activeFormats.numbered}
           onClick={() => applyFormatting('numbered')}
-          title="Numbered"
+          title="Numbered list"
         >
-          <ListOrdered className="h-4 w-4" />
+          <ListOrdered className="h-3.5 w-3.5" strokeWidth={2.5} />
         </FormatButton>
       </div>
 
-      <div className="flex items-center gap-2">
-        <TriggerButton label="Strategy" onClick={onOpenStrategy}>
+      {/* AI features group */}
+      <div className="flex items-center gap-1">
+        <FeatureButton label="Strategy" onClick={onOpenStrategy} variant="accent">
           <Sparkles className="h-3.5 w-3.5" />
-        </TriggerButton>
-        <TriggerButton label="Feedback" onClick={onOpenFeedback}>
+        </FeatureButton>
+        <FeatureButton label="Feedback" onClick={onOpenFeedback} variant="accent">
           <Wand2 className="h-3.5 w-3.5" />
-        </TriggerButton>
-        <TriggerButton
+        </FeatureButton>
+        <FeatureButton
           label="Reuse"
           onClick={onOpenSmartReuse}
           disabled={!canShowSmartReuse}
         >
           <Sparkles className="h-3.5 w-3.5" />
-        </TriggerButton>
-        <TriggerButton label="Comments" onClick={onOpenComments} badge={commentsCount}>
+        </FeatureButton>
+
+        <div className="mx-1 h-4 w-px bg-border/40" />
+
+        <FeatureButton label="Comments" onClick={onOpenComments} badge={commentsCount}>
           <MessageSquare className="h-3.5 w-3.5" />
-        </TriggerButton>
+        </FeatureButton>
       </div>
     </div>
   );
