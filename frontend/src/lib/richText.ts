@@ -32,6 +32,14 @@ const escapeHtml = (value: string) =>
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+// CSS named colors allowed for sanitization (module-level constant for performance)
+const SAFE_NAMED_COLORS = new Set([
+  "black", "white", "red", "green", "blue", "yellow", "cyan", "magenta",
+  "gray", "grey", "silver", "maroon", "olive", "lime", "aqua", "teal",
+  "navy", "fuchsia", "purple", "orange", "pink", "brown", "gold",
+  "transparent", "currentcolor"
+]);
+
 /**
  * Sanitizes a color value to prevent CSS injection attacks.
  * Only allows safe CSS color formats: hex, rgb/rgba, hsl/hsla, and CSS named colors.
@@ -60,10 +68,10 @@ const sanitizeColor = (color: string): string | null => {
     const bNum = parseInt(b, 10);
     const aNum = a ? parseFloat(a) : 1;
     
-    // Validate ranges: RGB 0-255, alpha 0-1
-    if (rNum >= 0 && rNum <= 255 && 
-        gNum >= 0 && gNum <= 255 && 
-        bNum >= 0 && bNum <= 255 && 
+    // Validate ranges: RGB 0-255 (integers only), alpha 0-1
+    if (rNum >= 0 && rNum <= 255 && r === rNum.toString() &&
+        gNum >= 0 && gNum <= 255 && g === gNum.toString() &&
+        bNum >= 0 && bNum <= 255 && b === bNum.toString() &&
         aNum >= 0 && aNum <= 1) {
       return trimmed;
     }
@@ -79,24 +87,17 @@ const sanitizeColor = (color: string): string | null => {
     const lNum = parseInt(l, 10);
     const aNum = a ? parseFloat(a) : 1;
     
-    // Validate ranges: hue 0-360, saturation/lightness 0-100%, alpha 0-1
-    if (hNum >= 0 && hNum <= 360 && 
-        sNum >= 0 && sNum <= 100 && 
-        lNum >= 0 && lNum <= 100 && 
+    // Validate ranges: hue 0-360, saturation/lightness 0-100% (integers only), alpha 0-1
+    if (hNum >= 0 && hNum <= 360 && h === hNum.toString() &&
+        sNum >= 0 && sNum <= 100 && s === sNum.toString() &&
+        lNum >= 0 && lNum <= 100 && l === lNum.toString() &&
         aNum >= 0 && aNum <= 1) {
       return trimmed;
     }
   }
   
   // Allow CSS named colors (basic set for safety)
-  const namedColors = new Set([
-    "black", "white", "red", "green", "blue", "yellow", "cyan", "magenta",
-    "gray", "grey", "silver", "maroon", "olive", "lime", "aqua", "teal",
-    "navy", "fuchsia", "purple", "orange", "pink", "brown", "gold",
-    "transparent", "currentcolor"
-  ]);
-  
-  if (namedColors.has(trimmed.toLowerCase())) {
+  if (SAFE_NAMED_COLORS.has(trimmed.toLowerCase())) {
     return trimmed.toLowerCase();
   }
   
