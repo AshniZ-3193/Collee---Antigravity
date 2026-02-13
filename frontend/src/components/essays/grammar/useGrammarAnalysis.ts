@@ -717,7 +717,13 @@ export function useGrammarAnalysis({
       editor
         .chain()
         .command(({ tr }) => {
-          tr.replaceWith(pmFrom, pmTo, editor.state.schema.text(suggestion.text));
+          if (suggestion.text === '') {
+            // Handle deletion: remove the range without inserting empty text node
+            tr.delete(pmFrom, pmTo);
+          } else {
+            // Handle replacement: replace with new text
+            tr.replaceWith(pmFrom, pmTo, editor.state.schema.text(suggestion.text));
+          }
           return true;
         })
         .run();
