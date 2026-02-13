@@ -51,13 +51,41 @@ const sanitizeColor = (color: string): string | null => {
   }
   
   // Allow rgb/rgba: rgb(r, g, b) or rgba(r, g, b, a)
-  if (/^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(,\s*[\d.]+\s*)?\)$/.test(trimmed)) {
-    return trimmed;
+  // More strict: validate that values are in reasonable ranges
+  const rgbMatch = trimmed.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/);
+  if (rgbMatch) {
+    const [, r, g, b, a] = rgbMatch;
+    const rNum = parseInt(r, 10);
+    const gNum = parseInt(g, 10);
+    const bNum = parseInt(b, 10);
+    const aNum = a ? parseFloat(a) : 1;
+    
+    // Validate ranges: RGB 0-255, alpha 0-1
+    if (rNum >= 0 && rNum <= 255 && 
+        gNum >= 0 && gNum <= 255 && 
+        bNum >= 0 && bNum <= 255 && 
+        aNum >= 0 && aNum <= 1) {
+      return trimmed;
+    }
   }
   
   // Allow hsl/hsla: hsl(h, s%, l%) or hsla(h, s%, l%, a)
-  if (/^hsla?\(\s*\d+\s*,\s*\d+%\s*,\s*\d+%\s*(,\s*[\d.]+\s*)?\)$/.test(trimmed)) {
-    return trimmed;
+  // More strict: validate that values are in reasonable ranges
+  const hslMatch = trimmed.match(/^hsla?\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*(?:,\s*([\d.]+)\s*)?\)$/);
+  if (hslMatch) {
+    const [, h, s, l, a] = hslMatch;
+    const hNum = parseInt(h, 10);
+    const sNum = parseInt(s, 10);
+    const lNum = parseInt(l, 10);
+    const aNum = a ? parseFloat(a) : 1;
+    
+    // Validate ranges: hue 0-360, saturation/lightness 0-100%, alpha 0-1
+    if (hNum >= 0 && hNum <= 360 && 
+        sNum >= 0 && sNum <= 100 && 
+        lNum >= 0 && lNum <= 100 && 
+        aNum >= 0 && aNum <= 1) {
+      return trimmed;
+    }
   }
   
   // Allow CSS named colors (basic set for safety)
@@ -236,12 +264,14 @@ const applyMarksToHtml = (text: string, marks?: ProseMirrorMark[]) => {
       if (safeColor) {
         html = `<span style="color:${safeColor}">${html}</span>`;
       }
+      // If color is invalid, still render the span to maintain mark structure
+      // but without the potentially malicious color style
     } else if (mark.type === "highlight") {
       const bgColor = typeof mark.attrs?.color === "string" ? mark.attrs.color : "#fef9c3";
       const safeBgColor = sanitizeColor(bgColor);
-      if (safeBgColor) {
-        html = `<mark style="background-color:${safeBgColor}">${html}</mark>`;
-      }
+      // Use sanitized color or fall back to default if validation fails
+      const finalBgColor = safeBgColor || "#fef9c3";
+      html = `<mark style="background-color:${finalBgColor}">${html}</mark>`;
     }
   }
   return html;
