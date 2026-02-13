@@ -32,34 +32,23 @@ const escapeHtml = (value: string) =>
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-// CSS named colors allowed for sanitization (module-level constant for performance)
 const SAFE_NAMED_COLORS = new Set([
   "black", "white", "red", "green", "blue", "yellow", "cyan", "magenta",
   "gray", "grey", "silver", "maroon", "olive", "lime", "aqua", "teal",
   "navy", "fuchsia", "purple", "orange", "pink", "brown", "gold",
-  "transparent", "currentcolor"
+  "transparent", "currentcolor",
 ]);
 
-/**
- * Sanitizes a color value to prevent CSS injection attacks.
- * Only allows safe CSS color formats: hex, rgb/rgba, hsl/hsla, and CSS named colors.
- * Returns the sanitized color or null if the value is invalid/unsafe.
- */
 const sanitizeColor = (color: string): string | null => {
   if (!color || typeof color !== "string") return null;
-  
+
   const trimmed = color.trim();
-  
-  // Reject any value containing semicolons or other CSS injection patterns
   if (/[;{}]/.test(trimmed)) return null;
-  
-  // Allow hex colors: #RGB, #RRGGBB, #RRGGBBAA
+
   if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(trimmed)) {
     return trimmed;
   }
-  
-  // Allow rgb/rgba: rgb(r, g, b) or rgba(r, g, b, a)
-  // More strict: validate that values are in reasonable ranges
+
   const rgbMatch = trimmed.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/);
   if (rgbMatch) {
     const [, r, g, b, a] = rgbMatch;
@@ -67,8 +56,7 @@ const sanitizeColor = (color: string): string | null => {
     const gNum = parseInt(g, 10);
     const bNum = parseInt(b, 10);
     const aNum = a ? parseFloat(a) : 1;
-    
-    // Validate ranges: RGB 0-255 (integers only), alpha 0-1
+
     if (rNum >= 0 && rNum <= 255 && r === rNum.toString() &&
         gNum >= 0 && gNum <= 255 && g === gNum.toString() &&
         bNum >= 0 && bNum <= 255 && b === bNum.toString() &&
@@ -76,9 +64,7 @@ const sanitizeColor = (color: string): string | null => {
       return trimmed;
     }
   }
-  
-  // Allow hsl/hsla: hsl(h, s%, l%) or hsla(h, s%, l%, a)
-  // More strict: validate that values are in reasonable ranges
+
   const hslMatch = trimmed.match(/^hsla?\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*(?:,\s*([\d.]+)\s*)?\)$/);
   if (hslMatch) {
     const [, h, s, l, a] = hslMatch;
@@ -86,8 +72,7 @@ const sanitizeColor = (color: string): string | null => {
     const sNum = parseInt(s, 10);
     const lNum = parseInt(l, 10);
     const aNum = a ? parseFloat(a) : 1;
-    
-    // Validate ranges: hue 0-360, saturation/lightness 0-100% (integers only), alpha 0-1
+
     if (hNum >= 0 && hNum <= 360 && h === hNum.toString() &&
         sNum >= 0 && sNum <= 100 && s === sNum.toString() &&
         lNum >= 0 && lNum <= 100 && l === lNum.toString() &&
@@ -95,14 +80,35 @@ const sanitizeColor = (color: string): string | null => {
       return trimmed;
     }
   }
-  
-  // Allow CSS named colors (basic set for safety)
+
   if (SAFE_NAMED_COLORS.has(trimmed.toLowerCase())) {
     return trimmed.toLowerCase();
   }
-  
-  // Reject anything else as potentially unsafe
+
   return null;
+};
+
+const SAFE_HREF_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
+const SAFE_IMAGE_PROTOCOLS = new Set(["http:", "https:"]);
+
+const sanitizeUrl = (
+  value: string,
+  options: { allowRelative?: boolean; allowedProtocols: Set<string> },
+) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  if (options.allowRelative && /^(\/|\.\/|\.\.\/|#)/.test(trimmed)) {
+    return trimmed;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (!options.allowedProtocols.has(parsed.protocol)) return "";
+    return trimmed;
+  } catch {
+    return "";
+  }
 };
 
 const safeParseJson = (value: string): unknown | null => {
@@ -258,7 +264,10 @@ const applyMarksToHtml = (text: string, marks?: ProseMirrorMark[]) => {
       html = `<code>${html}</code>`;
     } else if (mark.type === "link") {
       const href = typeof mark.attrs?.href === "string" ? mark.attrs.href : "";
-      html = `<a href=\"${escapeHtml(href)}\" rel=\"noopener noreferrer\" target=\"_blank\">${html}</a>`;
+      const safeHref = sanitizeUrl(href, { allowRelative: true, allowedProtocols: SAFE_HREF_PROTOCOLS });
+      if (safeHref) {
+        html = `<a href=\"${escapeHtml(safeHref)}\" rel=\"noopener noreferrer\" target=\"_blank\">${html}</a>`;
+      }
     } else if (mark.type === "textStyle") {
       const color = typeof mark.attrs?.color === "string" ? mark.attrs.color : "";
       const safeColor = sanitizeColor(color);
@@ -326,7 +335,9 @@ const renderNodeToHtml = (node: ProseMirrorNode): string => {
     case "image": {
       const src = typeof node.attrs?.src === "string" ? node.attrs.src : "";
       const alt = typeof node.attrs?.alt === "string" ? node.attrs.alt : "";
-      return `<img src=\"${escapeHtml(src)}\" alt=\"${escapeHtml(alt)}\" class=\"my-5 max-w-full rounded-lg\" />`;
+      const safeSrc = sanitizeUrl(src, { allowRelative: true, allowedProtocols: SAFE_IMAGE_PROTOCOLS });
+      if (!safeSrc) return alt ? `<span>${escapeHtml(alt)}</span>` : "";
+      return `<img src=\"${escapeHtml(safeSrc)}\" alt=\"${escapeHtml(alt)}\" class=\"my-5 max-w-full rounded-lg\" />`;
     }
     default:
       return (node.content ?? []).map(renderNodeToHtml).join("");

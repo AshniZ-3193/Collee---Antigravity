@@ -537,9 +537,6 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
   const wordCount = countRichTextWords(state.content);
   const isOverLimit = wordCount > wordLimit;
   const headerEssayTitle = currentEssay && currentEssay.title.length > 90 ? 'Essay Draft' : currentEssay?.title ?? 'Essay Draft';
-  const hasWrittenContent = stripRichTextFormatting(state.content).trim().length > 50;
-  const hasSameTypeExcerpts = smartReuseExcerpts.some((excerpt) => excerpt.matchesSamePromptType);
-  const showSmartReuse = (hasWrittenContent || hasSameTypeExcerpts) && smartReuseExcerpts.length > 0;
 
   if (colleges.length === 0) {
     return (

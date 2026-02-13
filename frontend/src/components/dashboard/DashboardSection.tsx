@@ -200,7 +200,7 @@ const DashboardSection: React.FC<DashboardSectionProps> = ({ data, onAddCollege,
 
         {/* College Progress Cards */}
         {data.collegeDeadlines.length > 0 && (
-          <motion.div variants={itemVariants} className="space-y-4">
+          <motion.div variants={itemVariants} className="space-y-4" data-tour="essays-section">
             <h2 className="font-display text-heading text-foreground">Your Colleges</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {data.collegeDeadlines.map((deadline) => {

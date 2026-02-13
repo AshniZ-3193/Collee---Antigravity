@@ -17,6 +17,7 @@ import {
 import { useMutation } from 'convex/react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import UnderlineExtension from '@tiptap/extension-underline';
 import { api } from '../../../convex/_generated/api';
 import {
   countRichTextWords,
@@ -71,7 +72,7 @@ const ShareEditScreen: React.FC<ShareEditScreenProps> = ({
   const editor = useEditor(
     {
       immediatelyRender: false,
-      extensions: [StarterKit],
+      extensions: [StarterKit, UnderlineExtension],
       content: parseStoredRichTextToDoc(initialNormalizedContent),
       editorProps: {
         attributes: {
