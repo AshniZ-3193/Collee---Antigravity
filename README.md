@@ -1,145 +1,99 @@
-# Collee - MVP
+# Collee
 
 Your personal admissions copilot.
 
-Collee helps students manage college essays end-to-end: onboarding, prompt strategy, writing, AI feedback, sharing for review, and export.
+Collee helps students manage college essays end-to-end: onboarding, college and prompt planning, writing, AI guidance, reviewer collaboration, and export.
 
-## Recent Updates In This Repo
+## Material Changes Reflected In This README
 
-- Added a rich-text essay editor powered by **Tiptap** with **Convex ProseMirror sync**.
-- Added Convex component wiring in `frontend/convex/convex.config.ts` and sync handlers in `frontend/convex/prosemirror.ts`.
-- Added rich-text normalization/parsing/rendering utilities:
-  - Backend: `frontend/convex/richTextHelpers.ts`
-  - Frontend: `frontend/src/lib/richText.ts`
-- Replaced workspace textarea editing with synced `SyncEssayEditor` (`frontend/src/components/editor/SyncEssayEditor.tsx`).
-- Added external-change handling so owner editors refresh when essays are updated through shared edit links.
-- Updated sharing and review screens to support rich-text content correctly:
-  - View mode renders formatted essay HTML.
-  - Comment mode maps selections against plain-text offsets from rich text.
-  - Edit mode uses rich-text editing with autosave.
-- Updated AI context building and smart-suggestion inputs to use plain text extracted from rich-text content.
-- Updated share-link creation flow to pass explicit permission defaults in export flow.
+- Dashboard-first workspace architecture (`DashboardShell` + `EssaysSection`) is now the primary in-app experience.
+- Essay editing is fully rich text with Tiptap + Convex ProseMirror sync, including sync-generation resets after external share edits.
+- Assistant tooling is now split into strategy, feedback, reviewer comments, and grammar analysis (Harper-based) with saved user grammar preferences.
+- Notes moved to first-class `notesDocuments` with migration support from personal lens notes and AI context ingestion.
+- School data enrichment is now canonicalized (`globalSchools`, `schoolAliases`) and quality-scored (`globalSchoolContent`, `contentGenerationLocks`) via Exa + OpenAI.
+- Share flow remains token-scoped (`view` / `comment` / `edit`) with comment replies and owner resolution workflows.
 
 ## Project Structure
 
-- `frontend/` Vite + React TypeScript app.
-- `frontend/src/main.tsx` App bootstrap (PostHog, Clerk, Convex, theme providers).
-- `frontend/src/App.tsx` Route map:
-  - `/` main product flow
-  - `/screens` screen showcase
-  - `/sso-callback` Clerk callback
-  - `/share/:token` permission-based shared essay page
-- `frontend/src/pages/` Route-level pages.
-- `frontend/src/components/screens/` Main product and share-mode screens.
-- `frontend/src/components/editor/SyncEssayEditor.tsx` Tiptap + Convex sync wrapper for essays.
-- `frontend/src/lib/richText.ts` Rich-text parsing, rendering, and plain-text extraction utilities.
-- `frontend/convex/` Convex backend functions (queries, mutations, actions).
-- `frontend/convex/convex.config.ts` Convex app config enabling `@convex-dev/prosemirror-sync`.
-- `frontend/convex/prosemirror.ts` Sync API handlers, snapshot hooks, and sync reset mutation.
-- `frontend/convex/richTextHelpers.ts` Server-side rich-text utilities.
-- `frontend/convex/schema.ts` Convex schema.
+- `frontend/`: Vite + React + TypeScript app.
+- `frontend/src/main.tsx`: provider bootstrap (PostHog, Clerk, Convex, Theme).
+- `frontend/src/App.tsx`: routes (`/`, `/screens`, `/sso-callback`, `/share/:token`).
+- `frontend/src/pages/Index.tsx`: auth gate, onboarding flow, workspace entry.
+- `frontend/src/components/dashboard/`: dashboard shell, sidebar, deadlines/progress views.
+- `frontend/src/components/essays/`: modular essay workspace (editor, AI assistant, sharing, history, grammar).
+- `frontend/src/components/editor/SyncEssayEditor.tsx`: Tiptap editor wired to sync/doc lifecycle.
+- `frontend/src/lib/richText.ts`: rich-text parsing, rendering, and plain-text extraction.
+- `frontend/convex/`: backend queries, mutations, and node actions.
+- `frontend/convex/convex.config.ts`: Convex app config with `@convex-dev/prosemirror-sync`.
+- `frontend/convex/prosemirror.ts`: sync APIs, snapshot hooks, sync generation reset.
+- `frontend/convex/schema.ts`: full Convex schema.
 
 ## App Flow
 
-1. **Bootstrap** (`frontend/src/main.tsx`)
-- Initializes providers for Clerk, Convex, PostHog, and theming.
-
-2. **Routing** (`frontend/src/App.tsx`)
-- Main app at `/`.
-- Shared essay route at `/share/:token` routes users into view/comment/edit modes based on share permission.
-
-3. **Auth + Onboarding** (`frontend/src/pages/Index.tsx`)
-- Clerk session syncs to Convex via `useStoreUserEffect`.
-- If onboarding is complete, user lands in workspace; otherwise onboarding sequence runs.
-
-4. **Workspace** (`frontend/src/components/screens/ColleeWorkspace.tsx`)
-- College/prompt management, AI guidance, version history, feedback, export, and sharing.
-- Essay editing uses `SyncEssayEditor` with ProseMirror sync state.
-- Word count/status/versioning/excerpt generation stay in sync via Convex snapshot handling.
-
-5. **Share Flow** (`frontend/src/pages/SharePage.tsx`)
-- `view`: read-only formatted essay.
-- `comment`: inline comment selection/highlighting + threaded replies.
-- `edit`: rich-text editing with autosave through token-scoped mutation.
+1. Bootstrap (`frontend/src/main.tsx`)
+   - Initializes Clerk, Convex, PostHog, and theme providers.
+2. Routing (`frontend/src/App.tsx`)
+   - Main app at `/`, share surface at `/share/:token`.
+3. Auth + onboarding (`frontend/src/pages/Index.tsx`)
+   - Clerk identity syncs into Convex (`useStoreUserEffect`), then user proceeds through onboarding or directly to workspace.
+4. Main workspace (`frontend/src/components/dashboard/DashboardShell.tsx`)
+   - Dashboard summary and essay workspace navigation.
+5. Essay workspace (`frontend/src/components/essays/EssaysSection.tsx`)
+   - Rich-text editor, autosave/sync, version history, smart reuse, AI strategy/feedback, grammar, sharing.
+6. Share route (`frontend/src/pages/SharePage.tsx`)
+   - Token-resolved permission mode: `view`, `comment`, or `edit`.
 
 ## Backend Architecture
 
-```text
- +--------------------------+                          +-----------------------+
- |          Clerk           |                          |      OpenAI API       |
- |    Auth + Session JWT    |                          |-----------------------|
- +------------+-------------+                          | story identity        |
-              |                                        | prompt strategies     |
-              | tokenIdentifier                        | smart suggestions     |
-              v                                        | essay feedback        |
- +------------+-----------+   RPC    +-----------------+-----------------------+
- |                        |<-------->|                                         |
- |   Frontend (React)     |          |            Convex Backend               |
- |                        |          |                                         |
- |  - App routes          |          |  Queries / Mutations                    |
- |  - Workspace + editor  |          |  .- users, userProfile, colleges        |
- |  - Share page          |          |  .- essays, shares, storyIdentity       |
- |                        |          |  .- experienceBank, personalLens        |
- +------------+-----------+          |                                         |
-              |                      |  ProseMirror Sync                       |
-              | public               |  .- get / submitSnapshot                |
-              | share token          |  .- steps / reset                       |
-              v                      |                                         |
- +----------------------------+      |  Node Actions (AI + enrichment)         |
- | Token-Scoped Share Layer   |      |  .- generateStoryIdentity               |
- |----------------------------|      |  .- PromptStrategy / Suggestions        |
- | getByToken                 |      |  .- EssayFeedback / SchoolContent       |
- | addComment / replies       |      |                                         |
- | updateEssayViaShare        +----->|                                         |
- +----------------------------+      +-----------+-----------------------------+
-                                                 |
-                                                 | read / write
-                                                 v
- +-----------------------------------------------------------------------+
- |                          Convex DB Tables                             |
- |-----------------------------------------------------------------------|
- |  Identity : users, userProfiles, storyIdentities                      |
- |  Writing  : colleges, prompts, essays, essayVersions, essayExcerpts   |
- |  Sharing  : shares, shareComments, shareCommentReplies                |
- |  AI Cache : globalSchools, globalSchoolContent, generationLocks       |
- +-----------------------------------+-----------------------------------+
-                                     |
-                                     | school prompt / deadline enrichment
-                                     v
-                        +----------------------------+
-                        |      Exa Search API        |
-                        |----------------------------|
-                        | sources for prompts and    |
-                        | application deadlines      |
-                        +----------------------------+
+```mermaid
+flowchart LR
+  C["Clerk (auth)"] -->|"tokenIdentifier"| F["Frontend React app"]
+  F <-->|"queries / mutations / actions"| B["Convex backend"]
+  S["Share route (/share/:token)"] -->|"public token"| B
+
+  F -->|"rich-text snapshots / steps"| P["ProseMirror Sync component"]
+  P --> B
+
+  B -->|"story identity, strategy, suggestions, feedback"| O["OpenAI API"]
+  B -->|"prompt + deadline source retrieval"| E["Exa Search API"]
+
+  B <--> D["Convex DB"]
+  D -->|"identity"| D1["users, userProfiles, storyIdentities"]
+  D -->|"writing"| D2["colleges, prompts, essays, essayVersions, essayExcerpts"]
+  D -->|"notes + grammar"| D3["notesDocuments, grammarPreferences, personalLensNotes"]
+  D -->|"sharing"| D4["shares, shareComments, shareCommentReplies"]
+  D -->|"school intelligence"| D5["globalSchools, schoolAliases, globalSchoolContent, contentGenerationLocks"]
 ```
 
 ## Rich-Text + Sync Notes
 
-- `essays.content` is persisted as normalized ProseMirror JSON (string).
-- Legacy plain/markdown-like essay content is normalized for compatibility.
-- Word counts are computed from plain text extracted from rich-text docs.
-- Convex `prosemirror.onSnapshot` updates:
-  - `essays.content`, `wordCount`, `status`, `lastUpdated`
-  - `essayVersions` (throttled snapshot history)
-  - `essayExcerpts` (rebuilt from plain text for smart reuse)
-- `prosemirror.resetDocument` is used when external edits invalidate local sync state.
+- `essays.content` is stored as normalized ProseMirror JSON (string).
+- Legacy plain-text/markdown-like input is normalized for compatibility.
+- Word count and status are derived from plain text extracted from rich text.
+- `prosemirror.onSnapshot` updates essay metadata, throttled version history, and smart-reuse excerpts.
+- `prosemirror.resetDocument` rotates sync generation after external edits (for example from share links) to avoid stale sessions.
 
 ## Data Model (Convex)
 
 Core tables include:
 
-- `users`, `userProfiles`, `storyIdentities`
-- `colleges`, `prompts`, `essays`, `essayVersions`
-- `experiences`, `storyPillars`, `personalLensNotes`
-- `storySuggestions`, `promptStrategies`, `essayFeedback`
-- `essayExcerpts`, `experienceUsages`
-- `shares`, `shareComments`, `shareCommentReplies`
-- `cachedCollegePrompts`, `cachedCollegeDeadlines`
+- Identity: `users`, `userProfiles`, `storyIdentities`
+- Writing: `colleges`, `prompts`, `essays`, `essayVersions`, `essayExcerpts`
+- Experiences and planning: `experiences`, `storyPillars`, `storySuggestions`, `promptStrategies`, `experienceUsages`
+- AI feedback: `essayFeedback`
+- Notes and grammar: `notesDocuments`, `personalLensNotes`, `grammarPreferences`
+- Sharing: `shares`, `shareComments`, `shareCommentReplies`
+- School enrichment and cache: `globalSchools`, `schoolAliases`, `globalSchoolContent`, `contentGenerationLocks`, `cachedCollegePrompts`, `cachedCollegeDeadlines`
 
 ## Environment Variables
 
-- `OPENAI_API_KEY` (required for AI actions)
+Backend/Convex actions:
+
+- `OPENAI_API_KEY`
+- `EXA_API_KEY` (required for school prompt/deadline enrichment)
+
+Frontend:
+
 - `VITE_CONVEX_URL`
 - `VITE_CLERK_PUBLISHABLE_KEY`
 - `VITE_PUBLIC_POSTHOG_KEY`
@@ -149,8 +103,6 @@ Core tables include:
 
 1. `cd frontend`
 2. `npm install`
-3. In terminal 1: `npx convex dev`
-4. In terminal 2: `npm run dev`
-5. Open `http://localhost:8080`
-
-testing12
+3. Start Convex: `npx convex dev`
+4. Start frontend (new terminal): `npm run dev`
+5. Open [http://localhost:8080](http://localhost:8080)
