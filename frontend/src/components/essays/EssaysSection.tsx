@@ -292,6 +292,9 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
 
   useEffect(() => {
     if (!activeEssay) return;
+    // Don't clear activeEssay while colleges are still loading/re-subscribing
+    if (colleges.length === 0) return;
+
     const essayCollege = colleges.find((college) => college.id === activeEssay.collegeId);
     if (!essayCollege) {
       setActiveEssay(null);
@@ -538,7 +541,7 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
   const isOverLimit = wordCount > wordLimit;
   const headerEssayTitle = currentEssay && currentEssay.title.length > 90 ? 'Essay Draft' : currentEssay?.title ?? 'Essay Draft';
 
-  if (colleges.length === 0) {
+  if (!colleges.length) {
     return (
       <section className="flex h-full flex-1 items-center justify-center p-8">
         <div className="max-w-md rounded-2xl border border-border bg-gradient-to-br from-primary/5 via-card to-accent/5 p-10 text-center shadow-soft">

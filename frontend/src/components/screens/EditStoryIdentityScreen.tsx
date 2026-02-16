@@ -123,7 +123,7 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
     onSave();
   };
 
-  if (!storyIdentity) {
+  if (storyIdentity === undefined) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <p className="text-muted-foreground">Loading story identity...</p>
