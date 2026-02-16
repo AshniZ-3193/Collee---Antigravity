@@ -54,6 +54,7 @@ const Index = () => {
   const hasNavigatedAfterAuth = useRef(false);
   const [exportData, setExportData] = useState<ExportData | null>(null);
   const [resumeEssaySelection, setResumeEssaySelection] = useState<{ collegeId: string; essayId: string } | null>(null);
+  const [retakingQuiz, setRetakingQuiz] = useState(false);
 
   const isProfileLoading =
     isSignedIn && isUserStored && (profile === undefined || storyIdentity === undefined);
@@ -135,6 +136,7 @@ const Index = () => {
 
   // Handle onboarding completion
   const handleOnboardingComplete = () => {
+    setRetakingQuiz(false);
     navigateTo('workspace');
   };
 
@@ -199,7 +201,14 @@ const Index = () => {
         {currentScreen === 'resume' && (
           <ResumeScreen
             onContinue={() => navigateTo('academic')}
-            onBack={() => navigateTo('welcome')}
+            onBack={() => {
+              if (retakingQuiz) {
+                setRetakingQuiz(false);
+                navigateTo('edit-story-identity');
+              } else {
+                navigateTo('welcome');
+              }
+            }}
           />
         )}
 
@@ -301,6 +310,10 @@ const Index = () => {
           <EditStoryIdentityScreen
             onBack={() => navigateTo('workspace')}
             onSave={() => navigateTo('workspace')}
+            onRetakeQuiz={() => {
+              setRetakingQuiz(true);
+              navigateTo('resume');
+            }}
           />
         )}
       </motion.div>

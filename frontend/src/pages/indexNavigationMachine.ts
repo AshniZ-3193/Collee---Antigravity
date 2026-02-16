@@ -24,7 +24,7 @@ const TRANSITIONS: TransitionMap = {
   home: ['auth', 'welcome', 'workspace', 'auth-loading'],
   auth: ['home', 'welcome', 'workspace', 'auth-loading'],
   welcome: ['resume', 'home', 'workspace', 'auth-loading'],
-  resume: ['welcome', 'academic', 'workspace'],
+  resume: ['welcome', 'academic', 'workspace', 'edit-story-identity'],
   academic: ['resume', 'diagnostics', 'workspace'],
   diagnostics: ['academic', 'writing-tone', 'workspace'],
   'writing-tone': ['diagnostics', 'personal-lens', 'workspace'],
@@ -36,7 +36,7 @@ const TRANSITIONS: TransitionMap = {
   'add-college': ['workspace', 'home', 'auth-loading'],
   export: ['workspace', 'home', 'auth-loading'],
   'share-view': ['workspace', 'home'],
-  'edit-story-identity': ['workspace', 'home', 'auth-loading'],
+  'edit-story-identity': ['workspace', 'home', 'auth-loading', 'resume'],
 };
 
 export interface ScreenTransitionAction {

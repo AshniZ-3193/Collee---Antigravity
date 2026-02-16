@@ -22,6 +22,7 @@ import type { Id } from '../../../convex/_generated/dataModel';
 interface EditStoryIdentityScreenProps {
   onBack: () => void;
   onSave: () => void;
+  onRetakeQuiz?: () => void;
 }
 
 type Tab = 'experiences' | 'pillars' | 'voice';
@@ -29,6 +30,7 @@ type Tab = 'experiences' | 'pillars' | 'voice';
 const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
   onBack,
   onSave,
+  onRetakeQuiz,
 }) => {
   const storyIdentity = useQuery(api.storyIdentity.get, {});
   const addExperience = useMutation(api.storyIdentity.addExperience);
@@ -501,6 +503,30 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Retake Quiz CTA */}
+        {onRetakeQuiz && (
+          <div className="mt-10 p-6 rounded-xl border border-border bg-card">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-body font-medium text-foreground mb-1">
+                  Retake Quiz
+                </h3>
+                <p className="text-body-sm text-muted-foreground mb-4">
+                  Retake the onboarding quiz to regenerate your story identity with AI.
+                  Your answers will be pre-filled so you can update only what's changed.
+                </p>
+                <Button variant="outline" onClick={onRetakeQuiz}>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Retake Quiz
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
