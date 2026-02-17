@@ -1,6 +1,6 @@
 import type { ApplicationType, EssayPrompt } from './types';
 
-export const toApplicationTypeValue = (label: string) => {
+const toApplicationTypeValue = (label: string) => {
   const normalized = label
     .toLowerCase()
     .replace(/&/g, 'and')

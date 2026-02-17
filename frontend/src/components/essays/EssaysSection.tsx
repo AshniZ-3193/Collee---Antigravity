@@ -281,39 +281,28 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
     chain.toggleOrderedList().run();
   };
 
-  useEffect(() => {
-    if (activeEssay) return;
-    if (!selectedCollege || selectedCollege.essays.length === 0) return;
-    setActiveEssay({
-      collegeId: selectedCollege.id,
-      essayId: selectedCollege.essays[0].id,
-    });
-  }, [activeEssay, selectedCollege, setActiveEssay]);
-
-  useEffect(() => {
-    if (!activeEssay) return;
-    // Don't clear activeEssay while colleges are still loading/re-subscribing
-    if (colleges.length === 0) return;
-
-    const essayCollege = colleges.find((college) => college.id === activeEssay.collegeId);
-    if (!essayCollege) {
-      setActiveEssay(null);
-      return;
-    }
-
-    if (essayCollege.essays.length === 0) {
-      setActiveEssay(null);
-      return;
-    }
-
-    const hasEssay = essayCollege.essays.some((essay) => essay.id === activeEssay.essayId);
-    if (!hasEssay) {
+  // Validate and default activeEssay during render
+  if (!activeEssay) {
+    if (selectedCollege && selectedCollege.essays.length > 0) {
       setActiveEssay({
-        collegeId: essayCollege.id,
-        essayId: essayCollege.essays[0].id,
+        collegeId: selectedCollege.id,
+        essayId: selectedCollege.essays[0].id,
       });
     }
-  }, [activeEssay, colleges, setActiveEssay]);
+  } else if (colleges.length > 0) {
+    const essayCollege = colleges.find((college) => college.id === activeEssay.collegeId);
+    if (!essayCollege || essayCollege.essays.length === 0) {
+      setActiveEssay(null);
+    } else {
+      const hasEssay = essayCollege.essays.some((essay) => essay.id === activeEssay.essayId);
+      if (!hasEssay) {
+        setActiveEssay({
+          collegeId: essayCollege.id,
+          essayId: essayCollege.essays[0].id,
+        });
+      }
+    }
+  }
 
   const handleGeneratePromptStrategy = async () => {
     if (!currentPromptId) return;

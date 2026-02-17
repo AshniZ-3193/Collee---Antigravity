@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { m, AnimatePresence } from 'framer-motion';
 import { 
   GraduationCap, 
   User, 
@@ -115,7 +115,7 @@ const CommentCard: React.FC<{
   };
 
   return (
-    <motion.div
+    <m.div
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -242,7 +242,7 @@ const CommentCard: React.FC<{
       {/* Reply input */}
       <AnimatePresence>
         {showReplyInput && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
@@ -281,10 +281,10 @@ const CommentCard: React.FC<{
                 <Send className="w-3 h-3" />
               </Button>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </m.div>
   );
 };
 
@@ -426,21 +426,21 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
     return date.toLocaleDateString();
   };
 
-  // Render essay with highlighted comment regions
-  const renderEssayWithHighlights = () => {
-    const activeComments = commentsWithReplies.filter((c) => !c.resolved);
-    
-    if (activeComments.length === 0) {
-      return plainEssayContent.split('\n\n').map((paragraph, index) => (
-        <p key={index} className="text-foreground text-lg leading-relaxed mb-6">
+  // Memoized essay content with highlighted comment regions
+  const essayWithHighlights = useMemo(() => {
+    const activeCommentsList = commentsWithReplies.filter((c) => !c.resolved);
+
+    if (activeCommentsList.length === 0) {
+      return plainEssayContent.split('\n\n').map((paragraph, pIdx) => (
+        <p key={`paragraph-${paragraph.slice(0, 20).replace(/\s/g, '-')}`} className="text-foreground text-lg leading-relaxed mb-6">
           {paragraph}
         </p>
       ));
     }
 
     // Sort comments by position
-    const sortedComments = [...activeComments].sort((a, b) => a.selectionStart - b.selectionStart);
-    
+    const sortedComments = [...activeCommentsList].sort((a, b) => a.selectionStart - b.selectionStart);
+
     // Build highlighted content
     let lastIndex = 0;
     const parts: React.ReactNode[] = [];
@@ -449,7 +449,7 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
       // Add text before this comment
       if (comment.selectionStart > lastIndex) {
         parts.push(
-          <span key={`text-${idx}`}>
+          <span key={`text-before-${comment._id}`}>
             {plainEssayContent.slice(lastIndex, comment.selectionStart)}
           </span>
         );
@@ -458,11 +458,14 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
       // Add highlighted text
       parts.push(
         <span
-          key={`highlight-${idx}`}
+          key={`highlight-${comment._id}`}
+          role="button"
+          tabIndex={0}
           className={`bg-amber-200/50 dark:bg-amber-500/30 cursor-pointer border-b-2 border-amber-400 transition-all hover:bg-amber-300/50 dark:hover:bg-amber-500/40 ${
             activeCommentId === comment._id ? 'bg-amber-300/70 dark:bg-amber-500/50' : ''
           }`}
           onClick={() => setActiveCommentId(activeCommentId === comment._id ? null : comment._id)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveCommentId(activeCommentId === comment._id ? null : comment._id); } }}
         >
           {plainEssayContent.slice(comment.selectionStart, comment.selectionEnd)}
         </span>
@@ -484,7 +487,7 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
         {parts}
       </div>
     );
-  };
+  }, [commentsWithReplies, plainEssayContent, activeCommentId, setActiveCommentId]);
 
   const activeComments = commentsWithReplies.filter((c) => !c.resolved);
   const resolvedComments = commentsWithReplies.filter((c) => c.resolved);
@@ -493,7 +496,7 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
   if (showNamePrompt) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className="w-full max-w-md bg-card rounded-2xl border border-border shadow-xl p-8"
@@ -509,10 +512,11 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
           </div>
           <div className="space-y-4">
             <div>
-              <label className="block text-body-sm font-medium text-foreground mb-2">
+              <label htmlFor="commenter-name" className="block text-body-sm font-medium text-foreground mb-2">
                 Your name
               </label>
               <input
+                id="commenter-name"
                 type="text"
                 value={commenterName}
                 onChange={(e) => setCommenterName(e.target.value)}
@@ -535,7 +539,7 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
               Start Reviewing
             </Button>
           </div>
-        </motion.div>
+        </m.div>
       </div>
     );
   }
@@ -544,7 +548,7 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
     <div className="min-h-screen bg-background relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.13),transparent_45%),radial-gradient(circle_at_bottom_right,hsl(var(--secondary)/0.12),transparent_48%)]" />
       {/* Header Banner */}
-      <motion.div
+      <m.div
         className="bg-background/80 border-b border-border backdrop-blur-md sticky top-0 z-20"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -574,11 +578,11 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
             </div>
           </div>
         </div>
-      </motion.div>
+      </m.div>
 
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row relative z-10">
         {/* Main Content */}
-        <motion.main
+        <m.main
           className="flex-1 px-6 py-8 lg:py-10 lg:max-w-4xl"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -596,7 +600,7 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
           </div>
 
           {/* Essay Content with highlights */}
-          <motion.article
+          <m.article
             ref={essayRef}
             className="select-text cursor-text rounded-2xl border border-border bg-card/90 shadow-sm p-7"
             initial={{ opacity: 0 }}
@@ -604,11 +608,11 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
             transition={{ delay: 0.4, duration: 0.6 }}
             onMouseUp={handleEssayMouseUp}
           >
-            {renderEssayWithHighlights()}
-          </motion.article>
+            {essayWithHighlights}
+          </m.article>
 
           {/* Footer */}
-          <motion.div
+          <m.div
             className="mt-12 pt-6 border-t border-border"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -618,11 +622,11 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
               <span>{computedWordCount || wordCount} words</span>
               <span>Created with Collee</span>
             </div>
-          </motion.div>
-        </motion.main>
+          </m.div>
+        </m.main>
 
         {/* Comments Sidebar */}
-        <motion.aside
+        <m.aside
           className="w-full lg:w-96 lg:border-l border-border bg-card/70 p-4 lg:sticky lg:top-[73px] lg:h-[calc(100vh-73px)] overflow-y-auto"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -639,7 +643,7 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
             {/* New Comment Input - shows when text is selected */}
             <AnimatePresence>
               {isAddingComment && selectedText && (
-                <motion.div
+                <m.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
@@ -698,7 +702,7 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
                       Add
                     </Button>
                   </div>
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
 
@@ -738,7 +742,7 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
                       Resolved ({resolvedComments.length})
                     </p>
                     {resolvedComments.map((comment) => (
-                      <motion.div
+                      <m.div
                         key={comment._id}
                         layout
                         className="p-3 rounded-xl border border-border bg-muted/30 opacity-60 mb-2"
@@ -760,14 +764,14 @@ const ShareCommentScreen: React.FC<ShareCommentScreenProps> = ({
                         <p className="text-xs text-muted-foreground line-clamp-2">
                           {comment.content}
                         </p>
-                      </motion.div>
+                      </m.div>
                     ))}
                   </div>
                 )}
               </div>
             ) : null}
           </div>
-        </motion.aside>
+        </m.aside>
       </div>
     </div>
   );

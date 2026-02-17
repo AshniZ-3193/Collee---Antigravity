@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import ColleeLayout from '@/components/ColleeLayout';
 import { Upload, FileText, X, Lightbulb } from 'lucide-react';
@@ -141,26 +141,26 @@ const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack }) => {
       <div className="text-center mb-10">
         {/* Decorative gradient line */}
         <div className="w-12 h-1 bg-gradient-to-r from-primary to-secondary rounded-full mx-auto mb-6" />
-        <motion.h1
+        <m.h1
           className="font-display text-display-sm text-foreground mb-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
           What have you been up to?
-        </motion.h1>
-        <motion.p
+        </m.h1>
+        <m.p
           className="text-body-lg text-muted-foreground max-w-md mx-auto"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.4 }}
         >
           This doesn't have to be awards or titles. Everyday moments, quiet commitments, and small responsibilities often make the strongest stories.
-        </motion.p>
+        </m.p>
       </div>
 
       {/* Optional Resume Upload */}
-      <motion.div
+      <m.div
         className="mb-6"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -219,9 +219,9 @@ const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack }) => {
             </Button>
           </div>
         )}
-      </motion.div>
+      </m.div>
 
-      <motion.div
+      <m.div
         className="bg-card rounded-2xl border border-border p-8 shadow-soft hover:shadow-soft-md transition-shadow"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -240,10 +240,10 @@ const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack }) => {
             Bullet points are totally fine. Just brain dump what comes to mind.
           </p>
         </div>
-      </motion.div>
+      </m.div>
 
       {/* Actions */}
-      <motion.div
+      <m.div
         className="flex justify-between items-center mt-8 pt-4 border-t border-border/50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -264,7 +264,7 @@ const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack }) => {
         >
           Continue
         </Button>
-      </motion.div>
+      </m.div>
     </ColleeLayout>
   );
 };

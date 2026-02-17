@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { ArrowLeft, FileText, GraduationCap } from 'lucide-react';
 
 import ColleeLogo from '@/components/ColleeLogo';
@@ -22,16 +22,16 @@ const AddCollegeHeader: React.FC<AddCollegeHeaderProps> = ({
 }) => {
   return (
     <>
-      <motion.div
+      <m.div
         className="flex justify-center mb-4"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
         <ColleeLogo size="sm" />
-      </motion.div>
+      </m.div>
 
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -80,7 +80,7 @@ const AddCollegeHeader: React.FC<AddCollegeHeaderProps> = ({
             </p>
           )}
         </div>
-      </motion.div>
+      </m.div>
     </>
   );
 };

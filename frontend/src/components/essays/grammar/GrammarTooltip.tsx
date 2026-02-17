@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import { BookPlus, EyeOff } from 'lucide-react';
 
 import type { GrammarIssue } from './types';
@@ -132,7 +132,7 @@ const GrammarTooltip: React.FC<GrammarTooltipProps> = ({
   return (
     <AnimatePresence>
       {activeIssue && position && (
-        <motion.div
+        <m.div
           ref={tooltipRef}
           data-grammar-tooltip
           initial={{ opacity: 0, y: -4 }}
@@ -161,9 +161,9 @@ const GrammarTooltip: React.FC<GrammarTooltipProps> = ({
 
           {activeIssue.suggestions.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-1.5">
-              {activeIssue.suggestions.slice(0, 3).map((suggestion, idx) => (
+              {activeIssue.suggestions.slice(0, 3).map((suggestion) => (
                 <button
-                  key={idx}
+                  key={suggestion.text}
                   type="button"
                   onClick={() => {
                     onApplySuggestion(activeIssue, suggestion);
@@ -206,7 +206,7 @@ const GrammarTooltip: React.FC<GrammarTooltipProps> = ({
               </button>
             )}
           </div>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

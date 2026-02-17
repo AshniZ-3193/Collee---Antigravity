@@ -16,7 +16,7 @@ import {
   startOfWeek,
   subMonths,
 } from 'date-fns';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, ChevronLeft, ChevronRight, Flame, ArrowRight, CalendarDays } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -229,9 +229,9 @@ const DeadlineList: React.FC<DeadlineListProps> = ({ deadlines, onOpenEssays }) 
 
       {/* ── Weekday Labels ── */}
       <div className="grid grid-cols-7 px-3 md:px-5">
-        {WEEKDAYS.map((label, i) => (
+        {WEEKDAYS.map((label) => (
           <div
-            key={i}
+            key={label}
             className="py-2.5 text-center text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/40"
           >
             {label}
@@ -241,7 +241,7 @@ const DeadlineList: React.FC<DeadlineListProps> = ({ deadlines, onOpenEssays }) 
 
       {/* ── Calendar Grid ── */}
       <AnimatePresence mode="wait" initial={false}>
-        <motion.div
+        <m.div
           key={format(month, 'yyyy-MM')}
           initial={{ opacity: 0, x: direction * 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -320,7 +320,7 @@ const DeadlineList: React.FC<DeadlineListProps> = ({ deadlines, onOpenEssays }) 
               </button>
             );
           })}
-        </motion.div>
+        </m.div>
       </AnimatePresence>
 
       {/* ── Separator ── */}
@@ -334,7 +334,7 @@ const DeadlineList: React.FC<DeadlineListProps> = ({ deadlines, onOpenEssays }) 
 
         <AnimatePresence mode="wait">
           {selectedDayDeadlines.length > 0 ? (
-            <motion.div
+            <m.div
               key={toDateKey(selectedDate) + '-deadlines'}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
@@ -396,7 +396,7 @@ const DeadlineList: React.FC<DeadlineListProps> = ({ deadlines, onOpenEssays }) 
                         {/* Progress */}
                         <div className="mt-2.5 flex items-center gap-2.5">
                           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-border/60">
-                            <motion.div
+                            <m.div
                               className={cn('h-full rounded-full', barColor)}
                               initial={{ width: 0 }}
                               animate={{ width: `${Math.round(dl.progress * 100)}%` }}
@@ -427,9 +427,9 @@ const DeadlineList: React.FC<DeadlineListProps> = ({ deadlines, onOpenEssays }) 
                   </div>
                 );
               })}
-            </motion.div>
+            </m.div>
           ) : (
-            <motion.div
+            <m.div
               key={toDateKey(selectedDate) + '-empty'}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -437,7 +437,7 @@ const DeadlineList: React.FC<DeadlineListProps> = ({ deadlines, onOpenEssays }) 
               className="flex items-center justify-center py-6"
             >
               <p className="text-caption text-muted-foreground/40">No deadlines on this date</p>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>

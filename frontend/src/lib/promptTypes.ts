@@ -8,4 +8,4 @@ export const PROMPT_TYPES = [
   { value: 'other', label: 'Other' },
 ] as const;
 
-export type PromptTypeValue = (typeof PROMPT_TYPES)[number]['value'];
+type PromptTypeValue = (typeof PROMPT_TYPES)[number]['value'];

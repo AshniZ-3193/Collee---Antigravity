@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Check } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,7 @@ const ApplicationTypeStep: React.FC<ApplicationTypeStepProps> = ({
   nextCollegeName,
 }) => {
   return (
-    <motion.div
+    <m.div
       key={`application-type-${currentConfigIndex}`}
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
@@ -56,7 +56,7 @@ const ApplicationTypeStep: React.FC<ApplicationTypeStepProps> = ({
 
       <div className="space-y-3">
         {currentAvailableAppTypes.map((appType, index) => (
-          <motion.button
+          <m.button
             key={appType.value}
             onClick={() => onSelectApplicationType(appType.value)}
             className={`w-full text-left p-4 rounded-xl border transition-all ${
@@ -79,12 +79,12 @@ const ApplicationTypeStep: React.FC<ApplicationTypeStepProps> = ({
                 </div>
               )}
             </div>
-          </motion.button>
+          </m.button>
         ))}
       </div>
 
       {canProceedToPrompts && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -95,9 +95,9 @@ const ApplicationTypeStep: React.FC<ApplicationTypeStepProps> = ({
               ? `Continue to ${nextCollegeName}`
               : 'Continue to prompts'}
           </Button>
-        </motion.div>
+        </m.div>
       )}
-    </motion.div>
+    </m.div>
   );
 };
 

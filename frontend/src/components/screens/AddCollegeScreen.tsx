@@ -128,9 +128,16 @@ const AddCollegeScreen: React.FC<AddCollegeScreenProps> = ({
     validPromptCount > 0 || noPromptsFound || !!promptSearchError
   );
 
-  useEffect(() => {
-    setQualityStatusMessage(null);
-  }, [step, currentCollegeId]);
+  // Reset qualityStatusMessage when step or college changes
+  const prevStepRef = useRef(step);
+  const prevCollegeIdRef = useRef(currentCollegeId);
+  if (prevStepRef.current !== step || prevCollegeIdRef.current !== currentCollegeId) {
+    prevStepRef.current = step;
+    prevCollegeIdRef.current = currentCollegeId;
+    if (qualityStatusMessage !== null) {
+      setQualityStatusMessage(null);
+    }
+  }
 
   const addCollegeWithPrompts = useCallback(async (
     config: SelectedCollegeConfig,

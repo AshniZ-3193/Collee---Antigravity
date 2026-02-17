@@ -5,7 +5,7 @@ import { api } from '../../convex/_generated/api';
 import ShareViewScreen from '@/components/screens/ShareViewScreen';
 import ShareEditScreen from '@/components/screens/ShareEditScreen';
 import ShareCommentScreen from '@/components/screens/ShareCommentScreen';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { FileX } from 'lucide-react';
 import ColleeLogo from '@/components/ColleeLogo';
 
@@ -18,14 +18,14 @@ const SharePage: React.FC = () => {
   if (shareData === undefined) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="text-center"
         >
           <ColleeLogo size="md" onClick={() => navigate('/')} />
           <p className="text-muted-foreground mt-4">Loading essay...</p>
-        </motion.div>
+        </m.div>
       </div>
     );
   }
@@ -34,7 +34,7 @@ const SharePage: React.FC = () => {
   if (shareData === null) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center max-w-md"
@@ -52,7 +52,7 @@ const SharePage: React.FC = () => {
           >
             Go to Collee
           </a>
-        </motion.div>
+        </m.div>
       </div>
     );
   }

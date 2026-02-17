@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Check, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -57,7 +57,7 @@ const PromptsStep: React.FC<PromptsStepProps> = ({
   onAddCollegeAndContinue,
 }) => {
   return (
-    <motion.div
+    <m.div
       key={`prompts-${currentConfigIndex}`}
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
@@ -106,7 +106,7 @@ const PromptsStep: React.FC<PromptsStepProps> = ({
       )}
 
       {displayPrompts.map((prompt, index) => (
-        <motion.div
+        <m.div
           key={prompt.id}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -133,8 +133,9 @@ const PromptsStep: React.FC<PromptsStepProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Prompt text</label>
+            <label htmlFor={`prompt-text-${prompt.id}`} className="block text-xs font-medium text-muted-foreground mb-1.5">Prompt text</label>
             <Textarea
+              id={`prompt-text-${prompt.id}`}
               placeholder="Paste or type the essay prompt here..."
               value={prompt.promptText}
               onChange={(e) => onUpdatePrompt(prompt.id, 'promptText', e.target.value)}
@@ -143,14 +144,14 @@ const PromptsStep: React.FC<PromptsStepProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+            <label htmlFor={`prompt-type-${prompt.id}`} className="block text-xs font-medium text-muted-foreground mb-1.5">
               Prompt type (optional)
             </label>
             <Select
               value={prompt.promptType}
               onValueChange={(value) => onUpdatePrompt(prompt.id, 'promptType', value)}
             >
-              <SelectTrigger className="bg-background">
+              <SelectTrigger id={`prompt-type-${prompt.id}`} className="bg-background">
                 <SelectValue placeholder="Select type..." />
               </SelectTrigger>
               <SelectContent>
@@ -164,8 +165,9 @@ const PromptsStep: React.FC<PromptsStepProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Max words</label>
+            <label htmlFor={`prompt-max-words-${prompt.id}`} className="block text-xs font-medium text-muted-foreground mb-1.5">Max words</label>
             <Input
+              id={`prompt-max-words-${prompt.id}`}
               type="number"
               placeholder="250"
               value={prompt.limitValue || ''}
@@ -187,7 +189,7 @@ const PromptsStep: React.FC<PromptsStepProps> = ({
             </button>
             <span className="text-xs text-muted-foreground">This prompt is optional</span>
           </div>
-        </motion.div>
+        </m.div>
       ))}
 
       <Button variant="outline" size="sm" onClick={onAddPrompt} className="w-full">
@@ -196,7 +198,7 @@ const PromptsStep: React.FC<PromptsStepProps> = ({
       </Button>
 
       {canAddCollege && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -212,9 +214,9 @@ const PromptsStep: React.FC<PromptsStepProps> = ({
               ? `Add ${currentConfig?.collegeName} and continue`
               : `Add ${currentConfig?.collegeName} to my list`}
           </Button>
-        </motion.div>
+        </m.div>
       )}
-    </motion.div>
+    </m.div>
   );
 };
 

@@ -3,12 +3,14 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthenticateWithRedirectCallback } from "@clerk/clerk-react";
+import { LazyMotion, domAnimation } from "framer-motion";
 import Index from "./pages/Index";
 import ScreenShowcase from "./pages/ScreenShowcase";
 import NotFound from "./pages/NotFound";
 import SharePage from "./pages/SharePage";
 
 const App = () => (
+  <LazyMotion features={domAnimation} strict>
   <TooltipProvider>
     <Toaster />
     <Sonner />
@@ -28,6 +30,7 @@ const App = () => (
       </Routes>
     </BrowserRouter>
   </TooltipProvider>
+  </LazyMotion>
 );
 
 export default App;

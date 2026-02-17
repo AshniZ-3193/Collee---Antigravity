@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Check, ChevronDown, X } from 'lucide-react';
 import ColleeLayout from '@/components/ColleeLayout';
@@ -84,25 +84,25 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
       <div className="text-center mb-10">
         {/* Decorative gradient line */}
         <div className="w-12 h-1 bg-gradient-to-r from-primary to-secondary rounded-full mx-auto mb-6" />
-        <motion.h1
+        <m.h1
           className="font-display text-display-sm text-foreground mb-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
           What are you curious about?
-        </motion.h1>
-        <motion.p
+        </m.h1>
+        <m.p
           className="text-body-lg text-muted-foreground max-w-md mx-auto"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.4 }}
         >
           Think about what you want to study or explore in college.
-        </motion.p>
+        </m.p>
       </div>
 
-      <motion.div
+      <m.div
         className="space-y-6"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -110,9 +110,9 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
       >
         {/* Primary Interest */}
         <div className="bg-card rounded-2xl border border-border p-6 shadow-soft hover:shadow-soft-md transition-shadow">
-          <label className="block text-body-sm font-medium text-foreground mb-3">
+          <span className="block text-body-sm font-medium text-foreground mb-3">
             Primary Academic Interest(s)
-          </label>
+          </span>
 
           <Popover open={isOpen} onOpenChange={setIsOpen}>
             <PopoverTrigger asChild>
@@ -154,7 +154,7 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
           {selectedMajors.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-3">
               {selectedMajors.map((major, index) => (
-                <motion.span
+                <m.span
                   key={major}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -169,7 +169,7 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
-                </motion.span>
+                </m.span>
               ))}
             </div>
           )}
@@ -189,7 +189,7 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
         {/* Secondary Interest */}
         <div className="bg-card rounded-2xl border border-border p-6 shadow-soft hover:shadow-soft-md transition-shadow">
           <div className="flex items-center gap-2 mb-3">
-            <label className="text-body-sm font-medium text-foreground">
+            <label htmlFor="secondary-interest" className="text-body-sm font-medium text-foreground">
               Secondary interest
             </label>
             <span className="text-caption text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
@@ -197,6 +197,7 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
             </span>
           </div>
           <input
+            id="secondary-interest"
             type="text"
             className="w-full bg-muted/50 rounded-xl border-0 px-4 py-4 text-foreground placeholder:text-foreground-subtle focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-background focus:shadow-sm transition-all"
             placeholder="e.g., Music, Philosophy, Economics..."
@@ -207,10 +208,10 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
             A minor or just something else you're drawn to.
           </p>
         </div>
-      </motion.div>
+      </m.div>
 
       {/* Actions */}
-      <motion.div
+      <m.div
         className="flex justify-between items-center mt-8 pt-4 border-t border-border/50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -239,7 +240,7 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
         >
           Continue
         </Button>
-      </motion.div>
+      </m.div>
     </ColleeLayout>
   );
 };

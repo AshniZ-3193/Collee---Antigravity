@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import ColleeLayout from '@/components/ColleeLayout';
@@ -29,17 +29,17 @@ const WritingToneScreen: React.FC<WritingToneScreenProps> = ({ onContinue, onBac
       <div className="text-center mb-10">
         {/* Decorative gradient line */}
         <div className="w-12 h-1 bg-gradient-to-r from-primary to-secondary rounded-full mx-auto mb-6" />
-        <motion.h1
+        <m.h1
           className="font-display text-display-sm text-foreground mb-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
           When you write honestly, your tone is usually...
-        </motion.h1>
+        </m.h1>
       </div>
 
-      <motion.div
+      <m.div
         className="space-y-3 max-w-md mx-auto"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -61,19 +61,19 @@ const WritingToneScreen: React.FC<WritingToneScreenProps> = ({ onContinue, onBac
             {selectedTone === tone && <Check className="h-5 w-5 text-primary flex-shrink-0" />}
           </button>
         ))}
-      </motion.div>
+      </m.div>
 
-      <motion.p
+      <m.p
         className="text-body-sm text-muted-foreground text-center mt-6 max-w-md mx-auto"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.4 }}
       >
         This helps us keep suggestions in your natural voice.
-      </motion.p>
+      </m.p>
 
       {/* Actions */}
-      <motion.div
+      <m.div
         className="flex justify-between items-center mt-8 pt-4 border-t border-border/50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -94,7 +94,7 @@ const WritingToneScreen: React.FC<WritingToneScreenProps> = ({ onContinue, onBac
         >
           Continue
         </Button>
-      </motion.div>
+      </m.div>
     </ColleeLayout>
   );
 };

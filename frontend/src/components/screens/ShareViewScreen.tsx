@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { FileText, GraduationCap, User } from 'lucide-react';
 import { countRichTextWords, renderRichTextToHtml } from '@/lib/richText';
 
@@ -24,7 +24,7 @@ const ShareViewScreen: React.FC<ShareViewScreenProps> = ({
     <div className="min-h-screen bg-background relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.13),transparent_45%),radial-gradient(circle_at_bottom_right,hsl(var(--secondary)/0.12),transparent_48%)]" />
       {/* Header Banner */}
-      <motion.div
+      <m.div
         className="bg-background/80 border-b border-border backdrop-blur-md relative z-10"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -46,10 +46,10 @@ const ShareViewScreen: React.FC<ShareViewScreenProps> = ({
             )}
           </div>
         </div>
-      </motion.div>
+      </m.div>
 
       {/* Content */}
-      <motion.main
+      <m.main
         className="max-w-4xl mx-auto px-6 py-10 relative z-10"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -68,7 +68,7 @@ const ShareViewScreen: React.FC<ShareViewScreenProps> = ({
 
         {/* Divider */}
         {/* Essay Content */}
-        <motion.article
+        <m.article
           className="rounded-2xl border border-border bg-card/90 shadow-sm p-7 text-foreground text-lg leading-relaxed"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -77,7 +77,7 @@ const ShareViewScreen: React.FC<ShareViewScreenProps> = ({
         />
 
         {/* Footer */}
-        <motion.div
+        <m.div
           className="mt-12 pt-6 border-t border-border"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -87,8 +87,8 @@ const ShareViewScreen: React.FC<ShareViewScreenProps> = ({
             <span>{computedWordCount || wordCount} words</span>
             <span>Created with Collee</span>
           </div>
-        </motion.div>
-      </motion.main>
+        </m.div>
+      </m.main>
     </div>
   );
 };

@@ -4,6 +4,9 @@ import type { Editor } from '@tiptap/react';
 
 import type { GrammarIssue, GrammarCounts } from '../grammar/types';
 
+const EMPTY_ISSUES: GrammarIssue[] = [];
+const DEFAULT_COUNTS: GrammarCounts = { spelling: 0, grammar: 0, style: 0, total: 0 };
+
 export interface GrammarPanelProps {
   issues: GrammarIssue[];
   isAnalyzing: boolean;
@@ -73,10 +76,10 @@ const ScoreRing: React.FC<{ score: number }> = ({ score }) => {
 };
 
 const GrammarPanel: React.FC<GrammarPanelProps> = ({
-  issues = [],
+  issues = EMPTY_ISSUES,
   isAnalyzing,
   score = 100,
-  counts = { spelling: 0, grammar: 0, style: 0, total: 0 },
+  counts = DEFAULT_COUNTS,
   onApplySuggestion,
   onIgnoreIssue,
   onAddToDictionary,
@@ -170,9 +173,9 @@ const GrammarPanel: React.FC<GrammarPanelProps> = ({
 
                   {issue.suggestions.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
-                      {issue.suggestions.slice(0, 3).map((suggestion, idx) => (
+                      {issue.suggestions.slice(0, 3).map((suggestion) => (
                         <button
-                          key={idx}
+                          key={suggestion.text}
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();

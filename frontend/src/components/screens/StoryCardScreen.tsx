@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Check, Download, Share2, AlertTriangle, Sparkles, Target, User, Lightbulb } from 'lucide-react';
 import ColleeLogo from '@/components/ColleeLogo';
@@ -56,48 +56,48 @@ const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak })
       {/* Splash reveal */}
       <AnimatePresence>
         {!showCards && (
-          <motion.div
+          <m.div
             className="fixed inset-0 z-50 bg-background flex items-center justify-center"
             exit={{ opacity: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <motion.div
+            <m.div
               className="text-center"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5 }}
             >
-              <motion.div
+              <m.div
                 animate={{ y: [0, -4, 0] }}
                 transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
                 className="mb-6"
               >
                 <ColleeLogo size="md" />
-              </motion.div>
+              </m.div>
               <h2 className="font-display text-display-sm text-foreground">Your story is ready</h2>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         )}
       </AnimatePresence>
 
       {/* Top Logo */}
-      <motion.div
+      <m.div
         className="flex justify-center mb-8"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: showCards ? 1 : 0, y: showCards ? 0 : -10 }}
         transition={{ duration: 0.4 }}
       >
         <ColleeLogo size="sm" />
-      </motion.div>
+      </m.div>
 
-      <motion.div
+      <m.div
         className="w-full max-w-content mx-auto"
         variants={containerVariants}
         initial="hidden"
         animate={showCards ? "visible" : "hidden"}
       >
         {/* Header */}
-        <motion.div variants={itemVariants} className="text-center mb-10">
+        <m.div variants={itemVariants} className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/10 mb-4">
             <Sparkles className="w-7 h-7 text-primary" />
           </div>
@@ -107,12 +107,12 @@ const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak })
           <p className="text-body-lg text-muted-foreground">
             Here's what we discovered about you
           </p>
-        </motion.div>
+        </m.div>
 
         {/* Story Cards */}
         <div className="space-y-6">
           {/* Application Angle - editorial feel */}
-          <motion.div
+          <m.div
             variants={itemVariants}
             className="bg-card rounded-2xl border border-border p-8 shadow-soft"
           >
@@ -129,11 +129,11 @@ const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak })
                 {storyData.angle}
               </p>
             </div>
-          </motion.div>
+          </m.div>
 
           {/* Story Pillars with timeline connector */}
           {storyData.pillars.length > 0 && (
-            <motion.div
+            <m.div
               variants={itemVariants}
               className="bg-card rounded-2xl border border-border p-8 shadow-soft"
             >
@@ -153,7 +153,7 @@ const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak })
                 )}
                 <div className="space-y-4">
                   {storyData.pillars.map((pillar: string, index: number) => (
-                    <div key={index} className="flex items-start gap-4">
+                    <div key={pillar} className="flex items-start gap-4">
                       <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/15 flex items-center justify-center flex-shrink-0 mt-0.5 relative z-10">
                         <span className="text-caption font-semibold text-primary">{index + 1}</span>
                       </div>
@@ -162,11 +162,11 @@ const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak })
                   ))}
                 </div>
               </div>
-            </motion.div>
+            </m.div>
           )}
 
           {/* Voice Profile */}
-          <motion.div
+          <m.div
             variants={itemVariants}
             className="bg-card rounded-2xl border border-border p-8 shadow-soft"
           >
@@ -185,11 +185,11 @@ const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak })
                 {storyData.voice.style}
               </p>
             </div>
-          </motion.div>
+          </m.div>
 
           {/* What Makes You Distinct */}
           {storyData.distinct && (
-            <motion.div
+            <m.div
               variants={itemVariants}
               className="bg-gradient-to-br from-primary/[0.06] via-secondary/[0.04] to-primary/[0.06] rounded-2xl border border-primary/20 p-8 shadow-glow"
             >
@@ -202,12 +202,12 @@ const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak })
               <p className="font-display text-heading-sm text-foreground leading-relaxed">
                 {storyData.distinct}
               </p>
-            </motion.div>
+            </m.div>
           )}
 
           {/* Topics to Be Careful About */}
           {storyData.cautions.length > 0 && (
-            <motion.div
+            <m.div
               variants={itemVariants}
               className="bg-card rounded-2xl border border-border p-8 shadow-soft"
             >
@@ -218,19 +218,19 @@ const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak })
                 <h3 className="text-heading-sm text-foreground">Things to Watch</h3>
               </div>
               <div className="space-y-2">
-                {storyData.cautions.map((caution: string, index: number) => (
-                  <div key={index} className="flex items-start gap-3">
+                {storyData.cautions.map((caution: string) => (
+                  <div key={caution} className="flex items-start gap-3">
                     <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground mt-2.5 flex-shrink-0" />
                     <p className="text-body text-muted-foreground">{caution}</p>
                   </div>
                 ))}
               </div>
-            </motion.div>
+            </m.div>
           )}
         </div>
 
         {/* Actions */}
-        <motion.div
+        <m.div
           variants={itemVariants}
           className="mt-10 space-y-4"
         >
@@ -264,8 +264,8 @@ const StoryCardScreen: React.FC<StoryCardScreenProps> = ({ onConfirm, onTweak })
               Share link
             </Button>
           </div>
-        </motion.div>
-      </motion.div>
+        </m.div>
+      </m.div>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import ColleeLogo from '@/components/ColleeLogo';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -57,7 +57,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onGetStarted, onLogin, onLogoCl
           {/* Subtle radial gradient glow behind headline */}
           <div className="absolute inset-0 bg-gradient-subtle pointer-events-none" aria-hidden="true" />
 
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -78,12 +78,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onGetStarted, onLogin, onLogoCl
               Get started
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-          </motion.div>
+          </m.div>
         </section>
 
         {/* How It Works */}
         <section className="max-w-4xl mx-auto px-6 py-20">
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
@@ -96,7 +96,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onGetStarted, onLogin, onLogoCl
               <div className="hidden md:block absolute top-10 left-[20%] right-[20%] h-px bg-gradient-to-r from-primary/10 via-primary/20 to-primary/10" aria-hidden="true" />
 
               {steps.map((step, index) => (
-                <motion.div
+                <m.div
                   key={step.title}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -117,15 +117,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onGetStarted, onLogin, onLogoCl
                   <p className="text-body-sm text-foreground-muted leading-relaxed">
                     {step.description}
                   </p>
-                </motion.div>
+                </m.div>
               ))}
             </div>
-          </motion.div>
+          </m.div>
         </section>
 
         {/* Gentle Reassurance */}
         <section className="max-w-2xl mx-auto px-6 py-20 text-center">
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.5 }}
@@ -146,7 +146,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onGetStarted, onLogin, onLogoCl
               Start for free
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-          </motion.div>
+          </m.div>
         </section>
 
         {/* Footer with gradient fade line */}

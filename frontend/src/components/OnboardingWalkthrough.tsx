@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { X, ChevronRight, ChevronLeft, MapPin, FileText, ArrowLeft, HelpCircle, Heart, Calendar, Sparkles } from 'lucide-react';
 
@@ -223,7 +223,7 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1);
+      setCurrentStep(prev => prev + 1);
     } else {
       onComplete();
     }
@@ -231,7 +231,7 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
 
   const handlePrevious = () => {
     if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
+      setCurrentStep(prev => prev - 1);
     }
   };
 
@@ -240,21 +240,21 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
   };
 
   // Reset to first step when opening
-  useEffect(() => {
-    if (isOpen) {
-      setCurrentStep(0);
-    }
-  }, [isOpen]);
+  const prevIsOpenRef = useRef(isOpen);
+  if (isOpen && !prevIsOpenRef.current) {
+    setCurrentStep(0);
+  }
+  prevIsOpenRef.current = isOpen;
 
-  useEffect(() => {
-    if (currentStep > steps.length - 1) {
-      setCurrentStep(0);
-    }
-  }, [currentStep, steps.length]);
+  // Clamp step to valid range
+  const clampedStep = currentStep > steps.length - 1 ? 0 : currentStep;
+  if (clampedStep !== currentStep) {
+    setCurrentStep(clampedStep);
+  }
 
-  const step = steps[currentStep];
-  const isLastStep = currentStep === steps.length - 1;
-  const isFirstStep = currentStep === 0;
+  const step = steps[clampedStep];
+  const isLastStep = clampedStep === steps.length - 1;
+  const isFirstStep = clampedStep === 0;
 
   const findTargetRect = useCallback((area: HighlightArea): DOMRect | null => {
     if (typeof document === 'undefined') return null;
@@ -425,7 +425,7 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
+        <m.div
           className="fixed inset-0 z-50"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -436,7 +436,7 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
           <div className="absolute inset-0 bg-foreground/20" />
 
           {/* Highlight cutout effect */}
-          <motion.div
+          <m.div
             className="absolute border-2 border-primary rounded-xl bg-background/10 shadow-lg"
             style={highlightStyle}
             initial={{ opacity: 0, scale: 0.95 }}
@@ -445,10 +445,10 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
           >
             {/* Pulsing ring effect */}
             <div className="absolute inset-0 rounded-xl border-2 border-primary/50 animate-pulse" />
-          </motion.div>
+          </m.div>
 
           {/* Tooltip Card */}
-          <motion.div
+          <m.div
             ref={tooltipRef}
             className="absolute max-w-sm"
             style={tooltipStyle}
@@ -472,9 +472,9 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
 
               {/* Progress dots */}
               <div className="flex items-center justify-center gap-1.5 my-4">
-                {steps.map((_, index) => (
+                {steps.map((s, index) => (
                   <div
-                    key={index}
+                    key={s.id}
                     className={`w-2 h-2 rounded-full transition-colors ${
                       index === currentStep
                         ? 'bg-primary'
@@ -518,7 +518,7 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
                 </div>
               </div>
             </div>
-          </motion.div>
+          </m.div>
 
           {/* Close button */}
           <button
@@ -527,14 +527,14 @@ const OnboardingWalkthrough: React.FC<OnboardingWalkthroughProps> = ({
           >
             <X className="w-5 h-5" />
           </button>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );
 };
 
 // Help button component for persistent access
-export const HelpButton: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+const HelpButton: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   return (
     <button
       onClick={onClick}

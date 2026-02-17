@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import { Bold, FileText, Italic, List, ListOrdered, MessageSquare, Pencil, SpellCheck, Sparkles, Underline, Wand2, X } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 import type { Extension } from '@tiptap/core';
@@ -226,7 +226,7 @@ const EssayEditorPane: React.FC<EssayEditorPaneProps> = ({
           {/* Inserted references */}
           <AnimatePresence>
             {insertedReferences.map((reference) => (
-              <motion.div
+              <m.div
                 key={reference.id}
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -248,13 +248,13 @@ const EssayEditorPane: React.FC<EssayEditorPaneProps> = ({
                 <p className="mt-2 text-caption text-muted-foreground">
                   From {reference.sourceName}
                 </p>
-              </motion.div>
+              </m.div>
             ))}
           </AnimatePresence>
 
           {/* Starter helper */}
           {showStarterHelper && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
               className="mb-6 flex items-start justify-between gap-3 rounded-xl border border-primary/10 bg-primary/[0.03] px-4 py-3"
@@ -272,7 +272,7 @@ const EssayEditorPane: React.FC<EssayEditorPaneProps> = ({
               >
                 <X className="h-3.5 w-3.5" />
               </button>
-            </motion.div>
+            </m.div>
           )}
 
           {/* External reset warning */}
@@ -349,10 +349,11 @@ const EssayEditorPane: React.FC<EssayEditorPaneProps> = ({
                   placeholder="Enter the essay prompt"
                 />
                 <div className="w-40">
-                  <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <label htmlFor="word-limit-input" className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                     Word limit
                   </label>
                   <Input
+                    id="word-limit-input"
                     type="number"
                     min={50}
                     max={2000}

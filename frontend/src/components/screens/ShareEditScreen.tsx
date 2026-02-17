@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import {
   FileText,
   GraduationCap,
@@ -188,7 +188,7 @@ const ShareEditScreen: React.FC<ShareEditScreenProps> = ({
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.12),transparent_45%),radial-gradient(circle_at_top_left,hsl(var(--secondary)/0.1),transparent_40%)]" />
-      <motion.div
+      <m.div
         className="bg-background/80 border-b border-border backdrop-blur-md sticky top-0 z-10"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -233,9 +233,9 @@ const ShareEditScreen: React.FC<ShareEditScreenProps> = ({
             </div>
           </div>
         </div>
-      </motion.div>
+      </m.div>
 
-      <motion.main
+      <m.main
         className="max-w-5xl mx-auto px-6 py-10 relative"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -262,7 +262,7 @@ const ShareEditScreen: React.FC<ShareEditScreenProps> = ({
             )}
           </div>
           <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-            <motion.div
+            <m.div
               className={`h-full rounded-full ${isOverLimit ? 'bg-destructive' : 'bg-primary'}`}
               initial={{ width: 0 }}
               animate={{ width: `${Math.min((wordCount / wordLimit) * 100, 100)}%` }}
@@ -273,7 +273,7 @@ const ShareEditScreen: React.FC<ShareEditScreenProps> = ({
 
         <div className="h-px bg-border mb-6" />
 
-        <motion.div
+        <m.div
           className="rounded-2xl border border-border bg-card/80 shadow-sm overflow-hidden"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -321,9 +321,9 @@ const ShareEditScreen: React.FC<ShareEditScreenProps> = ({
             <p className="text-xs text-muted-foreground hidden sm:block">Rich text editor</p>
           </div>
           <EditorContent editor={editor ?? null} />
-        </motion.div>
+        </m.div>
 
-        <motion.div
+        <m.div
           className="mt-8 pt-6 border-t border-border"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -336,8 +336,8 @@ const ShareEditScreen: React.FC<ShareEditScreenProps> = ({
             </div>
             <span>Created with Collee</span>
           </div>
-        </motion.div>
-      </motion.main>
+        </m.div>
+      </m.main>
     </div>
   );
 };

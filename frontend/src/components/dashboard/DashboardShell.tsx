@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery } from 'convex/react';
 
@@ -49,9 +49,10 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
     resetOnboarding,
   } = useOnboardingState();
 
-  useEffect(() => {
-    if (!initialActiveEssay) return;
-
+  // Apply initial active essay when it changes
+  const prevInitialEssayRef = useRef(initialActiveEssay);
+  if (initialActiveEssay && initialActiveEssay !== prevInitialEssayRef.current) {
+    prevInitialEssayRef.current = initialActiveEssay;
     const matchesCurrent =
       activeEssay?.collegeId === initialActiveEssay.collegeId &&
       activeEssay?.essayId === initialActiveEssay.essayId;
@@ -60,14 +61,8 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
       setSelectedCollegeId(initialActiveEssay.collegeId);
       setActiveSection('essays');
     }
-
     onInitialActiveEssayApplied?.();
-  }, [
-    initialActiveEssay,
-    activeEssay?.collegeId,
-    activeEssay?.essayId,
-    onInitialActiveEssayApplied,
-  ]);
+  }
 
   const handleOpenEssays = (collegeId: string, essayId?: string) => {
     const college = colleges.find((item) => item.id === collegeId);

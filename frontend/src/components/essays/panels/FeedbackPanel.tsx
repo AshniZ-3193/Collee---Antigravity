@@ -70,8 +70,8 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
             <div>
               <p className="mb-1 text-xs font-medium text-foreground">Strengths</p>
               <div className="space-y-1">
-                {displayedFeedback.strengths.slice(0, 4).map((strength: string, idx: number) => (
-                  <p key={idx} className="text-xs text-muted-foreground">
+                {displayedFeedback.strengths.slice(0, 4).map((strength: string) => (
+                  <p key={strength} className="text-xs text-muted-foreground">
                     • {strength}
                   </p>
                 ))}
@@ -83,8 +83,8 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
             <div>
               <p className="mb-1 text-xs font-medium text-foreground">Improvements</p>
               <div className="space-y-2">
-                {displayedFeedback.improvements.slice(0, 3).map((item: any, idx: number) => (
-                  <div key={idx} className="rounded-lg border border-border bg-muted/20 p-2">
+                {displayedFeedback.improvements.slice(0, 3).map((item: any) => (
+                  <div key={item.issue} className="rounded-lg border border-border bg-muted/20 p-2">
                     <p className="text-xs text-foreground">{item.issue}</p>
                     {item.suggestion && (
                       <p className="mt-1 text-xs text-muted-foreground">Suggestion: {item.suggestion}</p>

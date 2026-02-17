@@ -1,4 +1,4 @@
-export const DEFAULT_SYNC_GENERATION = 0;
+const DEFAULT_SYNC_GENERATION = 0;
 
 export const getEssaySyncDocumentId = (
   essayId: string,

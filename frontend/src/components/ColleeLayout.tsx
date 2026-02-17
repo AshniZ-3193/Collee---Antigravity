@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import ThemeToggle from '@/components/ThemeToggle';
 
 interface ColleeLayoutProps {
@@ -22,7 +22,7 @@ const ColleeLayout: React.FC<ColleeLayoutProps> = ({
       {/* Gradient progress bar */}
       {showProgress && (
         <div className="fixed top-0 left-0 right-0 h-[2px] bg-border z-50">
-          <motion.div
+          <m.div
             className="h-full bg-gradient-to-r from-primary to-secondary relative"
             initial={{ width: 0 }}
             animate={{ width: `${progress}%` }}
@@ -30,7 +30,7 @@ const ColleeLayout: React.FC<ColleeLayoutProps> = ({
           >
             {/* Glow on leading edge */}
             <div className="absolute right-0 top-1/2 -translate-y-1/2 w-8 h-4 bg-primary/40 blur-md rounded-full" />
-          </motion.div>
+          </m.div>
         </div>
       )}
 
@@ -46,14 +46,14 @@ const ColleeLayout: React.FC<ColleeLayoutProps> = ({
 
       {/* Main content */}
       <main className="flex items-center justify-center min-h-screen px-6 py-12">
-        <motion.div
+        <m.div
           className="w-full max-w-content"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
           {children}
-        </motion.div>
+        </m.div>
       </main>
     </div>
   );

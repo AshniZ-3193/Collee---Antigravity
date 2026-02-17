@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import WelcomeScreen from '@/components/screens/WelcomeScreen';
@@ -37,9 +37,9 @@ const screens: { id: Screen; label: string }[] = [
 const ScreenShowcase: React.FC = () => {
   const [activeScreen, setActiveScreen] = useState<Screen>('welcome');
 
-  const renderScreen = () => {
+  const screenContent = useMemo(() => {
     const noop = () => {};
-    
+
     switch (activeScreen) {
       case 'welcome':
         return <WelcomeScreen onStart={noop} />;
@@ -62,7 +62,7 @@ const ScreenShowcase: React.FC = () => {
       default:
         return <WelcomeScreen onStart={noop} />;
     }
-  };
+  }, [activeScreen]);
 
   return (
     <div className="flex min-h-screen">
@@ -94,7 +94,7 @@ const ScreenShowcase: React.FC = () => {
 
       {/* Screen Preview */}
       <div className="flex-1 overflow-auto">
-        {renderScreen()}
+        {screenContent}
       </div>
     </div>
   );

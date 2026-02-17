@@ -1,5 +1,5 @@
 import React from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import { AlertTriangle, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -19,20 +19,20 @@ const DeletePromptDialog: React.FC<DeletePromptDialogProps> = ({
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div
+          <m.div
             className="fixed inset-0 bg-foreground/20 z-40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
           />
-          <motion.div
+          <m.div
             className="fixed inset-0 flex items-center justify-center z-50 p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <motion.div
+            <m.div
               className="w-full max-w-sm bg-card rounded-2xl border border-border shadow-xl overflow-hidden"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -57,8 +57,8 @@ const DeletePromptDialog: React.FC<DeletePromptDialogProps> = ({
                   </Button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         </>
       )}
     </AnimatePresence>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import {
   Check,
   CheckCircle,
@@ -67,20 +67,20 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div
+          <m.div
             className="fixed inset-0 bg-foreground/20 z-40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onDismissIfAllowed}
           />
-          <motion.div
+          <m.div
             className="fixed inset-0 flex items-center justify-center z-50 p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <motion.div
+            <m.div
               className="w-full max-w-md bg-card rounded-2xl border border-border shadow-xl overflow-hidden"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -88,7 +88,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             >
               {isShareSent ? (
-                <motion.div
+                <m.div
                   className="p-8 text-center"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -143,7 +143,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
                       </p>
                     </div>
                   )}
-                </motion.div>
+                </m.div>
               ) : (
                 <>
                   <div className="p-6 border-b border-border">
@@ -169,12 +169,13 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
                   </div>
                   <div className="p-6 space-y-4">
                     <div>
-                      <label className="block text-body-sm font-medium text-foreground mb-2">
+                      <label htmlFor="share-recipient-email" className="block text-body-sm font-medium text-foreground mb-2">
                         Recipient's email
                       </label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <input
+                          id="share-recipient-email"
                           type="email"
                           value={shareEmail}
                           onChange={(e) => onShareEmailChange(e.target.value)}
@@ -184,9 +185,9 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
                       </div>
                     </div>
                     <div>
-                      <label className="block text-body-sm font-medium text-foreground mb-2">
+                      <span className="block text-body-sm font-medium text-foreground mb-2">
                         Who is this for?
-                      </label>
+                      </span>
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => onShareRecipientTypeChange('parent')}
@@ -233,9 +234,9 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
                       </div>
                     </div>
                     <div>
-                      <label className="block text-body-sm font-medium text-foreground mb-2">
+                      <span className="block text-body-sm font-medium text-foreground mb-2">
                         Permission level
-                      </label>
+                      </span>
                       <div className="space-y-2">
                         <button
                           onClick={() => onSharePermissionChange('view')}
@@ -363,8 +364,8 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
                   </div>
                 </>
               )}
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         </>
       )}
     </AnimatePresence>

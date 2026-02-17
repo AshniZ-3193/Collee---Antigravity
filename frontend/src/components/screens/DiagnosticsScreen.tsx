@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import ColleeLayout from '@/components/ColleeLayout';
@@ -55,6 +55,34 @@ const SECTIONS = [
   { key: 'socialRole', label: 'People usually come to me for\u2026', options: SOCIAL_ROLE_OPTIONS },
 ] as const;
 
+const SelectableOption = ({
+  label,
+  isSelected,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  isSelected: boolean;
+  onClick: () => void;
+  disabled: boolean;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled && !isSelected}
+    className={`
+      flex items-center justify-between w-full px-4 py-3 rounded-xl text-left transition-all duration-200
+      ${isSelected
+        ? 'bg-primary/10 border-2 border-primary text-foreground shadow-sm'
+        : 'bg-muted/50 border-2 border-transparent text-foreground hover:bg-muted/70 hover:border-primary/10 hover:scale-[1.01]'}
+      ${disabled && !isSelected ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+    `}
+  >
+    <span className="text-body-sm">{label}</span>
+    {isSelected && <Check className="h-4 w-4 text-primary flex-shrink-0" />}
+  </button>
+);
+
 const DiagnosticsScreen: React.FC<DiagnosticsScreenProps> = ({ onContinue, onBack }) => {
   const [orientation, setOrientation] = useState<string[]>([]);
   const [motivation, setMotivation] = useState<string[]>([]);
@@ -82,58 +110,30 @@ const DiagnosticsScreen: React.FC<DiagnosticsScreenProps> = ({ onContinue, onBac
     }
   };
 
-  const SelectableOption = ({
-    label,
-    isSelected,
-    onClick,
-    disabled,
-  }: {
-    label: string;
-    isSelected: boolean;
-    onClick: () => void;
-    disabled: boolean;
-  }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled && !isSelected}
-      className={`
-        flex items-center justify-between w-full px-4 py-3 rounded-xl text-left transition-all duration-200
-        ${isSelected
-          ? 'bg-primary/10 border-2 border-primary text-foreground shadow-sm'
-          : 'bg-muted/50 border-2 border-transparent text-foreground hover:bg-muted/70 hover:border-primary/10 hover:scale-[1.01]'}
-        ${disabled && !isSelected ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-      `}
-    >
-      <span className="text-body-sm">{label}</span>
-      {isSelected && <Check className="h-4 w-4 text-primary flex-shrink-0" />}
-    </button>
-  );
-
   return (
     <ColleeLayout showProgress currentStep={3} totalSteps={8}>
       <div className="text-center mb-8">
         {/* Decorative gradient line */}
         <div className="w-12 h-1 bg-gradient-to-r from-primary to-secondary rounded-full mx-auto mb-6" />
-        <motion.h1
+        <m.h1
           className="font-display text-display-sm text-foreground mb-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
           How you tend to think
-        </motion.h1>
-        <motion.p
+        </m.h1>
+        <m.p
           className="text-body-lg text-muted-foreground max-w-md mx-auto"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.4 }}
         >
           There's no "best" choice — this just helps us understand how you approach things.
-        </motion.p>
+        </m.p>
       </div>
 
-      <motion.div
+      <m.div
         className="space-y-6"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -167,10 +167,10 @@ const DiagnosticsScreen: React.FC<DiagnosticsScreenProps> = ({ onContinue, onBac
             </div>
           );
         })}
-      </motion.div>
+      </m.div>
 
       {/* Actions */}
-      <motion.div
+      <m.div
         className="flex justify-between items-center mt-8 pt-4 border-t border-border/50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -191,7 +191,7 @@ const DiagnosticsScreen: React.FC<DiagnosticsScreenProps> = ({ onContinue, onBac
         >
           Continue
         </Button>
-      </motion.div>
+      </m.div>
     </ColleeLayout>
   );
 };

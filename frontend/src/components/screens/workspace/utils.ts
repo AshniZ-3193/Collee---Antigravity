@@ -1,6 +1,6 @@
 import type { Essay } from './types';
 
-export const getEssaySnapshot = (essays: Essay[]): string => {
+const getEssaySnapshot = (essays: Essay[]): string => {
   const inProgress = essays.filter(e => e.status === 'in-progress').length;
   const complete = essays.filter(e => e.status === 'complete').length;
   const notStarted = essays.filter(e => e.status === 'not-started').length;

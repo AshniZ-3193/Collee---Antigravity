@@ -1,5 +1,5 @@
 import React from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import { MessageSquare, SpellCheck, Sparkles, Wand2, X } from 'lucide-react';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -94,7 +94,7 @@ const AssistantSidebar: React.FC<AssistantSidebarProps> = ({
   return (
     <AnimatePresence initial={false}>
       {isOpen && (
-        <motion.aside
+        <m.aside
           initial={{ width: 0, opacity: 0 }}
           animate={{ width: 340, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
@@ -111,7 +111,7 @@ const AssistantSidebar: React.FC<AssistantSidebarProps> = ({
               grammarProps={grammarProps}
             />
           </div>
-        </motion.aside>
+        </m.aside>
       )}
     </AnimatePresence>
   );

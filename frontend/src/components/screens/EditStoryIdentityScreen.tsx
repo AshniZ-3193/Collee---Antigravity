@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -185,7 +185,7 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
         <AnimatePresence mode="wait">
           {/* Experiences Tab */}
           {activeTab === 'experiences' && (
-            <motion.div
+            <m.div
               key="experiences"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -213,23 +213,23 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
               {/* Add Experience Form */}
               <AnimatePresence>
                 {showAddExperience && (
-                  <motion.div
+                  <m.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
                     className="overflow-hidden"
                   >
                     <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 mb-4">
-                      <label className="block text-body-sm font-medium text-foreground mb-2">
+                      <label htmlFor="new-experience-name" className="block text-body-sm font-medium text-foreground mb-2">
                         New experience name
                       </label>
                       <div className="flex gap-2">
                         <Input
+                          id="new-experience-name"
                           value={newExperienceName}
                           onChange={(e) => setNewExperienceName(e.target.value)}
                           placeholder="e.g., Leading the debate team to nationals"
                           className="flex-1"
-                          autoFocus
                         />
                         <Button size="sm" onClick={handleAddExperience}>
                           Add
@@ -246,14 +246,14 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
                         </Button>
                       </div>
                     </div>
-                  </motion.div>
+                  </m.div>
                 )}
               </AnimatePresence>
 
               {/* Experience List */}
               <div className="space-y-2">
                 {experiences.map((experience: any) => (
-                  <motion.div
+                  <m.div
                     key={experience._id}
                     layout
                     className="p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-colors"
@@ -262,7 +262,6 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
                       <div className="flex gap-2">
                         <Input
                           defaultValue={experience.name}
-                          autoFocus
                           onBlur={(e) => handleUpdateExperience(experience._id, e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
@@ -315,15 +314,15 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
                         </div>
                       </div>
                     )}
-                  </motion.div>
+                  </m.div>
                 ))}
               </div>
-            </motion.div>
+            </m.div>
           )}
 
           {/* Pillars Tab */}
           {activeTab === 'pillars' && (
-            <motion.div
+            <m.div
               key="pillars"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -351,23 +350,23 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
               {/* Add Pillar Form */}
               <AnimatePresence>
                 {showAddPillar && (
-                  <motion.div
+                  <m.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
                     className="overflow-hidden"
                   >
                     <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 mb-4">
-                      <label className="block text-body-sm font-medium text-foreground mb-2">
+                      <label htmlFor="new-story-pillar" className="block text-body-sm font-medium text-foreground mb-2">
                         New story pillar
                       </label>
                       <div className="flex gap-2">
                         <Input
+                          id="new-story-pillar"
                           value={newPillarTheme}
                           onChange={(e) => setNewPillarTheme(e.target.value)}
                           placeholder="e.g., Finding connection through music"
                           className="flex-1"
-                          autoFocus
                         />
                         <Button size="sm" onClick={handleAddPillar}>
                           Add
@@ -384,14 +383,14 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
                         </Button>
                       </div>
                     </div>
-                  </motion.div>
+                  </m.div>
                 )}
               </AnimatePresence>
 
               {/* Pillar List */}
               <div className="space-y-2">
                 {pillars.map((pillar: any) => (
-                  <motion.div
+                  <m.div
                     key={pillar._id}
                     layout
                     className="p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-colors"
@@ -400,7 +399,6 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
                       <div className="flex gap-2">
                         <Input
                           defaultValue={pillar.theme}
-                          autoFocus
                           onBlur={(e) => handleUpdatePillar(pillar._id, e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
@@ -439,15 +437,15 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
                         </div>
                       </div>
                     )}
-                  </motion.div>
+                  </m.div>
                 ))}
               </div>
-            </motion.div>
+            </m.div>
           )}
 
           {/* Voice Tab */}
           {activeTab === 'voice' && (
-            <motion.div
+            <m.div
               key="voice"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -470,7 +468,7 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
                 </h3>
                 <div className="space-y-3">
                   {localReminders.map((reminder, index) => (
-                    <div key={index} className="flex items-center gap-2">
+                    <div key={`reminder-${index}`} className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
                       <Input
                         value={reminder}
@@ -500,7 +498,7 @@ const EditStoryIdentityScreen: React.FC<EditStoryIdentityScreenProps> = ({
                   These reminders will appear in the writing workspace to help you stay true to your voice.
                 </p>
               </div>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
 

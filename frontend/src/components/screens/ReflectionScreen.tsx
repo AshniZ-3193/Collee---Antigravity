@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import ColleeLayout from '@/components/ColleeLayout';
 import { useMutation } from 'convex/react';
@@ -19,7 +19,7 @@ const ReflectionScreen: React.FC<ReflectionScreenProps> = ({ onContinue, onBack 
       <div className="text-center mb-8">
         {/* Decorative gradient line */}
         <div className="w-12 h-1 bg-gradient-to-r from-primary to-secondary rounded-full mx-auto mb-6" />
-        <motion.div
+        <m.div
           className="inline-flex items-center gap-2 mb-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -31,20 +31,21 @@ const ReflectionScreen: React.FC<ReflectionScreenProps> = ({ onContinue, onBack 
           <span className="text-caption text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
             optional
           </span>
-        </motion.div>
+        </m.div>
       </div>
 
-      <motion.div
+      <m.div
         className="max-w-lg mx-auto"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, duration: 0.4 }}
       >
         <div className="bg-card rounded-2xl border border-border p-6 shadow-soft hover:shadow-soft-md transition-shadow">
-          <label className="block text-body-md font-medium text-foreground mb-4">
+          <label htmlFor="reflection-input" className="block text-body-md font-medium text-foreground mb-4">
             What's something you notice, wonder about, or keep coming back to?
           </label>
           <textarea
+            id="reflection-input"
             className="w-full bg-muted/50 rounded-xl border-0 px-4 py-4 text-foreground placeholder:text-foreground-subtle focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-background focus:shadow-sm transition-all min-h-[140px] resize-none"
             placeholder="Maybe a small habit, a recurring thought, something you can't stop observing. A few sentences is perfect."
             value={reflection}
@@ -54,10 +55,10 @@ const ReflectionScreen: React.FC<ReflectionScreenProps> = ({ onContinue, onBack 
             This doesn't need to be profound — sometimes the smallest things reveal the most.
           </p>
         </div>
-      </motion.div>
+      </m.div>
 
       {/* Actions */}
-      <motion.div
+      <m.div
         className="flex justify-between items-center mt-8 pt-4 border-t border-border/50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -78,7 +79,7 @@ const ReflectionScreen: React.FC<ReflectionScreenProps> = ({ onContinue, onBack 
         >
           Generate my story
         </Button>
-      </motion.div>
+      </m.div>
     </ColleeLayout>
   );
 };

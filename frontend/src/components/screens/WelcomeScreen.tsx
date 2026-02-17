@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import ColleeLogo from '@/components/ColleeLogo';
 
@@ -17,14 +17,14 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStart }) => {
       {/* Subtle radial glow */}
       <div className="absolute inset-0 bg-gradient-subtle pointer-events-none" aria-hidden="true" />
 
-      <motion.div
+      <m.div
         className="w-full max-w-content text-center relative"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
       >
         {/* Logo with floating animation and glow ring */}
-        <motion.div
+        <m.div
           className="mb-10 flex flex-col items-center"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -33,37 +33,37 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStart }) => {
           <div className="relative">
             {/* Soft glow ring behind logo */}
             <div className="absolute inset-0 -m-3 rounded-full bg-primary/[0.08] blur-xl animate-pulse-gentle" aria-hidden="true" />
-            <motion.div
+            <m.div
               animate={{ y: [0, -4, 0] }}
               transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
             >
               <ColleeLogo size="lg" showText showTagline />
-            </motion.div>
+            </m.div>
           </div>
-        </motion.div>
+        </m.div>
 
         {/* Headline with display font */}
-        <motion.h1
+        <m.h1
           className="font-display text-display text-foreground mb-6 max-w-lg mx-auto"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
           Let's figure out <span className="text-secondary">your college application story.</span>
-        </motion.h1>
+        </m.h1>
 
         {/* Subtext */}
-        <motion.p
+        <m.p
           className="text-body-lg text-muted-foreground mb-12 max-w-md mx-auto leading-relaxed"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.5 }}
         >
           Answer a few questions and we'll help you understand what makes you distinct — and how to write essays that sound like you.
-        </motion.p>
+        </m.p>
 
         {/* CTA with warm shadow */}
-        <motion.div
+        <m.div
           className="space-y-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -81,8 +81,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStart }) => {
           <p className="text-body-sm text-muted-foreground">
             Takes about 10 minutes. No essays required.
           </p>
-        </motion.div>
-      </motion.div>
+        </m.div>
+      </m.div>
     </div>
   );
 };

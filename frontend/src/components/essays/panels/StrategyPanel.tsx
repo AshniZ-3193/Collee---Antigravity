@@ -213,8 +213,8 @@ const StrategyPanel: React.FC<StrategyPanelProps> = ({
                             <div>
                               <h4 className="mb-2 text-xs font-medium text-foreground">Framing tips</h4>
                               <ul className="space-y-1.5">
-                                {experience.guidance.framingTips.map((tip, idx) => (
-                                  <li key={idx} className="text-xs text-muted-foreground">
+                                {experience.guidance.framingTips.map((tip) => (
+                                  <li key={tip} className="text-xs text-muted-foreground">
                                     • {tip}
                                   </li>
                                 ))}

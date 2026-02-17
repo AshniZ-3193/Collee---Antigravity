@@ -1,5 +1,5 @@
 import React from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import { Eye, History, RotateCcw, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -27,14 +27,14 @@ const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div
+          <m.div
             className="fixed inset-0 bg-foreground/20 z-40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
           />
-          <motion.div
+          <m.div
             className="fixed right-0 top-0 h-full w-full max-w-md bg-card border-l border-border shadow-lg z-50 overflow-y-auto"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
@@ -139,7 +139,7 @@ const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({
                 Versions are automatically saved as you write
               </p>
             </div>
-          </motion.div>
+          </m.div>
         </>
       )}
     </AnimatePresence>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import ColleeLayout from '@/components/ColleeLayout';
@@ -55,25 +55,25 @@ const PersonalLensScreen: React.FC<PersonalLensScreenProps> = ({ onContinue, onB
       <div className="text-center mb-8">
         {/* Decorative gradient line */}
         <div className="w-12 h-1 bg-gradient-to-r from-primary to-secondary rounded-full mx-auto mb-6" />
-        <motion.h1
+        <m.h1
           className="font-display text-display-sm text-foreground mb-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
           Are there parts of your identity that feel important to how you tell your story?
-        </motion.h1>
-        <motion.p
+        </m.h1>
+        <m.p
           className="text-body-md text-muted-foreground max-w-lg mx-auto"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.4 }}
         >
           Some students choose to center parts of their identity in their applications. Others prefer to keep things subtle or private. Both are completely valid.
-        </motion.p>
+        </m.p>
       </div>
 
-      <motion.div
+      <m.div
         className="space-y-3 max-w-md mx-auto"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -97,20 +97,20 @@ const PersonalLensScreen: React.FC<PersonalLensScreenProps> = ({ onContinue, onB
             )}
           </button>
         ))}
-      </motion.div>
+      </m.div>
 
       {/* Follow-up question */}
       {showFollowUp && (
-        <motion.div
+        <m.div
           className="mt-8 max-w-md mx-auto"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
           <div className="bg-card rounded-2xl border border-border p-6 shadow-soft hover:shadow-soft-md transition-shadow">
-            <label className="block text-body-sm font-medium text-foreground mb-4">
+            <span className="block text-body-sm font-medium text-foreground mb-4" role="heading" aria-level={4}>
               How would you like us to handle this?
-            </label>
+            </span>
             <div className="space-y-2">
               {HANDLING_OPTIONS.map((option) => (
                 <button
@@ -132,11 +132,11 @@ const PersonalLensScreen: React.FC<PersonalLensScreenProps> = ({ onContinue, onB
               ))}
             </div>
           </div>
-        </motion.div>
+        </m.div>
       )}
 
       {/* Actions */}
-      <motion.div
+      <m.div
         className="flex justify-between items-center mt-8 pt-4 border-t border-border/50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -163,7 +163,7 @@ const PersonalLensScreen: React.FC<PersonalLensScreenProps> = ({ onContinue, onB
         >
           Continue
         </Button>
-      </motion.div>
+      </m.div>
     </ColleeLayout>
   );
 };

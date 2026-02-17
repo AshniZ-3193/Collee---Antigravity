@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Check, Search, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -42,7 +42,7 @@ const SelectCollegesStep: React.FC<SelectCollegesStepProps> = ({
   onContinue,
 }) => {
   return (
-    <motion.div
+    <m.div
       key="select"
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
@@ -55,7 +55,7 @@ const SelectCollegesStep: React.FC<SelectCollegesStepProps> = ({
           {Array.from(selectedColleges).map((collegeId) => {
             const college = getCollegeById(collegeId);
             return (
-              <motion.div
+              <m.div
                 key={collegeId}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -69,7 +69,7 @@ const SelectCollegesStep: React.FC<SelectCollegesStepProps> = ({
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
-              </motion.div>
+              </m.div>
             );
           })}
         </div>
@@ -90,7 +90,7 @@ const SelectCollegesStep: React.FC<SelectCollegesStepProps> = ({
         {filteredColleges.map((college, index) => {
           const isSelected = selectedColleges.has(college.id);
           return (
-            <motion.button
+            <m.button
               key={college.id}
               onClick={() => onToggleCollegeSelection(college.id)}
               className={`w-full text-left p-4 rounded-xl border transition-all ${
@@ -122,12 +122,12 @@ const SelectCollegesStep: React.FC<SelectCollegesStepProps> = ({
                   {isSelected && <Check className="w-4 h-4 text-primary-foreground" />}
                 </div>
               </div>
-            </motion.button>
+            </m.button>
           );
         })}
 
         {showAddCustom && (
-          <motion.button
+          <m.button
             key={`add-custom-${customCollegeId}`}
             onClick={customIsSelected ? undefined : onAddCustomCollege}
             disabled={customIsSelected}
@@ -153,12 +153,12 @@ const SelectCollegesStep: React.FC<SelectCollegesStepProps> = ({
                 {customIsSelected && <Check className="w-4 h-4 text-primary-foreground" />}
               </div>
             </div>
-          </motion.button>
+          </m.button>
         )}
       </div>
 
       {canProceedToApplicationType && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -167,9 +167,9 @@ const SelectCollegesStep: React.FC<SelectCollegesStepProps> = ({
           <Button variant="collee-accent" size="collee" onClick={onContinue} className="w-full">
             Continue with {selectedCollegesCount} college{selectedCollegesCount > 1 ? 's' : ''}
           </Button>
-        </motion.div>
+        </m.div>
       )}
-    </motion.div>
+    </m.div>
   );
 };
 

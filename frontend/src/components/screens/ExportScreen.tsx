@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import {
   ArrowLeft,
@@ -249,17 +249,17 @@ const ExportScreen: React.FC<ExportScreenProps> = ({
     <ColleeLayout>
       <div className="space-y-6">
         {/* Top Logo */}
-        <motion.div
+        <m.div
           className="flex justify-center mb-4"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
           <ColleeLogo size="sm" onClick={onBack} />
-        </motion.div>
+        </m.div>
 
         {/* Header */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -281,10 +281,10 @@ const ExportScreen: React.FC<ExportScreenProps> = ({
               Choose how you'd like to save or share
             </p>
           </div>
-        </motion.div>
+        </m.div>
 
         {/* Essay Summary */}
-        <motion.div
+        <m.div
           className="p-4 rounded-xl bg-muted/50 border border-border"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -297,12 +297,12 @@ const ExportScreen: React.FC<ExportScreenProps> = ({
             </div>
             <span className="text-body-sm text-muted-foreground">{wordCount} words</span>
           </div>
-        </motion.div>
+        </m.div>
 
         {/* Export Options */}
         <div className="space-y-3">
           {exportOptions.map((option, index) => (
-            <motion.button
+            <m.button
               key={option.id}
               onClick={() => handleExport(option.id)}
               disabled={isExporting || (option.id === 'share' && !essayId)}
@@ -336,12 +336,12 @@ const ExportScreen: React.FC<ExportScreenProps> = ({
                   </p>
                 </div>
               </div>
-            </motion.button>
+            </m.button>
           ))}
         </div>
 
         {/* Note */}
-        <motion.div
+        <m.div
           className="text-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -350,7 +350,7 @@ const ExportScreen: React.FC<ExportScreenProps> = ({
           <p className="text-body-sm text-muted-foreground">
             PDFs are formatted to meet common application requirements
           </p>
-        </motion.div>
+        </m.div>
       </div>
     </ColleeLayout>
   );

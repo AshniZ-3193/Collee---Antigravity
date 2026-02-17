@@ -1,12 +1,13 @@
-import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import React, { Suspense, lazy, useMemo } from 'react';
+import { m } from 'framer-motion';
 import { Plus, FileText, CheckCircle2, Flame, ArrowRight, Sparkles } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 import { Button } from '@/components/ui/button';
 
 import DeadlineList from './DeadlineList';
 import type { DashboardData } from './types';
+
+const ProgressDonut = lazy(() => import('./ProgressDonut'));
 
 interface DashboardSectionProps {
   data: DashboardData;
@@ -59,7 +60,7 @@ const DashboardSection: React.FC<DashboardSectionProps> = ({ data, onAddCollege,
     return (
       <section className="h-full overflow-y-auto" data-tour="dashboard-overview">
         <div className="mx-auto flex w-full max-w-5xl flex-col items-center justify-center gap-8 p-8 pt-24">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
@@ -78,7 +79,7 @@ const DashboardSection: React.FC<DashboardSectionProps> = ({ data, onAddCollege,
               <Plus className="mr-2 h-4 w-4" />
               Add Colleges
             </Button>
-          </motion.div>
+          </m.div>
         </div>
       </section>
     );
@@ -86,14 +87,14 @@ const DashboardSection: React.FC<DashboardSectionProps> = ({ data, onAddCollege,
 
   return (
     <section className="h-full overflow-y-auto" data-tour="dashboard-overview">
-      <motion.div
+      <m.div
         className="mx-auto flex w-full max-w-5xl flex-col gap-8 p-8"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
         {/* Greeting Header */}
-        <motion.div variants={itemVariants} className="flex flex-wrap items-start justify-between gap-4">
+        <m.div variants={itemVariants} className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="font-display text-display-sm text-foreground">
               {getGreeting()}, {data.userName}
@@ -108,10 +109,10 @@ const DashboardSection: React.FC<DashboardSectionProps> = ({ data, onAddCollege,
             <Plus className="mr-2 h-4 w-4" />
             Add Colleges
           </Button>
-        </motion.div>
+        </m.div>
 
         {/* Stat Cards Row */}
-        <motion.div variants={itemVariants} className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <m.div variants={itemVariants} className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {/* Total Essays */}
           <div className="rounded-2xl border border-border bg-card p-5 transition-shadow hover:shadow-soft">
             <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
@@ -138,34 +139,17 @@ const DashboardSection: React.FC<DashboardSectionProps> = ({ data, onAddCollege,
             <p className="text-2xl font-semibold text-foreground">{dueSoonCount}</p>
             <p className="text-body-sm text-muted-foreground">Due Soon</p>
           </div>
-        </motion.div>
+        </m.div>
 
         {/* Overall Progress Section */}
-        <motion.div
+        <m.div
           variants={itemVariants}
           className="flex flex-wrap items-center gap-8 rounded-2xl border border-border bg-card p-6"
         >
           <div className="relative h-44 w-44 shrink-0" data-tour="dashboard-progress">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={donutData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={78}
-                  paddingAngle={2}
-                  dataKey="value"
-                  startAngle={90}
-                  endAngle={-270}
-                  strokeWidth={0}
-                >
-                  {donutData.map((entry) => (
-                    <Cell key={entry.name} fill={entry.fill} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
+            <Suspense fallback={<div className="h-full w-full animate-pulse rounded-full bg-muted" />}>
+              <ProgressDonut data={donutData} />
+            </Suspense>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <p className="text-2xl font-semibold text-foreground">{percentComplete}%</p>
               <p className="text-caption text-muted-foreground">complete</p>
@@ -196,11 +180,11 @@ const DashboardSection: React.FC<DashboardSectionProps> = ({ data, onAddCollege,
               </span>
             </div>
           </div>
-        </motion.div>
+        </m.div>
 
         {/* College Progress Cards */}
         {data.collegeDeadlines.length > 0 && (
-          <motion.div variants={itemVariants} className="space-y-4" data-tour="essays-section">
+          <m.div variants={itemVariants} className="space-y-4" data-tour="essays-section">
             <h2 className="font-display text-heading text-foreground">Your Colleges</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {data.collegeDeadlines.map((deadline) => {
@@ -261,15 +245,15 @@ const DashboardSection: React.FC<DashboardSectionProps> = ({ data, onAddCollege,
                 );
               })}
             </div>
-          </motion.div>
+          </m.div>
         )}
 
         {/* Upcoming Deadlines */}
-        <motion.div variants={itemVariants} className="space-y-4">
+        <m.div variants={itemVariants} className="space-y-4">
           <h2 className="font-display text-heading text-foreground">Upcoming Deadlines</h2>
           <DeadlineList deadlines={data.collegeDeadlines} onOpenEssays={onOpenEssays} />
-        </motion.div>
-      </motion.div>
+        </m.div>
+      </m.div>
     </section>
   );
 };

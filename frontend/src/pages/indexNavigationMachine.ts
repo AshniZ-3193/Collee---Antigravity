@@ -39,15 +39,15 @@ const TRANSITIONS: TransitionMap = {
   'edit-story-identity': ['workspace', 'home', 'auth-loading', 'resume'],
 };
 
-export interface ScreenTransitionAction {
+interface ScreenTransitionAction {
   type: 'transition';
   to: Screen;
   force?: boolean;
 }
 
-export type ScreenNavAction = ScreenTransitionAction;
+type ScreenNavAction = ScreenTransitionAction;
 
-export const canTransition = (from: Screen, to: Screen): boolean => {
+const canTransition = (from: Screen, to: Screen): boolean => {
   if (from === to) return true;
   return TRANSITIONS[from].includes(to);
 };

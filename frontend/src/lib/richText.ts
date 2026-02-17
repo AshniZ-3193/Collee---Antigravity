@@ -1,11 +1,11 @@
-export type RichTextFormat = "bold" | "italic" | "underline" | "bullet" | "numbered";
+type RichTextFormat = "bold" | "italic" | "underline" | "bullet" | "numbered";
 
-export interface ProseMirrorMark {
+interface ProseMirrorMark {
   type: string;
   attrs?: Record<string, unknown>;
 }
 
-export interface ProseMirrorNode {
+interface ProseMirrorNode {
   type: string;
   attrs?: Record<string, unknown>;
   text?: string;
@@ -432,4 +432,4 @@ export const renderRichTextToHtml = (value: string) => {
   return renderLegacyToHtml(value ?? "");
 };
 
-export const getLegacyLineWithoutListPrefix = (line: string) => removeListPrefix(line);
+const getLegacyLineWithoutListPrefix = (line: string) => removeListPrefix(line);

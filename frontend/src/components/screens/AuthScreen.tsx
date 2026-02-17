@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -318,7 +318,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
         <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/[0.06] blur-[100px] pointer-events-none" aria-hidden="true" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-secondary/[0.06] blur-[100px] pointer-events-none" aria-hidden="true" />
 
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -326,21 +326,21 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
         >
           {/* Logo / Brand */}
           <div className="text-center mb-10">
-            <motion.div
+            <m.div
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.5, delay: 0.1 }}
               className="flex flex-col items-center gap-4"
             >
               <ColleeLogo size="lg" showText onClick={onLogoClick} />
-            </motion.div>
+            </m.div>
             <p className="text-body text-foreground-muted mt-2">
               {resetStep === 'code' ? 'Check your email for a reset code' : 'Create a new password'}
             </p>
           </div>
 
           {/* Forgot Password Card */}
-          <motion.div
+          <m.div
             layout
             className="bg-card rounded-2xl shadow-soft-md p-8 border border-card-border relative overflow-hidden transition-shadow duration-300 hover:shadow-soft-lg"
           >
@@ -470,8 +470,8 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
                 Back to login
               </button>
             </div>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       </div>
     );
   }
@@ -489,7 +489,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
         <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/[0.06] blur-[100px] pointer-events-none" aria-hidden="true" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-secondary/[0.06] blur-[100px] pointer-events-none" aria-hidden="true" />
 
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -497,21 +497,21 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
         >
           {/* Logo / Brand */}
           <div className="text-center mb-10">
-            <motion.div
+            <m.div
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.5, delay: 0.1 }}
               className="flex flex-col items-center gap-4"
             >
               <ColleeLogo size="lg" showText onClick={onLogoClick} />
-            </motion.div>
+            </m.div>
             <p className="text-body text-foreground-muted mt-2">
               Check your email for a verification code
             </p>
           </div>
 
           {/* Verification Card */}
-          <motion.div
+          <m.div
             layout
             className="bg-card rounded-2xl shadow-soft-md p-8 border border-card-border relative overflow-hidden transition-shadow duration-300 hover:shadow-soft-lg"
           >
@@ -588,8 +588,8 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
                 Back to sign up
               </button>
             </div>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       </div>
     );
   }
@@ -605,7 +605,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/[0.06] blur-[100px] pointer-events-none" aria-hidden="true" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-secondary/[0.06] blur-[100px] pointer-events-none" aria-hidden="true" />
 
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -613,14 +613,14 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
       >
         {/* Logo / Brand */}
         <div className="text-center mb-10">
-          <motion.div
+          <m.div
             initial={{ scale: 0.9 }}
             animate={{ scale: 1 }}
             transition={{ duration: 0.5, delay: 0.1 }}
             className="flex flex-col items-center gap-4"
           >
             <ColleeLogo size="lg" showText showTagline onClick={onLogoClick} />
-          </motion.div>
+          </m.div>
           <p className="text-body text-foreground-muted mt-2">
             {isLogin
               ? "Welcome back! Let's continue your story."
@@ -629,7 +629,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
         </div>
 
         {/* Auth Card with top gradient border */}
-        <motion.div
+        <m.div
           layout
           className="bg-card rounded-2xl shadow-soft-md p-8 border border-card-border relative overflow-hidden transition-shadow duration-300 hover:shadow-soft-lg"
         >
@@ -639,7 +639,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
           {/* Toggle Tabs with sliding pill */}
           <div className="flex bg-muted rounded-xl p-1 mb-8 relative">
             {/* Sliding pill indicator */}
-            <motion.div
+            <m.div
               className="absolute top-1 bottom-1 rounded-lg bg-card shadow-sm"
               layoutId="auth-tab-pill"
               style={{ width: 'calc(50% - 4px)' }}
@@ -677,7 +677,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
           <form onSubmit={handleSubmit} className="space-y-5">
             <AnimatePresence mode="wait">
               {!isLogin && (
-                <motion.div
+                <m.div
                   key="firstName"
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
@@ -701,7 +701,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
                       />
                     </div>
                   </div>
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
 
@@ -808,7 +808,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
             </svg>
             Continue with Google
           </Button>
-        </motion.div>
+        </m.div>
 
         {/* Footer */}
         <p className="text-center text-caption text-foreground-subtle mt-8">
@@ -821,7 +821,7 @@ export function AuthScreen({ onLogin, onSignup, onLogoClick }: AuthScreenProps) 
             Privacy Policy
           </button>
         </p>
-      </motion.div>
+      </m.div>
     </div>
   );
 }

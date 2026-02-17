@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import { useConvexAuth } from 'convex/react';
 import { useQuery } from 'convex/react';
 import { useClerk, useAuth } from '@clerk/clerk-react';
@@ -148,7 +148,7 @@ const Index = () => {
 
   return (
     <AnimatePresence mode="wait">
-      <motion.div
+      <m.div
         key={currentScreen}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -316,7 +316,7 @@ const Index = () => {
             }}
           />
         )}
-      </motion.div>
+      </m.div>
     </AnimatePresence>
   );
 };

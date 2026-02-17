@@ -153,7 +153,7 @@ export const buildExperienceUsageMap = (experienceUsagesResult: unknown): Map<st
   return map;
 };
 
-export const mapPersonalLensNotesFromConvex = (convexLensNotesResult: unknown): PersonalLensNote[] => {
+const mapPersonalLensNotesFromConvex = (convexLensNotesResult: unknown): PersonalLensNote[] => {
   return asArray(convexLensNotesResult)
     .map((noteValue) => {
       const note = asRecord(noteValue);
