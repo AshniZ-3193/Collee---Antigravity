@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, m } from 'framer-motion';
-import { MessageSquare, SpellCheck, Sparkles, Wand2, X } from 'lucide-react';
+import { MessageSquare, Recycle, SpellCheck, Sparkles, Wand2, X } from 'lucide-react';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -10,8 +10,9 @@ import StrategyPanel, { type StrategyPanelProps } from './panels/StrategyPanel';
 import FeedbackPanel, { type FeedbackPanelProps } from './panels/FeedbackPanel';
 import CommentsPanel, { type CommentsPanelProps } from './panels/CommentsPanel';
 import GrammarPanel, { type GrammarPanelProps } from './panels/GrammarPanel';
+import SmartReusePanel, { type SmartReusePanelProps } from './panels/SmartReusePanel';
 
-export type SidebarTab = 'strategy' | 'feedback' | 'comments' | 'grammar';
+export type SidebarTab = 'strategy' | 'feedback' | 'comments' | 'grammar' | 'smartReuse';
 
 interface AssistantSidebarProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ interface AssistantSidebarProps {
   feedbackProps: FeedbackPanelProps;
   commentsProps: CommentsPanelProps;
   grammarProps: GrammarPanelProps;
+  smartReuseProps: SmartReusePanelProps;
 }
 
 const SidebarContent: React.FC<{
@@ -30,7 +32,8 @@ const SidebarContent: React.FC<{
   feedbackProps: FeedbackPanelProps;
   commentsProps: CommentsPanelProps;
   grammarProps: GrammarPanelProps;
-}> = ({ onClose, activeTab, strategyProps, feedbackProps, commentsProps, grammarProps }) => (
+  smartReuseProps: SmartReusePanelProps;
+}> = ({ onClose, activeTab, strategyProps, feedbackProps, commentsProps, grammarProps, smartReuseProps }) => (
   <div className="flex h-full flex-col">
     <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
       <div className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -38,10 +41,12 @@ const SidebarContent: React.FC<{
         {activeTab === 'feedback' && <Wand2 className="h-4 w-4 text-primary" />}
         {activeTab === 'comments' && <MessageSquare className="h-4 w-4 text-primary" />}
         {activeTab === 'grammar' && <SpellCheck className="h-4 w-4 text-primary" />}
+        {activeTab === 'smartReuse' && <Recycle className="h-4 w-4 text-primary" />}
         {activeTab === 'strategy' && 'Strategy'}
         {activeTab === 'feedback' && 'Feedback'}
         {activeTab === 'comments' && 'Comments'}
         {activeTab === 'grammar' && 'Grammar'}
+        {activeTab === 'smartReuse' && 'Smart Reuse'}
       </div>
 
       <button
@@ -59,6 +64,7 @@ const SidebarContent: React.FC<{
       {activeTab === 'feedback' && <FeedbackPanel {...feedbackProps} />}
       {activeTab === 'comments' && <CommentsPanel {...commentsProps} />}
       {activeTab === 'grammar' && <GrammarPanel {...grammarProps} />}
+      {activeTab === 'smartReuse' && <SmartReusePanel {...smartReuseProps} />}
     </ScrollArea>
   </div>
 );
@@ -71,6 +77,7 @@ const AssistantSidebar: React.FC<AssistantSidebarProps> = ({
   feedbackProps,
   commentsProps,
   grammarProps,
+  smartReuseProps,
 }) => {
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
@@ -85,6 +92,7 @@ const AssistantSidebar: React.FC<AssistantSidebarProps> = ({
             feedbackProps={feedbackProps}
             commentsProps={commentsProps}
             grammarProps={grammarProps}
+            smartReuseProps={smartReuseProps}
           />
         </SheetContent>
       </Sheet>
@@ -109,6 +117,7 @@ const AssistantSidebar: React.FC<AssistantSidebarProps> = ({
               feedbackProps={feedbackProps}
               commentsProps={commentsProps}
               grammarProps={grammarProps}
+              smartReuseProps={smartReuseProps}
             />
           </div>
         </m.aside>
@@ -116,5 +125,6 @@ const AssistantSidebar: React.FC<AssistantSidebarProps> = ({
     </AnimatePresence>
   );
 };
+
 
 export default AssistantSidebar;

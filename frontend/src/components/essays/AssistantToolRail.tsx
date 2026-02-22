@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, SpellCheck, Sparkles, Wand2 } from 'lucide-react';
+import { MessageSquare, Recycle, SpellCheck, Sparkles, Wand2 } from 'lucide-react';
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { SidebarTab } from './AssistantSidebar';
@@ -11,7 +11,9 @@ interface AssistantToolRailProps {
   onOpenFeedback: () => void;
   onOpenComments: () => void;
   onOpenGrammar: () => void;
+  onOpenSmartReuse: () => void;
   grammarIssueCount?: number;
+  smartReuseCount?: number;
 }
 
 const RailButton: React.FC<{
@@ -26,11 +28,10 @@ const RailButton: React.FC<{
         type="button"
         aria-label={title}
         onClick={onClick}
-        className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150 ${
-          active
+        className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150 ${active
             ? 'bg-primary/12 text-primary shadow-sm ring-1 ring-primary/25'
             : 'text-foreground/55 hover:bg-muted hover:text-foreground'
-        }`}
+          }`}
       >
         {children}
       </button>
@@ -48,14 +49,15 @@ const AssistantToolRail: React.FC<AssistantToolRailProps> = ({
   onOpenFeedback,
   onOpenComments,
   onOpenGrammar,
+  onOpenSmartReuse,
   grammarIssueCount,
+  smartReuseCount,
 }) => {
   return (
     <TooltipProvider delayDuration={120}>
       <div
-        className={`hidden rounded-2xl border border-border/70 bg-card/95 p-2 shadow-lg backdrop-blur md:flex md:flex-col md:gap-1.5 ${
-          isSidebarOpen ? 'opacity-100' : 'opacity-95'
-        }`}
+        className={`hidden rounded-2xl border border-border/70 bg-card/95 p-2 shadow-lg backdrop-blur md:flex md:flex-col md:gap-1.5 ${isSidebarOpen ? 'opacity-100' : 'opacity-95'
+          }`}
       >
         <RailButton active={isSidebarOpen && activeTab === 'strategy'} title="Strategy" onClick={onOpenStrategy}>
           <Sparkles className="h-4 w-4" />
@@ -72,6 +74,16 @@ const AssistantToolRail: React.FC<AssistantToolRailProps> = ({
             {grammarIssueCount != null && grammarIssueCount > 0 && (
               <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-destructive px-0.5 text-[9px] font-bold text-destructive-foreground">
                 {grammarIssueCount > 99 ? '99+' : grammarIssueCount}
+              </span>
+            )}
+          </div>
+        </RailButton>
+        <RailButton active={isSidebarOpen && activeTab === 'smartReuse'} title="Smart Reuse" onClick={onOpenSmartReuse}>
+          <div className="relative">
+            <Recycle className="h-4 w-4" />
+            {smartReuseCount != null && smartReuseCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-bold text-primary-foreground">
+                {smartReuseCount > 99 ? '99+' : smartReuseCount}
               </span>
             )}
           </div>

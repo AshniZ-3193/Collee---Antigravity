@@ -80,6 +80,15 @@ export const useEssayEditorState = () => {
     setSidebarOpen(true);
   }, [activeSidebarTab, sidebarOpen]);
 
+  const openSmartReusePanel = useCallback(() => {
+    if (sidebarOpen && activeSidebarTab === 'smartReuse') {
+      setSidebarOpen(false);
+      return;
+    }
+    setActiveSidebarTab('smartReuse');
+    setSidebarOpen(true);
+  }, [activeSidebarTab, sidebarOpen]);
+
   const closeShareDialog = useCallback(() => {
     setShowShareDialog(false);
     setShareEmail('');
@@ -141,6 +150,7 @@ export const useEssayEditorState = () => {
     openFeedbackPanel,
     openCommentsDrawer,
     openGrammarPanel,
+    openSmartReusePanel,
     closeShareDialog,
   };
 };

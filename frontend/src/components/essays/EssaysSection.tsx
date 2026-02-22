@@ -701,6 +701,11 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
               onAddToDictionary: handleAddToDictionary,
               editor: state.editorInstance,
             }}
+            smartReuseProps={{
+              smartReuseExcerpts,
+              onInsertExcerpt: handleInsertAsReference,
+              onDismissExcerpt: handleDismissExcerpt,
+            }}
           />
 
           <div className="hidden w-[76px] shrink-0 items-center justify-center bg-muted/20 md:flex">
@@ -711,7 +716,9 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
               onOpenFeedback={state.openFeedbackPanel}
               onOpenComments={state.openCommentsDrawer}
               onOpenGrammar={state.openGrammarPanel}
+              onOpenSmartReuse={state.openSmartReusePanel}
               grammarIssueCount={grammar.counts.total}
+              smartReuseCount={smartReuseExcerpts.length}
             />
           </div>
         </div>
