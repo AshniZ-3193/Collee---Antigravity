@@ -220,10 +220,14 @@ const PersonalLensScreen: React.FC<PersonalLensScreenProps> = ({ onContinue, onB
               elaboration: elaborations[aspect] || '',
               handling: handlingPreferences[aspect] || '',
             }));
-            await saveOnboardingStep({
-              identityAspects: selectedIdentities,
-              identityHandling: handlingPerAspect,
-            });
+            try {
+              await saveOnboardingStep({
+                identityAspects: selectedIdentities,
+                identityHandling: handlingPerAspect,
+              });
+            } catch (err) {
+              console.error('Failed to save personal lens:', err);
+            }
             onContinue({
               identityAspects: selectedIdentities,
               handlingPreferences: handlingPerAspect,
