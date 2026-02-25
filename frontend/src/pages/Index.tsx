@@ -209,6 +209,7 @@ const Index = () => {
                 navigateTo('welcome');
               }
             }}
+            onSkip={() => navigateTo('academic')}
           />
         )}
 
@@ -216,6 +217,7 @@ const Index = () => {
           <AcademicScreen
             onContinue={() => navigateTo('diagnostics')}
             onBack={() => navigateTo('resume')}
+            onSkip={() => navigateTo('diagnostics')}
           />
         )}
 
@@ -223,6 +225,7 @@ const Index = () => {
           <DiagnosticsScreen
             onContinue={() => navigateTo('writing-tone')}
             onBack={() => navigateTo('academic')}
+            onSkip={() => navigateTo('writing-tone')}
           />
         )}
 
@@ -230,6 +233,7 @@ const Index = () => {
           <WritingToneScreen
             onContinue={() => navigateTo('personal-lens')}
             onBack={() => navigateTo('diagnostics')}
+            onSkip={() => navigateTo('personal-lens')}
           />
         )}
 
@@ -237,6 +241,7 @@ const Index = () => {
           <PersonalLensScreen
             onContinue={() => navigateTo('reflection')}
             onBack={() => navigateTo('writing-tone')}
+            onSkip={() => navigateTo('reflection')}
           />
         )}
 
@@ -244,6 +249,7 @@ const Index = () => {
           <ReflectionScreen
             onContinue={() => navigateTo('loading')}
             onBack={() => navigateTo('personal-lens')}
+            onSkip={() => navigateTo('loading')}
           />
         )}
 
@@ -271,6 +277,7 @@ const Index = () => {
             onLogout={handleLogout}
             initialActiveEssay={resumeEssaySelection}
             onInitialActiveEssayApplied={() => setResumeEssaySelection(null)}
+            onNavigateToOnboarding={() => navigateTo('resume')}
           />
         )}
 

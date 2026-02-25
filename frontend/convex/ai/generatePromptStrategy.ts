@@ -43,7 +43,7 @@ Tone: ${storyIdentity?.voiceTone || "N/A"}
 Style: ${storyIdentity?.voiceStyle || "N/A"}
 
 IDENTITY CONSIDERATIONS:
-${profile?.identityHandling?.map((h: { aspect: string; handling: string }) => `- ${h.aspect}: ${h.handling}`).join("\n") || "No specific identity preferences"}
+${profile?.identityHandling?.map((h: { aspect: string; elaboration?: string; handling: string }) => `- ${h.aspect}${h.elaboration ? ` (elaboration: "${h.elaboration}")` : ""}: ${h.handling}`).join("\n") || "No specific identity preferences"}
 
 USER NOTES CONTEXT:
 ${notesContext}

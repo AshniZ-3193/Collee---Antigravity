@@ -9,6 +9,7 @@ import { api } from '../../../convex/_generated/api';
 interface WritingToneScreenProps {
   onContinue: (data: { tone: string }) => void;
   onBack: () => void;
+  onSkip?: () => void;
 }
 
 const TONE_OPTIONS = [
@@ -20,7 +21,7 @@ const TONE_OPTIONS = [
   'I\'m not sure yet',
 ];
 
-const WritingToneScreen: React.FC<WritingToneScreenProps> = ({ onContinue, onBack }) => {
+const WritingToneScreen: React.FC<WritingToneScreenProps> = ({ onContinue, onBack, onSkip }) => {
   const [selectedTone, setSelectedTone] = useState<string>('');
   const saveOnboardingStep = useMutation(api.userProfile.saveOnboardingStep);
 
@@ -82,6 +83,15 @@ const WritingToneScreen: React.FC<WritingToneScreenProps> = ({ onContinue, onBac
         <Button variant="collee-ghost" onClick={onBack}>
           Back
         </Button>
+
+        {onSkip && (
+          <button
+            onClick={onSkip}
+            className="text-body-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Skip
+          </button>
+        )}
 
         <Button
           variant="collee-accent"

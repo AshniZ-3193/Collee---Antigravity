@@ -43,6 +43,7 @@ interface EssaysSectionProps {
   storyIdentityData: unknown;
   experienceUsagesResult: unknown;
   onBackToSchools: () => void;
+  onNavigateToOnboarding?: () => void;
 }
 
 const formatTime = (date: Date) =>
@@ -62,6 +63,7 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
   storyIdentityData,
   experienceUsagesResult,
   onBackToSchools,
+  onNavigateToOnboarding,
 }) => {
   const state = useEssayEditorState();
   const strategyAttempts = useRef<Set<string>>(new Set());
@@ -675,6 +677,8 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
               editorInstance: state.editorInstance,
               onSetContent: state.setContent,
               onShowStarterHelper: state.setShowStarterHelper,
+              profilePct: queries.profilePct,
+              onNavigateToOnboarding,
             }}
             feedbackProps={{
               feedbackType: state.feedbackType,
@@ -684,6 +688,8 @@ const EssaysSection: React.FC<EssaysSectionProps> = ({
               feedbackError: state.feedbackError,
               displayedFeedback,
               currentEssayId: currentEssayPersistedId,
+              profilePct: queries.profilePct,
+              onNavigateToOnboarding,
             }}
             commentsProps={{
               reviewerComments: queries.reviewerComments,

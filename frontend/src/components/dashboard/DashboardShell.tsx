@@ -20,6 +20,7 @@ interface DashboardShellProps {
   onLogout?: () => void;
   initialActiveEssay?: { collegeId: string; essayId: string } | null;
   onInitialActiveEssayApplied?: () => void;
+  onNavigateToOnboarding?: () => void;
 }
 
 const DashboardShell: React.FC<DashboardShellProps> = ({
@@ -29,6 +30,7 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
   onLogout,
   initialActiveEssay,
   onInitialActiveEssayApplied,
+  onNavigateToOnboarding,
 }) => {
   const convexCollegesResult = useQuery(api.colleges.list, {});
   const storyIdentityData = useQuery(api.storyIdentity.get, {});
@@ -106,6 +108,7 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
             storyIdentityData={storyIdentityData}
             experienceUsagesResult={experienceUsagesResult}
             onBackToSchools={() => setActiveSection('dashboard')}
+            onNavigateToOnboarding={onNavigateToOnboarding}
           />
         )}
 

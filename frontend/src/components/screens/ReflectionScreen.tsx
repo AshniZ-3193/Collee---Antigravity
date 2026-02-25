@@ -8,9 +8,10 @@ import { api } from '../../../convex/_generated/api';
 interface ReflectionScreenProps {
   onContinue: (data: { reflection: string }) => void;
   onBack: () => void;
+  onSkip?: () => void;
 }
 
-const ReflectionScreen: React.FC<ReflectionScreenProps> = ({ onContinue, onBack }) => {
+const ReflectionScreen: React.FC<ReflectionScreenProps> = ({ onContinue, onBack, onSkip }) => {
   const [reflection, setReflection] = useState('');
   const saveOnboardingStep = useMutation(api.userProfile.saveOnboardingStep);
 
@@ -67,6 +68,15 @@ const ReflectionScreen: React.FC<ReflectionScreenProps> = ({ onContinue, onBack 
         <Button variant="collee-ghost" onClick={onBack}>
           Back
         </Button>
+
+        {onSkip && (
+          <button
+            onClick={onSkip}
+            className="text-body-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Skip
+          </button>
+        )}
 
         <Button
           variant="collee-accent"

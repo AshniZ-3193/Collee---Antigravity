@@ -3,12 +3,16 @@ import { useAction, useMutation, useQuery } from 'convex/react';
 
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
+import { calculateProfileCompletion } from '@/utils/profileCompletion';
 
 export const useEssaySectionQueries = (params: {
   currentEssayId?: string;
   currentPromptId?: string;
 }) => {
   const { currentEssayId, currentPromptId } = params;
+
+  const userProfile = useQuery(api.userProfile.get, {});
+  const storyIdentity = useQuery(api.storyIdentity.get, {});
 
   const promptStrategy = useQuery(
     api.ai.promptStrategy.getForPrompt,
@@ -38,7 +42,14 @@ export const useEssaySectionQueries = (params: {
 
   const reuseSuggestions = useMemo(() => reuseSuggestionsResult ?? [], [reuseSuggestionsResult]);
 
+  const profileCompletion = useMemo(
+    () => calculateProfileCompletion(userProfile ?? null, Boolean(storyIdentity)),
+    [userProfile, storyIdentity],
+  );
+
   return {
+    profilePct: profileCompletion.pct,
+    isProfileComplete: profileCompletion.pct === 100,
     promptStrategy,
     reuseSuggestions,
     essayVersionsResult,

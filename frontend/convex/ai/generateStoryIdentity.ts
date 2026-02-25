@@ -37,7 +37,7 @@ WRITING TONE: ${profile.writingTone || "Not provided"}
 IDENTITY:
 Aspects: ${profile.identityAspects?.join(", ") || "Not provided"}
 Handling Preferences:
-${profile.identityHandling?.map((h: { aspect: string; handling: string }) => `- ${h.aspect}: ${h.handling}`).join("\n") || "Not provided"}
+${profile.identityHandling?.map((h: { aspect: string; elaboration?: string; handling: string }) => `- ${h.aspect}${h.elaboration ? ` (elaboration: "${h.elaboration}")` : ""}: ${h.handling}`).join("\n") || "Not provided"}
 
 REFLECTION:
 ${profile.reflection || "Not provided"}

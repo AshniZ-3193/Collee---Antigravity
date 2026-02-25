@@ -75,9 +75,10 @@ const parseResumeFile = async (file: File) => {
 interface ResumeScreenProps {
   onContinue: (data: string) => void;
   onBack: () => void;
+  onSkip?: () => void;
 }
 
-const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack }) => {
+const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack, onSkip }) => {
   const [activities, setActivities] = useState('');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [resumeText, setResumeText] = useState('');
@@ -255,6 +256,15 @@ const ResumeScreen: React.FC<ResumeScreenProps> = ({ onContinue, onBack }) => {
         >
           Back
         </Button>
+
+        {onSkip && (
+          <button
+            onClick={onSkip}
+            className="text-body-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Skip
+          </button>
+        )}
 
         <Button
           variant="collee-accent"

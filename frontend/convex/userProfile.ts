@@ -42,6 +42,7 @@ export const saveOnboardingStep = mutation({
     identityAspects: v.optional(v.array(v.string())),
     identityHandling: v.optional(v.array(v.object({
       aspect: v.string(),
+      elaboration: v.optional(v.string()),
       handling: v.string(),
     }))),
     reflection: v.optional(v.string()),

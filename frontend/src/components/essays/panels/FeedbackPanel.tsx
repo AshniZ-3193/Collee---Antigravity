@@ -1,4 +1,5 @@
 import React from 'react';
+import { TriangleAlert } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -18,6 +19,8 @@ export interface FeedbackPanelProps {
   feedbackError: string | null;
   displayedFeedback: any;
   currentEssayId?: string;
+  profilePct?: number;
+  onNavigateToOnboarding?: () => void;
 }
 
 const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
@@ -28,9 +31,32 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
   feedbackError,
   displayedFeedback,
   currentEssayId,
+  profilePct,
+  onNavigateToOnboarding,
 }) => {
+  const showProfileWarning = profilePct !== undefined && profilePct < 100;
+
   return (
     <div className="p-4 space-y-4">
+      {showProfileWarning && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-600" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-amber-700">
+              Profile {profilePct}% complete · Results may be less tailored.
+            </p>
+          </div>
+          {onNavigateToOnboarding && (
+            <button
+              type="button"
+              onClick={onNavigateToOnboarding}
+              className="text-xs font-medium text-amber-700 hover:text-amber-900 whitespace-nowrap transition-colors"
+            >
+              Finish →
+            </button>
+          )}
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <Select value={feedbackType} onValueChange={(value) => onFeedbackTypeChange(value as FeedbackType)}>
           <SelectTrigger className="h-9 w-40 text-xs">

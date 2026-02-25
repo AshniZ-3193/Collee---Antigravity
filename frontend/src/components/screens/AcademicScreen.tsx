@@ -14,6 +14,7 @@ import { api } from '../../../convex/_generated/api';
 interface AcademicScreenProps {
   onContinue: (data: { primary: string; secondary: string }) => void;
   onBack: () => void;
+  onSkip?: () => void;
 }
 
 const MAJOR_OPTIONS = [
@@ -49,7 +50,7 @@ const MAJOR_OPTIONS = [
   'Other',
 ];
 
-const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) => {
+const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack, onSkip }) => {
   const [selectedMajors, setSelectedMajors] = useState<string[]>([]);
   const [otherMajor, setOtherMajor] = useState('');
   const [secondaryInterest, setSecondaryInterest] = useState('');
@@ -223,6 +224,15 @@ const AcademicScreen: React.FC<AcademicScreenProps> = ({ onContinue, onBack }) =
         >
           Back
         </Button>
+
+        {onSkip && (
+          <button
+            onClick={onSkip}
+            className="text-body-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Skip
+          </button>
+        )}
 
         <Button
           variant="collee-accent"

@@ -14,6 +14,7 @@ interface DiagnosticsScreenProps {
     socialRole: string[];
   }) => void;
   onBack: () => void;
+  onSkip?: () => void;
 }
 
 const ORIENTATION_OPTIONS = [
@@ -83,7 +84,7 @@ const SelectableOption = ({
   </button>
 );
 
-const DiagnosticsScreen: React.FC<DiagnosticsScreenProps> = ({ onContinue, onBack }) => {
+const DiagnosticsScreen: React.FC<DiagnosticsScreenProps> = ({ onContinue, onBack, onSkip }) => {
   const [orientation, setOrientation] = useState<string[]>([]);
   const [motivation, setMotivation] = useState<string[]>([]);
   const [storyPreference, setStoryPreference] = useState<string[]>([]);
@@ -179,6 +180,15 @@ const DiagnosticsScreen: React.FC<DiagnosticsScreenProps> = ({ onContinue, onBac
         <Button variant="collee-ghost" onClick={onBack}>
           Back
         </Button>
+
+        {onSkip && (
+          <button
+            onClick={onSkip}
+            className="text-body-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Skip
+          </button>
+        )}
 
         <Button
           variant="collee-accent"

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { AlertTriangle, BookOpen, Check, CheckCircle, Sparkles, Target, X } from 'lucide-react';
+import { AlertTriangle, BookOpen, Check, CheckCircle, Sparkles, Target, X, TriangleAlert } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,8 @@ export interface StrategyPanelProps {
   editorInstance: Editor | null;
   onSetContent: (content: string) => void;
   onShowStarterHelper: (show: boolean) => void;
+  profilePct?: number;
+  onNavigateToOnboarding?: () => void;
 }
 
 const StrategyPanel: React.FC<StrategyPanelProps> = ({
@@ -62,6 +64,8 @@ const StrategyPanel: React.FC<StrategyPanelProps> = ({
   editorInstance,
   onSetContent,
   onShowStarterHelper,
+  profilePct,
+  onNavigateToOnboarding,
 }) => {
   const lockedExp = useMemo(
     () =>
@@ -69,8 +73,30 @@ const StrategyPanel: React.FC<StrategyPanelProps> = ({
     [lockedExperience, experienceSuggestions],
   );
 
+  const showProfileWarning = profilePct !== undefined && profilePct < 100;
+
   return (
     <div className="p-4 space-y-6">
+      {showProfileWarning && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-600" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-amber-700">
+              Profile {profilePct}% complete · Results may be less tailored.
+            </p>
+          </div>
+          {onNavigateToOnboarding && (
+            <button
+              type="button"
+              onClick={onNavigateToOnboarding}
+              className="text-xs font-medium text-amber-700 hover:text-amber-900 whitespace-nowrap transition-colors"
+            >
+              Finish →
+            </button>
+          )}
+        </div>
+      )}
+
       {currentEssay && (
         <div className="rounded-lg bg-muted/20 p-4">
           <div className="mb-3 flex items-center justify-between">
