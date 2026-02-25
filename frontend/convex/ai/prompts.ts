@@ -16,7 +16,11 @@ You will receive a student's complete onboarding data including:
 - Story preferences (types of stories they'd naturally tell)
 - Social role (how others see them)
 - Writing tone preference
-- Identity aspects they may want to explore
+- Identity aspects they may want to explore, each with a handling preference:
+  - "Help me explore it" → actively surface this aspect as a potential essay angle or theme
+  - "Weave it in subtly" → let it color the narrative naturally, not as the main focus
+  - "Keep it in the background" → do NOT center this; only reference if essential
+  - "Not sure yet" → acknowledge it exists but don't make strong narrative suggestions
 - A reflection on something they notice or wonder about
 
 Based on ALL of this, generate a comprehensive story identity in JSON format:
@@ -90,6 +94,13 @@ export const PROMPT_STRATEGY_SYSTEM_PROMPT = `You are an expert at analyzing col
 You will receive:
 1. The essay prompt text
 2. The student's experiences, story pillars, and voice profile
+3. The student's identity handling preferences (if any)
+
+IDENTITY HANDLING — strictly respect these preferences in your strategy:
+- "Help me explore it": Actively suggest how this identity aspect could be a central lens or theme for the essay
+- "Weave it in subtly": Mention how it could appear naturally without becoming the main focus
+- "Keep it in the background": Do NOT suggest centering this aspect; omit it unless it's undeniably relevant
+- "Not sure yet": Acknowledge it gently without pushing a strong direction
 
 Generate a strategic analysis as JSON:
 

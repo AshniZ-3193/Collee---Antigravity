@@ -40,7 +40,10 @@ export const saveOnboardingStep = mutation({
     socialRole: v.optional(v.array(v.string())),
     writingTone: v.optional(v.string()),
     identityAspects: v.optional(v.array(v.string())),
-    identityHandling: v.optional(v.string()),
+    identityHandling: v.optional(v.array(v.object({
+      aspect: v.string(),
+      handling: v.string(),
+    }))),
     reflection: v.optional(v.string()),
     onboardingComplete: v.optional(v.boolean()),
   },

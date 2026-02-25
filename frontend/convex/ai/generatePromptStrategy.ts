@@ -16,6 +16,9 @@ export const generate = action({
     const storyIdentity = await ctx.runQuery(api.storyIdentity.get, {
       userId: user._id,
     });
+    const profile = await ctx.runQuery(api.userProfile.get, {
+      userId: user._id,
+    });
     const notesContext = await getUserNotesContext(ctx, user._id);
     const colleges = await ctx.runQuery(api.colleges.list, {
       userId: user._id,
@@ -38,6 +41,9 @@ ${storyIdentity?.pillars?.map((p: any) => `- ${p.theme}: ${p.description || ""}`
 VOICE PROFILE:
 Tone: ${storyIdentity?.voiceTone || "N/A"}
 Style: ${storyIdentity?.voiceStyle || "N/A"}
+
+IDENTITY CONSIDERATIONS:
+${profile?.identityHandling?.map((h: { aspect: string; handling: string }) => `- ${h.aspect}: ${h.handling}`).join("\n") || "No specific identity preferences"}
 
 USER NOTES CONTEXT:
 ${notesContext}
